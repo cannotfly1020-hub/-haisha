@@ -66,35 +66,46 @@
   .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
   .btn-mini { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: normal; }
   
-  /* ドラッグ＆ドロップ用スタイル */
+  /* ドラッグ＆ドロップ用スタイル（被り解消） */
   .item-row { 
     display: flex; 
     align-items: center; 
     justify-content: space-between; 
     padding: 8px 0; 
     border-bottom: 1px solid #f1f5f9; 
-    gap: 4px; 
+    gap: 6px; 
     background: white;
-    transition: background 0.2s, transform 0.2s;
+    user-select: none;
+    touch-action: pan-y;
   }
   .item-row.dragging {
-    opacity: 0.4;
+    opacity: 0.5;
     background: #e2e8f0;
   }
+  
+  /* 独立したドラッグハンドル（押しやすく被らない設計） */
   .drag-handle {
     cursor: grab;
     touch-action: none;
-    padding: 6px 8px 6px 0;
-    color: #94a3b8;
-    font-size: 16px;
-    user-select: none;
+    padding: 6px 10px;
+    margin-right: 4px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    color: #64748b;
+    font-size: 15px;
     display: flex;
     align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
-  .drag-handle:active { cursor: grabbing; color: #2563eb; }
+  .drag-handle:active {
+    cursor: grabbing;
+    background: #cbd5e1;
+    color: #1e3a8a;
+  }
 
   .item-left { display: flex; align-items: center; flex: 1; min-width: 0; }
-  .item-left label { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; cursor: pointer; }
+  .item-left label { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; cursor: pointer; flex: 1; }
   .item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
   .item-right { display: flex; align-items: center; flex-shrink: 0; font-size: 13px; color: #475569; }
   
@@ -405,7 +416,7 @@ function renderCars() {
       </div>
     `;
   });
-  enableTouchDrag(list, cars, renderCars);
+  setupPointerDrag(list, cars, renderCars);
   updateCarSelectOptions();
 }
 
@@ -434,56 +445,57 @@ function renderChildren() {
       </div>
     `;
   });
-  enableTouchDrag(list, children, renderChildren);
+  setupPointerDrag(list, children, renderChildren);
 }
 
-/* スマホ対応ドラッグ＆ドロップ機能 */
-function enableTouchDrag(container, array, renderFunc) {
-  let draggedEl = null;
-  let startIndex = -1;
+/* スマホ用タッチドラッグ＆ドロップ実装 */
+function setupPointerDrag(container, array, renderCallback) {
+  let isDragging = false;
+  let activeRow = null;
+  let fromIndex = -1;
 
-  const handles = container.querySelectorAll('.drag-handle');
-  handles.forEach(handle => {
+  container.querySelectorAll('.drag-handle').forEach(handle => {
     handle.addEventListener('pointerdown', (e) => {
-      draggedEl = handle.closest('.item-row');
-      startIndex = parseInt(draggedEl.getAttribute('data-index'));
-      draggedEl.classList.add('dragging');
+      isDragging = true;
+      activeRow = handle.closest('.item-row');
+      fromIndex = parseInt(activeRow.getAttribute('data-index'));
+      activeRow.classList.add('dragging');
       handle.setPointerCapture(e.pointerId);
     });
 
     handle.addEventListener('pointermove', (e) => {
-      if (!draggedEl) return;
+      if (!isDragging || !activeRow) return;
       e.preventDefault();
 
-      const touchY = e.clientY;
+      const clientY = e.clientY;
       const rows = Array.from(container.querySelectorAll('.item-row:not(.dragging)'));
-      
-      const targetRow = rows.find(row => {
-        const box = row.getBoundingClientRect();
-        return touchY >= box.top && touchY <= box.bottom;
-      });
 
-      if (targetRow) {
-        const targetIndex = parseInt(targetRow.getAttribute('data-index'));
-        if (targetIndex !== startIndex) {
-          const item = array.splice(startIndex, 1)[0];
-          array.splice(targetIndex, 0, item);
-          saveData();
-          renderFunc();
+      for (let row of rows) {
+        const rect = row.getBoundingClientRect();
+        if (clientY >= rect.top && clientY <= rect.bottom) {
+          const toIndex = parseInt(row.getAttribute('data-index'));
+          if (toIndex !== fromIndex) {
+            const movedItem = array.splice(fromIndex, 1)[0];
+            array.splice(toIndex, 0, movedItem);
+            saveData();
+            renderCallback();
+            break;
+          }
         }
       }
     });
 
-    const endDrag = () => {
-      if (draggedEl) {
-        draggedEl.classList.remove('dragging');
-        draggedEl = null;
-        startIndex = -1;
+    const stopDrag = () => {
+      if (isDragging && activeRow) {
+        activeRow.classList.remove('dragging');
+        isDragging = false;
+        activeRow = null;
+        fromIndex = -1;
       }
     };
 
-    handle.addEventListener('pointerup', endDrag);
-    handle.addEventListener('pointercancel', endDrag);
+    handle.addEventListener('pointerup', stopDrag);
+    handle.addEventListener('pointercancel', stopDrag);
   });
 }
 
