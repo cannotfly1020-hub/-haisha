@@ -31,7 +31,7 @@
   .status-label { font-size: 10px; opacity: 0.8; }
   .status-val { font-size: 16px; font-weight: bold; }
 
-  /* コントロールバー（クリア・保存） */
+  /* コントロールバー */
   .control-bar {
     display: flex;
     gap: 8px;
@@ -62,12 +62,37 @@
   .btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
   .btn-success { background-color: #16a34a; color: white; margin-top: 10px; }
   .btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
-  .btn-order { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 11px; cursor: pointer; margin-left: 2px; line-height: 1; }
-  .btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 4px 7px; font-size: 12px; cursor: pointer; margin-left: 4px; }
-  .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 4px 7px; font-size: 12px; cursor: pointer; margin-left: 4px; }
+  .btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
+  .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
   .btn-mini { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: normal; }
   
-  .item-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #f1f5f9; gap: 4px; }
+  /* ドラッグ＆ドロップ用スタイル */
+  .item-row { 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    padding: 8px 0; 
+    border-bottom: 1px solid #f1f5f9; 
+    gap: 4px; 
+    background: white;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .item-row.dragging {
+    opacity: 0.4;
+    background: #e2e8f0;
+  }
+  .drag-handle {
+    cursor: grab;
+    touch-action: none;
+    padding: 6px 8px 6px 0;
+    color: #94a3b8;
+    font-size: 16px;
+    user-select: none;
+    display: flex;
+    align-items: center;
+  }
+  .drag-handle:active { cursor: grabbing; color: #2563eb; }
+
   .item-left { display: flex; align-items: center; flex: 1; min-width: 0; }
   .item-left label { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; cursor: pointer; }
   .item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
@@ -119,7 +144,7 @@
   </div>
 </div>
 
-<!-- クイック操作バー（クリア・保存） -->
+<!-- クイック操作バー -->
 <div class="control-bar">
   <button type="button" class="control-btn" onclick="clearAllChecks()">🔄 出欠チェックを全解除</button>
   <button type="button" class="control-btn" onclick="manualSave()">💾 今の状態を保存</button>
@@ -359,35 +384,14 @@ function updateCarSelectOptions() {
   }
 }
 
-/* 車の並び替え */
-function moveCar(idx, dir) {
-  const targetIdx = idx + dir;
-  if (targetIdx < 0 || targetIdx >= cars.length) return;
-  const temp = cars[idx];
-  cars[idx] = cars[targetIdx];
-  cars[targetIdx] = temp;
-  saveData();
-  renderCars();
-}
-
-/* 選手の並び替え */
-function moveChild(idx, dir) {
-  const targetIdx = idx + dir;
-  if (targetIdx < 0 || targetIdx >= children.length) return;
-  const temp = children[idx];
-  children[idx] = children[targetIdx];
-  children[targetIdx] = temp;
-  saveData();
-  renderChildren();
-}
-
 function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
   list.innerHTML = '';
   cars.forEach((car, idx) => {
     list.innerHTML += `
-      <div class="item-row">
+      <div class="item-row" data-index="${idx}">
+        <div class="drag-handle">☰</div>
         <div class="item-left">
           <label>
             <input type="checkbox" ${car.active ? 'checked' : ''} onchange="toggleCar(${car.id})">
@@ -396,13 +400,12 @@ function renderCars() {
         </div>
         <div class="item-right">
           定員:<input type="number" value="${car.capacity}" style="width: 40px; margin: 0 4px; padding: 4px;" onchange="updateCapacity(${car.id}, this.value)">人
-          <button type="button" class="btn-order" onclick="moveCar(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
-          <button type="button" class="btn-order" onclick="moveCar(${idx}, 1)" ${idx === cars.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
           <button type="button" class="btn-delete" onclick="deleteCar(${car.id})">✕</button>
         </div>
       </div>
     `;
   });
+  enableTouchDrag(list, cars, renderCars);
   updateCarSelectOptions();
 }
 
@@ -412,7 +415,8 @@ function renderChildren() {
   list.innerHTML = '';
   children.forEach((c, idx) => {
     list.innerHTML += `
-      <div class="item-row">
+      <div class="item-row" data-index="${idx}">
+        <div class="drag-handle">☰</div>
         <div class="item-left">
           <label>
             <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleChild(${c.id})">
@@ -424,13 +428,62 @@ function renderChildren() {
           </label>
         </div>
         <div class="item-right">
-          <button type="button" class="btn-order" onclick="moveChild(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
-          <button type="button" class="btn-order" onclick="moveChild(${idx}, 1)" ${idx === children.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
           <button type="button" class="btn-edit" onclick="openEditModal(${c.id})">✏️</button>
           <button type="button" class="btn-delete" onclick="deleteChild(${c.id})">✕</button>
         </div>
       </div>
     `;
+  });
+  enableTouchDrag(list, children, renderChildren);
+}
+
+/* スマホ対応ドラッグ＆ドロップ機能 */
+function enableTouchDrag(container, array, renderFunc) {
+  let draggedEl = null;
+  let startIndex = -1;
+
+  const handles = container.querySelectorAll('.drag-handle');
+  handles.forEach(handle => {
+    handle.addEventListener('pointerdown', (e) => {
+      draggedEl = handle.closest('.item-row');
+      startIndex = parseInt(draggedEl.getAttribute('data-index'));
+      draggedEl.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
+    });
+
+    handle.addEventListener('pointermove', (e) => {
+      if (!draggedEl) return;
+      e.preventDefault();
+
+      const touchY = e.clientY;
+      const rows = Array.from(container.querySelectorAll('.item-row:not(.dragging)'));
+      
+      const targetRow = rows.find(row => {
+        const box = row.getBoundingClientRect();
+        return touchY >= box.top && touchY <= box.bottom;
+      });
+
+      if (targetRow) {
+        const targetIndex = parseInt(targetRow.getAttribute('data-index'));
+        if (targetIndex !== startIndex) {
+          const item = array.splice(startIndex, 1)[0];
+          array.splice(targetIndex, 0, item);
+          saveData();
+          renderFunc();
+        }
+      }
+    });
+
+    const endDrag = () => {
+      if (draggedEl) {
+        draggedEl.classList.remove('dragging');
+        draggedEl = null;
+        startIndex = -1;
+      }
+    };
+
+    handle.addEventListener('pointerup', endDrag);
+    handle.addEventListener('pointercancel', endDrag);
   });
 }
 
@@ -629,7 +682,7 @@ function generateCarpool() {
 
   let unassigned = [...activeKids];
 
-  // 2. 親の車が出ている子供を100%確実に親の車へ配置
+  // 2. 親の車が出ている子供を最優先固定
   for (let i = unassigned.length - 1; i >= 0; i--) {
     let kid = unassigned[i];
     let parentCarObj = activeCars.find(c => c.name === kid.parentCar);
@@ -735,7 +788,7 @@ function generateCarpool() {
 
   currentAssignments = assignments;
 
-  // 結果テキストの生成（画面上の車の並び順通りに出力）
+  // 結果テキストの生成（画面上の並び順通りに出力）
   let hasMotionSick = activeKids.some(k => k.motionSick);
   let text = `【連絡】本日の配車です🚗\n---------------------\n`;
   activeCars.forEach(c => {
