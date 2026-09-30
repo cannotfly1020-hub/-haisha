@@ -9,13 +9,15 @@
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 12px; color: #333; }
   h1 { font-size: 19px; text-align: center; margin: 10px 0 15px; color: #1e3a8a; }
   .card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .card h2 { font-size: 15px; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; color: #334155; }
+  .card h2 { font-size: 15px; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; color: #334155; display: flex; justify-content: space-between; align-items: center; }
   
   .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; }
   .btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
   .btn-success { background-color: #16a34a; color: white; margin-top: 10px; }
   .btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
-  .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-left: 6px; }
+  .btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 4px 7px; font-size: 12px; cursor: pointer; margin-left: 4px; }
+  .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 4px 7px; font-size: 12px; cursor: pointer; margin-left: 4px; }
+  .btn-mini { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: normal; }
   
   .item-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #f1f5f9; gap: 4px; }
   .item-left { display: flex; align-items: center; flex: 1; min-width: 0; }
@@ -28,6 +30,7 @@
   
   .badge { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #e0e7ff; color: #3730a3; margin-left: 4px; white-space: nowrap; }
   .badge-sub { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #f1f5f9; color: #475569; margin-left: 4px; white-space: nowrap; }
+  .badge-motion { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #fef2f2; color: #b91c1c; margin-left: 4px; white-space: nowrap; }
   
   .mode-select-box { margin-top: 10px; padding: 10px; background: #eef2ff; border-radius: 8px; }
   .mode-select-box select { width: 100%; background: white; font-weight: bold; color: #1e3a8a; }
@@ -35,6 +38,15 @@
   .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-top: 10px; line-height: 1.5; }
   .reset-link { text-align: center; margin-top: 25px; margin-bottom: 15px; }
   .reset-link button { background: none; border: none; color: #94a3b8; font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+  /* 編集モーダル */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
+  .modal-box { background: white; width: 100%; max-width: 320px; border-radius: 12px; padding: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+  .modal-box h3 { margin-top: 0; font-size: 16px; color: #1e3a8a; margin-bottom: 12px; }
+  .modal-field { margin-bottom: 10px; }
+  .modal-field label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; }
+  .modal-field input, .modal-field select { width: 100%; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 15px; }
 </style>
 </head>
 <body>
@@ -54,11 +66,14 @@
 
 <!-- 2. 子供・出欠設定 -->
 <div class="card">
-  <h2>2. 参加する子供（乗車する子にチェック）</h2>
+  <h2>
+    <span>2. 参加する子供</span>
+    <button class="btn-mini" onclick="promoteAllGrades()">🎓 全員進級(+1学年)</button>
+  </h2>
   <div id="childList"></div>
   <div class="add-form">
-    <input type="text" id="newChildName" placeholder="名前" style="flex: 2; min-width: 70px;">
-    <select id="newChildGrade" style="width: 65px;">
+    <input type="text" id="newChildName" placeholder="名前" style="flex: 2; min-width: 65px;">
+    <select id="newChildGrade" style="width: 60px;">
       <option value="6">6年</option>
       <option value="5">5年</option>
       <option value="4">4年</option>
@@ -66,14 +81,17 @@
       <option value="2">2年</option>
       <option value="1">1年</option>
     </select>
-    <select id="newChildPos" style="width: 75px;">
+    <select id="newChildPos" style="width: 68px;">
       <option value="投手">投手</option>
       <option value="捕手">捕手</option>
       <option value="内野">内野</option>
       <option value="外野">外野</option>
       <option value="未定">未定</option>
     </select>
-    <input type="text" id="newChildParentCar" placeholder="親の車名(任意)" style="flex: 2; min-width: 90px;">
+    <input type="text" id="newChildParentCar" placeholder="親の車(任意)" style="flex: 2; min-width: 80px;">
+    <label style="display: flex; align-items: center; font-size: 12px; gap: 4px; padding: 4px;">
+      <input type="checkbox" id="newChildMotionSick"> 🤢車酔い
+    </label>
     <button class="btn-secondary" onclick="addChild()">追加</button>
   </div>
 </div>
@@ -84,7 +102,7 @@
   <div class="mode-select-box">
     <label style="font-size: 12px; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">割り振りの優先モード:</label>
     <select id="carpoolMode">
-      <option value="balance">⚖️ 標準（過去の履歴と乗車バランス重視）</option>
+      <option value="balance">⚖ 標準（過去の履歴と乗車バランス重視）</option>
       <option value="grade_same">🎒 学年を固める（同学年同士を同乗）</option>
       <option value="grade_diff">🔀 学年をバラバラに（高学年と低学年を分散）</option>
       <option value="position">⚾ ポジション分散（投手・捕手などの偏り防止）</option>
@@ -104,6 +122,53 @@
   <button onclick="resetAllData()">データを初期状態にリセット</button>
 </div>
 
+<!-- 選手情報 編集モーダル -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <h3>選手情報の編集</h3>
+    <input type="hidden" id="editChildId">
+    <div class="modal-field">
+      <label>選手名</label>
+      <input type="text" id="editChildName">
+    </div>
+    <div class="modal-field">
+      <label>学年</label>
+      <select id="editChildGrade">
+        <option value="6">6年</option>
+        <option value="5">5年</option>
+        <option value="4">4年</option>
+        <option value="3">3年</option>
+        <option value="2">2年</option>
+        <option value="1">1年</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>ポジション</label>
+      <select id="editChildPos">
+        <option value="投手">投手</option>
+        <option value="捕手">捕手</option>
+        <option value="内野">内野</option>
+        <option value="外野">外野</option>
+        <option value="未定">未定</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>親の車（空欄可）</label>
+      <input type="text" id="editChildParentCar" placeholder="例: 佐藤号">
+    </div>
+    <div class="modal-field" style="margin-top: 12px;">
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #b91c1c; cursor: pointer;">
+        <input type="checkbox" id="editChildMotionSick" style="width: 18px; height: 18px;">
+        🤢 車酔いしやすい（助手席・前方優先）
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeEditModal()" style="flex:1;">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveEditChild()" style="flex:1; margin-top:0;">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let cars = JSON.parse(localStorage.getItem('cp_cars')) || [
   { id: 1, name: '佐藤号', capacity: 3, active: true },
@@ -112,12 +177,12 @@ let cars = JSON.parse(localStorage.getItem('cp_cars')) || [
 ];
 
 let children = JSON.parse(localStorage.getItem('cp_children')) || [
-  { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', active: true, lastCar: '', rideHistory: {} },
-  { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', active: true, lastCar: '', rideHistory: {} },
-  { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', active: true, lastCar: '', rideHistory: {} },
-  { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', active: true, lastCar: '', rideHistory: {} },
-  { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', active: true, lastCar: '', rideHistory: {} },
-  { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', active: true, lastCar: '', rideHistory: {} }
+  { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
+  { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
+  { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', motionSick: true, active: true, lastCar: '', rideHistory: {} },
+  { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
+  { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
+  { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} }
 ];
 
 function saveData() {
@@ -158,11 +223,12 @@ function renderChildren() {
             <span>${c.name}</span>
             <span class="badge-sub">${c.grade ? c.grade + '年' : ''}</span>
             <span class="badge-sub">${c.pos || ''}</span>
+            ${c.motionSick ? `<span class="badge-motion">🤢酔い</span>` : ''}
             ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
           </label>
         </div>
         <div class="item-right">
-          <span style="font-size: 11px; color: #94a3b8; margin-right: 2px;">前回:${c.lastCar || 'なし'}</span>
+          <button class="btn-edit" onclick="openEditModal(${c.id})">✏️</button>
           <button class="btn-delete" onclick="deleteChild(${c.id})">✕</button>
         </div>
       </div>
@@ -206,6 +272,53 @@ function deleteChild(id) {
   }
 }
 
+/* 編集機能 */
+function openEditModal(id) {
+  const kid = children.find(x => x.id === id);
+  if(!kid) return;
+  document.getElementById('editChildId').value = kid.id;
+  document.getElementById('editChildName').value = kid.name;
+  document.getElementById('editChildGrade').value = kid.grade || 6;
+  document.getElementById('editChildPos').value = kid.pos || '未定';
+  document.getElementById('editChildParentCar').value = kid.parentCar || '';
+  document.getElementById('editChildMotionSick').checked = !!kid.motionSick;
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function saveEditChild() {
+  const id = parseInt(document.getElementById('editChildId').value);
+  const kid = children.find(x => x.id === id);
+  if(kid) {
+    kid.name = document.getElementById('editChildName').value.trim() || kid.name;
+    kid.grade = parseInt(document.getElementById('editChildGrade').value);
+    kid.pos = document.getElementById('editChildPos').value;
+    kid.parentCar = document.getElementById('editChildParentCar').value.trim();
+    kid.motionSick = document.getElementById('editChildMotionSick').checked;
+    saveData();
+    renderChildren();
+  }
+  closeEditModal();
+}
+
+/* 一括進級機能 */
+function promoteAllGrades() {
+  if(confirm("全選手の学年を1つ繰り上げますか？\n（現在6年生の選手はチェックが外れて卒団扱いになります）")) {
+    children.forEach(c => {
+      if(c.grade < 6) {
+        c.grade += 1;
+      } else {
+        c.active = false;
+      }
+    });
+    saveData();
+    renderChildren();
+  }
+}
+
 function addCar() {
   const name = document.getElementById('newCarName').value.trim();
   const cap = parseInt(document.getElementById('newCarCapacity').value) || 3;
@@ -222,12 +335,14 @@ function addChild() {
   const grade = parseInt(document.getElementById('newChildGrade').value) || 6;
   const pos = document.getElementById('newChildPos').value;
   const parent = document.getElementById('newChildParentCar').value.trim();
+  const motionSick = document.getElementById('newChildMotionSick').checked;
   if(name) {
-    children.push({ id: Date.now(), name: name, grade: grade, pos: pos, parentCar: parent, active: true, lastCar: '', rideHistory: {} });
+    children.push({ id: Date.now(), name: name, grade: grade, pos: pos, parentCar: parent, motionSick: motionSick, active: true, lastCar: '', rideHistory: {} });
     saveData();
     renderChildren();
     document.getElementById('newChildName').value = '';
     document.getElementById('newChildParentCar').value = '';
+    document.getElementById('newChildMotionSick').checked = false;
   }
 }
 
@@ -270,12 +385,28 @@ function generateCarpool() {
     }
   }
 
-  // 2. モード別のソート順設定
+  // 2. 親の車がない「車酔いの子」を優先配備
+  for (let i = unassigned.length - 1; i >= 0; i--) {
+    let kid = unassigned[i];
+    if (kid.motionSick) {
+      let availableCars = activeCars.filter(c => carCaps[c.name] > 0);
+      availableCars.sort((a, b) => {
+        let diffA = (kid.lastCar === a.name) ? 99 : 0;
+        let diffB = (kid.lastCar === b.name) ? 99 : 0;
+        if(diffA !== diffB) return diffA - diffB;
+        return carCaps[b.name] - carCaps[a.name];
+      });
+      let targetCar = availableCars[0];
+      assignments[targetCar.name].push(kid);
+      carCaps[targetCar.name]--;
+      unassigned.splice(i, 1);
+    }
+  }
+
+  // 3. モード別ソート
   if (mode === 'grade_same') {
-    // 学年が同じ子を連続して処理
     unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
   } else if (mode === 'grade_diff') {
-    // 高学年と低学年を交互に配分
     unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
     let interleaved = [];
     let left = 0, right = unassigned.length - 1;
@@ -286,14 +417,12 @@ function generateCarpool() {
     }
     unassigned = interleaved;
   } else if (mode === 'position') {
-    // ポジション順に並べて分散
     unassigned.sort((a, b) => (a.pos || '').localeCompare(b.pos || ''));
   } else {
-    // 標準シャッフル
     unassigned.sort(() => Math.random() - 0.5);
   }
 
-  // 3. 各子供を車両へ割り当て
+  // 4. 車両割り当て
   unassigned.forEach(kid => {
     if (!kid.rideHistory) kid.rideHistory = {};
 
@@ -303,29 +432,23 @@ function generateCarpool() {
       let scoreA = 0;
       let scoreB = 0;
 
-      // 直近の車は回避
       if (kid.lastCar === a.name) scoreA += 500;
       if (kid.lastCar === b.name) scoreB += 500;
 
-      // 過去乗車履歴ペナルティ
       scoreA += (kid.rideHistory[a.name] || 0) * 10;
       scoreB += (kid.rideHistory[b.name] || 0) * 10;
 
-      // モード別スコア
       if (mode === 'grade_same') {
-        // 同じ車に同學年がいるとスコア優遇（マイナス）
         let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
         let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
         scoreA -= countSameGradeA * 50;
         scoreB -= countSameGradeB * 50;
       } else if (mode === 'grade_diff') {
-        // 既に同じ学年が多い車は避ける
         let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
         let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
         scoreA += countSameGradeA * 40;
         scoreB += countSameGradeB * 40;
       } else if (mode === 'position') {
-        // 同じポジションが既にいる車は避ける
         let countSamePosA = assignments[a.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
         let countSamePosB = assignments[b.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
         scoreA += countSamePosA * 40;
@@ -333,7 +456,6 @@ function generateCarpool() {
       }
 
       if (scoreA !== scoreB) return scoreA - scoreB;
-      // スコア同点時は残席が多い車を優先
       return carCaps[b.name] - carCaps[a.name];
     });
 
@@ -342,20 +464,16 @@ function generateCarpool() {
     carCaps[targetCar.name]--;
   });
 
-  // 結果テキストの生成
-  let modeLabels = {
-    balance: "標準公平",
-    grade_same: "同学年優先",
-    grade_diff: "学年分散",
-    position: "ポジション分散"
-  };
-
-  let text = `【連絡】本日の配車です🚗 (${modeLabels[mode]})\n---------------------\n`;
+  // 結果テキストの生成（※名前のみ表示にシンプル化）
+  let hasMotionSick = activeKids.some(k => k.motionSick);
+  let text = `【連絡】本日の配車です🚗\n---------------------\n`;
   for (let carName in assignments) {
-    let names = assignments[carName].map(k => `${k.name}(${k.grade}年/${k.pos})`).join('、');
+    let names = assignments[carName].map(k => {
+      let tag = k.motionSick ? '🤢' : '';
+      return `${k.name}${tag}`;
+    }).join('、');
     text += `■ ${carName} (${assignments[carName].length}名)\n  乗車: ${names || 'なし'}\n\n`;
     
-    // 累計履歴更新
     assignments[carName].forEach(k => {
       let orig = children.find(x => x.id === k.id);
       if (orig) {
@@ -364,6 +482,9 @@ function generateCarpool() {
         orig.lastCar = carName;
       }
     });
+  }
+  if (hasMotionSick) {
+    text += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
   }
   text += "---------------------\nよろしくお願いいたします！";
 
