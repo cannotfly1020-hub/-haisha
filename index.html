@@ -62,6 +62,7 @@
   .btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
   .btn-success { background-color: #16a34a; color: white; margin-top: 10px; }
   .btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+  .btn-order { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 11px; cursor: pointer; margin-left: 2px; line-height: 1; }
   .btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 4px 7px; font-size: 12px; cursor: pointer; margin-left: 4px; }
   .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 4px 7px; font-size: 12px; cursor: pointer; margin-left: 4px; }
   .btn-mini { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: normal; }
@@ -336,7 +337,6 @@ function updateStatusBar() {
   }
 }
 
-// 車両の親選択プルダウンを更新
 function updateCarSelectOptions() {
   const addSelect = document.getElementById('newChildParentCar');
   const editSelect = document.getElementById('editChildParentCar');
@@ -359,11 +359,33 @@ function updateCarSelectOptions() {
   }
 }
 
+/* 車の並び替え */
+function moveCar(idx, dir) {
+  const targetIdx = idx + dir;
+  if (targetIdx < 0 || targetIdx >= cars.length) return;
+  const temp = cars[idx];
+  cars[idx] = cars[targetIdx];
+  cars[targetIdx] = temp;
+  saveData();
+  renderCars();
+}
+
+/* 選手の並び替え */
+function moveChild(idx, dir) {
+  const targetIdx = idx + dir;
+  if (targetIdx < 0 || targetIdx >= children.length) return;
+  const temp = children[idx];
+  children[idx] = children[targetIdx];
+  children[targetIdx] = temp;
+  saveData();
+  renderChildren();
+}
+
 function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
   list.innerHTML = '';
-  cars.forEach(car => {
+  cars.forEach((car, idx) => {
     list.innerHTML += `
       <div class="item-row">
         <div class="item-left">
@@ -374,6 +396,8 @@ function renderCars() {
         </div>
         <div class="item-right">
           定員:<input type="number" value="${car.capacity}" style="width: 40px; margin: 0 4px; padding: 4px;" onchange="updateCapacity(${car.id}, this.value)">人
+          <button type="button" class="btn-order" onclick="moveCar(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
+          <button type="button" class="btn-order" onclick="moveCar(${idx}, 1)" ${idx === cars.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
           <button type="button" class="btn-delete" onclick="deleteCar(${car.id})">✕</button>
         </div>
       </div>
@@ -386,7 +410,7 @@ function renderChildren() {
   const list = document.getElementById('childList');
   if (!list) return;
   list.innerHTML = '';
-  children.forEach(c => {
+  children.forEach((c, idx) => {
     list.innerHTML += `
       <div class="item-row">
         <div class="item-left">
@@ -400,6 +424,8 @@ function renderChildren() {
           </label>
         </div>
         <div class="item-right">
+          <button type="button" class="btn-order" onclick="moveChild(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
+          <button type="button" class="btn-order" onclick="moveChild(${idx}, 1)" ${idx === children.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
           <button type="button" class="btn-edit" onclick="openEditModal(${c.id})">✏️</button>
           <button type="button" class="btn-delete" onclick="deleteChild(${c.id})">✕</button>
         </div>
@@ -603,13 +629,11 @@ function generateCarpool() {
 
   let unassigned = [...activeKids];
 
-  // 2. 【最重要】親の車が出ている子供を100%確実に親の車へ配置
+  // 2. 親の車が出ている子供を100%確実に親の車へ配置
   for (let i = unassigned.length - 1; i >= 0; i--) {
     let kid = unassigned[i];
-    // 親の車が今日出勤しているか
     let parentCarObj = activeCars.find(c => c.name === kid.parentCar);
     if (parentCarObj) {
-      // 均等目標枠に関係なく、物理定員を超えない限り確実に親の車へ
       let realRemainingSeats = (parseInt(parentCarObj.capacity) || 0) - assignments[parentCarObj.name].length;
       if (realRemainingSeats > 0) {
         assignments[parentCarObj.name].push(kid);
@@ -621,7 +645,7 @@ function generateCarpool() {
     }
   }
 
-  // 3. 親の車がない「車酔いの子」を優先配備（助手席・ゆとり枠）
+  // 3. 親の車がない「車酔いの子」を優先配備
   for (let i = unassigned.length - 1; i >= 0; i--) {
     let kid = unassigned[i];
     if (kid.motionSick) {
@@ -661,7 +685,7 @@ function generateCarpool() {
     unassigned.sort(() => Math.random() - 0.5);
   }
 
-  // 5. 残りの選手を割り当て（最低2人以上・均等・重複回避・過去履歴）
+  // 5. 残りの選手を割り当て
   unassigned.forEach(kid => {
     if (!kid.rideHistory) kid.rideHistory = {};
 
@@ -674,19 +698,15 @@ function generateCarpool() {
       let scoreA = 0;
       let scoreB = 0;
 
-      // まだ1人以下しか乗っていない車を最優先（最低2人以上を確保）
       if (assignments[a.name].length < 2) scoreA -= 2000;
       if (assignments[b.name].length < 2) scoreB -= 2000;
 
-      // 直近乗った車は回避
       if (kid.lastCar === a.name) scoreA += 500;
       if (kid.lastCar === b.name) scoreB += 500;
 
-      // 過去乗車履歴ペナルティ
       scoreA += (kid.rideHistory[a.name] || 0) * 15;
       scoreB += (kid.rideHistory[b.name] || 0) * 15;
 
-      // モード別スコア
       if (mode === 'grade_same') {
         let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
         let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
@@ -705,7 +725,6 @@ function generateCarpool() {
       }
 
       if (scoreA !== scoreB) return scoreA - scoreB;
-      // スコア同点時は乗車人数が少ない車を優先（均等化）
       return assignments[a.name].length - assignments[b.name].length;
     });
 
@@ -716,16 +735,18 @@ function generateCarpool() {
 
   currentAssignments = assignments;
 
-  // 結果テキストの生成
+  // 結果テキストの生成（画面上の車の並び順通りに出力）
   let hasMotionSick = activeKids.some(k => k.motionSick);
   let text = `【連絡】本日の配車です🚗\n---------------------\n`;
-  for (let carName in assignments) {
-    let names = assignments[carName].map(k => {
+  activeCars.forEach(c => {
+    let carName = c.name;
+    let names = (assignments[carName] || []).map(k => {
       let tag = k.motionSick ? '🤢' : '';
       return `${k.name}${tag}`;
     }).join('、');
-    text += `■ ${carName} (${assignments[carName].length}名)\n  乗車: ${names || 'なし'}\n\n`;
-  }
+    text += `■ ${carName} (${(assignments[carName] || []).length}名)\n  乗車: ${names || 'なし'}\n\n`;
+  });
+
   if (hasMotionSick) {
     text += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
   }
