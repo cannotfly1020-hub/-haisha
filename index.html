@@ -56,7 +56,9 @@
   .control-btn:active { background: #f1f5f9; }
 
   .card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .card h2 { font-size: 15px; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; color: #334155; display: flex; justify-content: space-between; align-items: center; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px; }
+  .card-header h2 { font-size: 15px; margin: 0; color: #334155; }
+  .header-actions { display: flex; gap: 4px; }
   
   .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; }
   .btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
@@ -64,46 +66,17 @@
   .btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
   .btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
   .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
-  .btn-mini { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-weight: normal; }
-  
-  /* ドラッグ＆ドロップ用スタイル（被り解消） */
+  .btn-mini { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; font-size: 11px; cursor: pointer; font-weight: normal; }
+
   .item-row { 
     display: flex; 
     align-items: center; 
     justify-content: space-between; 
     padding: 8px 0; 
     border-bottom: 1px solid #f1f5f9; 
-    gap: 6px; 
+    gap: 4px; 
     background: white;
-    user-select: none;
-    touch-action: pan-y;
   }
-  .item-row.dragging {
-    opacity: 0.5;
-    background: #e2e8f0;
-  }
-  
-  /* 独立したドラッグハンドル（押しやすく被らない設計） */
-  .drag-handle {
-    cursor: grab;
-    touch-action: none;
-    padding: 6px 10px;
-    margin-right: 4px;
-    background: #f1f5f9;
-    border-radius: 6px;
-    color: #64748b;
-    font-size: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  .drag-handle:active {
-    cursor: grabbing;
-    background: #cbd5e1;
-    color: #1e3a8a;
-  }
-
   .item-left { display: flex; align-items: center; flex: 1; min-width: 0; }
   .item-left label { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; cursor: pointer; flex: 1; }
   .item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
@@ -163,9 +136,12 @@
 
 <!-- 1. 車両設定 -->
 <div class="card">
-  <h2>
-    <span>1. 本日の車（出せる車にチェック）</span>
-  </h2>
+  <div class="card-header">
+    <h2>1. 本日の車（出せる車）</h2>
+    <div class="header-actions">
+      <button type="button" class="btn-mini" onclick="sortCarsByName()">🔤 名前順</button>
+    </div>
+  </div>
   <div id="carList"></div>
   <div class="add-form">
     <input type="text" id="newCarName" placeholder="車の名前/親の名前" style="flex: 3; min-width: 120px;">
@@ -176,10 +152,14 @@
 
 <!-- 2. 子供・出欠設定 -->
 <div class="card">
-  <h2>
-    <span>2. 参加する子供（乗車する子）</span>
-    <button type="button" class="btn-mini" onclick="promoteAllGrades()">🎓 全員進級(+1学年)</button>
-  </h2>
+  <div class="card-header">
+    <h2>2. 参加する子供（乗車する子）</h2>
+    <div class="header-actions">
+      <button type="button" class="btn-mini" onclick="sortChildrenByGrade()">🎒 学年順</button>
+      <button type="button" class="btn-mini" onclick="sortChildrenByName()">🔤 五十音順</button>
+      <button type="button" class="btn-mini" onclick="promoteAllGrades()">🎓 進級</button>
+    </div>
+  </div>
   <div id="childList"></div>
   <div class="add-form">
     <input type="text" id="newChildName" placeholder="名前" style="flex: 2; min-width: 65px;">
@@ -346,6 +326,30 @@ function clearAllChecks() {
   }
 }
 
+/* 並び替えソート機能 */
+function sortCarsByName() {
+  cars.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  saveData();
+  renderCars();
+}
+
+function sortChildrenByGrade() {
+  // 学年順（6年→1年）、同級生内は五十音順
+  children.sort((a, b) => {
+    if (b.grade !== a.grade) return b.grade - a.grade;
+    return a.name.localeCompare(b.name, 'ja');
+  });
+  saveData();
+  renderChildren();
+}
+
+function sortChildrenByName() {
+  // 純粋な名前順（五十音順）
+  children.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  saveData();
+  renderChildren();
+}
+
 function updateStatusBar() {
   const activeKids = children.filter(c => c.active).length;
   const activeSeats = cars.filter(c => c.active).reduce((sum, c) => sum + (parseInt(c.capacity) || 0), 0);
@@ -399,10 +403,9 @@ function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
   list.innerHTML = '';
-  cars.forEach((car, idx) => {
+  cars.forEach((car) => {
     list.innerHTML += `
-      <div class="item-row" data-index="${idx}">
-        <div class="drag-handle">☰</div>
+      <div class="item-row">
         <div class="item-left">
           <label>
             <input type="checkbox" ${car.active ? 'checked' : ''} onchange="toggleCar(${car.id})">
@@ -416,7 +419,6 @@ function renderCars() {
       </div>
     `;
   });
-  setupPointerDrag(list, cars, renderCars);
   updateCarSelectOptions();
 }
 
@@ -424,10 +426,9 @@ function renderChildren() {
   const list = document.getElementById('childList');
   if (!list) return;
   list.innerHTML = '';
-  children.forEach((c, idx) => {
+  children.forEach((c) => {
     list.innerHTML += `
-      <div class="item-row" data-index="${idx}">
-        <div class="drag-handle">☰</div>
+      <div class="item-row">
         <div class="item-left">
           <label>
             <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleChild(${c.id})">
@@ -444,58 +445,6 @@ function renderChildren() {
         </div>
       </div>
     `;
-  });
-  setupPointerDrag(list, children, renderChildren);
-}
-
-/* スマホ用タッチドラッグ＆ドロップ実装 */
-function setupPointerDrag(container, array, renderCallback) {
-  let isDragging = false;
-  let activeRow = null;
-  let fromIndex = -1;
-
-  container.querySelectorAll('.drag-handle').forEach(handle => {
-    handle.addEventListener('pointerdown', (e) => {
-      isDragging = true;
-      activeRow = handle.closest('.item-row');
-      fromIndex = parseInt(activeRow.getAttribute('data-index'));
-      activeRow.classList.add('dragging');
-      handle.setPointerCapture(e.pointerId);
-    });
-
-    handle.addEventListener('pointermove', (e) => {
-      if (!isDragging || !activeRow) return;
-      e.preventDefault();
-
-      const clientY = e.clientY;
-      const rows = Array.from(container.querySelectorAll('.item-row:not(.dragging)'));
-
-      for (let row of rows) {
-        const rect = row.getBoundingClientRect();
-        if (clientY >= rect.top && clientY <= rect.bottom) {
-          const toIndex = parseInt(row.getAttribute('data-index'));
-          if (toIndex !== fromIndex) {
-            const movedItem = array.splice(fromIndex, 1)[0];
-            array.splice(toIndex, 0, movedItem);
-            saveData();
-            renderCallback();
-            break;
-          }
-        }
-      }
-    });
-
-    const stopDrag = () => {
-      if (isDragging && activeRow) {
-        activeRow.classList.remove('dragging');
-        isDragging = false;
-        activeRow = null;
-        fromIndex = -1;
-      }
-    };
-
-    handle.addEventListener('pointerup', stopDrag);
-    handle.addEventListener('pointercancel', stopDrag);
   });
 }
 
@@ -800,7 +749,7 @@ function generateCarpool() {
 
   currentAssignments = assignments;
 
-  // 結果テキストの生成（画面上の並び順通りに出力）
+  // 結果テキストの生成（画面上の車の並び順通りに出力）
   let hasMotionSick = activeKids.some(k => k.motionSick);
   let text = `【連絡】本日の配車です🚗\n---------------------\n`;
   activeCars.forEach(c => {
