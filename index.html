@@ -2,21 +2,35 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>少年野球 配車ヘルパー</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 15px; color: #333; }
-  h1 { font-size: 20px; text-align: center; margin-bottom: 15px; color: #1e3a8a; }
-  .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.06); }
-  .card h2 { font-size: 16px; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; color: #334155; }
-  .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 12px; color: #333; }
+  h1 { font-size: 19px; text-align: center; margin: 10px 0 15px; color: #1e3a8a; }
+  .card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .card h2 { font-size: 15px; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; color: #334155; }
+  
+  .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; }
   .btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
   .btn-success { background-color: #16a34a; color: white; margin-top: 10px; }
-  .btn-secondary { background-color: #64748b; color: white; padding: 6px 12px; font-size: 12px; border-radius: 6px; width: auto; display: inline-block; }
-  .car-item, .child-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
-  input[type="text"], input[type="number"], select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
-  .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 14px; white-space: pre-wrap; margin-top: 10px; }
-  .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #e0e7ff; color: #3730a3; margin-left: 5px; }
+  .btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+  .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; margin-left: 6px; }
+  
+  .item-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #f1f5f9; gap: 4px; }
+  .item-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+  .item-left label { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; cursor: pointer; }
+  .item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
+  .item-right { display: flex; align-items: center; flex-shrink: 0; font-size: 13px; color: #475569; }
+  
+  /* 入力フォームの崩れ防止レイアウト */
+  .add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; }
+  input[type="text"], input[type="number"] { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+  
+  .badge { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #e0e7ff; color: #3730a3; margin-left: 4px; white-space: nowrap; }
+  .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-top: 10px; line-height: 1.5; }
+  .reset-link { text-align: center; margin-top: 25px; margin-bottom: 15px; }
+  .reset-link button { background: none; border: none; color: #94a3b8; font-size: 12px; text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -27,10 +41,10 @@
 <div class="card">
   <h2>1. 本日の車（出せる車にチェック）</h2>
   <div id="carList"></div>
-  <div style="margin-top: 10px; display: flex; gap: 5px;">
-    <input type="text" id="newCarName" placeholder="車の名前/親の名前" style="flex: 2;">
-    <input type="number" id="newCarCapacity" placeholder="空き席" value="3" style="flex: 1;">
-    <button class="btn btn-secondary" onclick="addCar()">追加</button>
+  <div class="add-form">
+    <input type="text" id="newCarName" placeholder="車の名前/親の名前" style="flex: 3; min-width: 0;">
+    <input type="number" id="newCarCapacity" placeholder="定員" value="3" style="width: 50px;">
+    <button class="btn-secondary" onclick="addCar()">追加</button>
   </div>
 </div>
 
@@ -38,10 +52,10 @@
 <div class="card">
   <h2>2. 参加する子供（乗車する子にチェック）</h2>
   <div id="childList"></div>
-  <div style="margin-top: 10px; display: flex; gap: 5px;">
-    <input type="text" id="newChildName" placeholder="子供の名前" style="flex: 2;">
-    <input type="text" id="newChildParentCar" placeholder="親の車名(任意)" style="flex: 2;">
-    <button class="btn btn-secondary" onclick="addChild()">追加</button>
+  <div class="add-form">
+    <input type="text" id="newChildName" placeholder="子供の名前" style="flex: 2; min-width: 0;">
+    <input type="text" id="newChildParentCar" placeholder="親の車名(任意)" style="flex: 2; min-width: 0;">
+    <button class="btn-secondary" onclick="addChild()">追加</button>
   </div>
 </div>
 
@@ -55,8 +69,12 @@
   <button class="btn btn-success" onclick="copyResult()">📋 LINE用テキストをコピー</button>
 </div>
 
+<!-- 全データ初期化（必要に応じて） -->
+<div class="reset-link">
+  <button onclick="resetAllData()">データを初期状態にリセット</button>
+</div>
+
 <script>
-// 初期データ（端末の保存領域から読み込み、無ければデフォルト）
 let cars = JSON.parse(localStorage.getItem('cp_cars')) || [
   { id: 1, name: '佐藤号', capacity: 3, active: true },
   { id: 2, name: '鈴木号', capacity: 3, active: true },
@@ -82,13 +100,16 @@ function renderCars() {
   list.innerHTML = '';
   cars.forEach(car => {
     list.innerHTML += `
-      <div class="car-item">
-        <label>
-          <input type="checkbox" ${car.active ? 'checked' : ''} onchange="toggleCar(${car.id})">
-          <strong>${car.name}</strong>
-        </label>
-        <div>
-          空き定員: <input type="number" value="${car.capacity}" style="width: 45px;" onchange="updateCapacity(${car.id}, this.value)"> 人
+      <div class="item-row">
+        <div class="item-left">
+          <label>
+            <input type="checkbox" ${car.active ? 'checked' : ''} onchange="toggleCar(${car.id})">
+            <span><strong>${car.name}</strong></span>
+          </label>
+        </div>
+        <div class="item-right">
+          定員:<input type="number" value="${car.capacity}" style="width: 40px; margin: 0 4px; padding: 4px;" onchange="updateCapacity(${car.id}, this.value)">人
+          <button class="btn-delete" onclick="deleteCar(${car.id})">✕</button>
         </div>
       </div>
     `;
@@ -100,15 +121,18 @@ function renderChildren() {
   list.innerHTML = '';
   children.forEach(c => {
     list.innerHTML += `
-      <div class="child-item">
-        <label>
-          <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleChild(${c.id})">
-          ${c.name}
-          ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
-        </label>
-        <span style="font-size: 11px; color: #64748b;">
-          前回: ${c.lastCar || 'なし'}
-        </span>
+      <div class="item-row">
+        <div class="item-left">
+          <label>
+            <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleChild(${c.id})">
+            <span>${c.name}</span>
+            ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
+          </label>
+        </div>
+        <div class="item-right">
+          <span style="font-size: 11px; color: #94a3b8; margin-right: 2px;">前回:${c.lastCar || 'なし'}</span>
+          <button class="btn-delete" onclick="deleteChild(${c.id})">✕</button>
+        </div>
       </div>
     `;
   });
@@ -130,6 +154,24 @@ function toggleChild(id) {
   const ch = children.find(x => x.id === id);
   if(ch) ch.active = !ch.active;
   saveData();
+}
+
+function deleteCar(id) {
+  const car = cars.find(x => x.id === id);
+  if(confirm(`「${car.name}」を削除しますか？`)) {
+    cars = cars.filter(x => x.id !== id);
+    saveData();
+    renderCars();
+  }
+}
+
+function deleteChild(id) {
+  const kid = children.find(x => x.id === id);
+  if(confirm(`「${kid.name}」を削除しますか？`)) {
+    children = children.filter(x => x.id !== id);
+    saveData();
+    renderChildren();
+  }
 }
 
 function addCar() {
@@ -155,21 +197,25 @@ function addChild() {
   }
 }
 
+function resetAllData() {
+  if(confirm("登録した車・子供・履歴データをすべて初期化しますか？")) {
+    localStorage.clear();
+    location.reload();
+  }
+}
+
 let lastGeneratedPlan = "";
 
-// 自動配車ロジック
 function generateCarpool() {
   const activeCars = cars.filter(c => c.active);
   const activeKids = children.filter(c => c.active);
 
-  // 席数チェック
   const totalCap = activeCars.reduce((sum, c) => sum + c.capacity, 0);
   if (totalCap < activeKids.length) {
     alert(`座席が足りません！\n子供の人数: ${activeKids.length}人\n現在の空き席: ${totalCap}席`);
     return;
   }
 
-  // 車両枠の準備
   let assignments = {};
   let carCaps = {};
   activeCars.forEach(c => {
@@ -190,23 +236,17 @@ function generateCarpool() {
   }
 
   // 2. 残りの子を「前回と同じ車を避けて」割り当て
-  // シャッフルして偏りを防ぐ
   unassigned.sort(() => Math.random() - 0.5);
 
   unassigned.forEach(kid => {
-    // 候補の車（定員があり、かつ前回乗っていない車を優先）
     let availableCars = activeCars.filter(c => carCaps[c.name] > 0);
-    
-    // 前回と違う車を探す
     let preferredCars = availableCars.filter(c => c.name !== kid.lastCar);
     
     let targetCar = null;
     if (preferredCars.length > 0) {
-      // 空きが多い車を優先
       preferredCars.sort((a, b) => carCaps[b.name] - carCaps[a.name]);
       targetCar = preferredCars[0];
     } else {
-      // どうしても枠がない場合は仕方なく空いている車へ
       availableCars.sort((a, b) => carCaps[b.name] - carCaps[a.name]);
       targetCar = availableCars[0];
     }
@@ -215,13 +255,11 @@ function generateCarpool() {
     carCaps[targetCar.name]--;
   });
 
-  // 結果テキストの生成 & 履歴の更新
   let text = "【連絡】本日の配車です🚗\n---------------------\n";
   for (let carName in assignments) {
     let names = assignments[carName].map(k => k.name).join('、');
     text += `■ ${carName} (${assignments[carName].length}名)\n  乗車: ${names || 'なし'}\n\n`;
     
-    // 履歴更新
     assignments[carName].forEach(k => {
       let orig = children.find(x => x.id === k.id);
       if(orig) orig.lastCar = carName;
@@ -230,7 +268,7 @@ function generateCarpool() {
   text += "---------------------\nよろしくお願いいたします！";
 
   saveData();
-  renderChildren(); // 前回乗車の表示を更新
+  renderChildren();
 
   lastGeneratedPlan = text;
   document.getElementById('resultText').innerText = text;
@@ -244,7 +282,6 @@ function copyResult() {
   });
 }
 
-// 初回描画
 renderCars();
 renderChildren();
 </script>
