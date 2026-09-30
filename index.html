@@ -181,7 +181,7 @@
       <option value="position">⚾ ポジション分散（投手・捕手などの偏り防止）</option>
     </select>
   </div>
-  <button type="button" class="btn-primary" onclick="generateCarpool()">⚡ 条件に合わせて配車を組む</button>
+  <button type="button" class="btn-primary" onclick="generateCarpool()">⚡ 条件に合わせて均等配車を組む</button>
 </div>
 
 <!-- 4. 結果表示 -->
@@ -533,10 +533,20 @@ function resetAllData() {
 let lastGeneratedPlan = "";
 let currentAssignments = null;
 
+// 均等・最低2人配車ロジック
 function generateCarpool() {
   const activeCars = cars.filter(c => c.active);
   const activeKids = children.filter(c => c.active);
   const mode = document.getElementById('carpoolMode').value;
+
+  if (activeCars.length === 0) {
+    alert("出せる車にチェックを入れてください。");
+    return;
+  }
+  if (activeKids.length === 0) {
+    alert("参加する子供にチェックを入れてください。");
+    return;
+  }
 
   const totalCap = activeCars.reduce((sum, c) => sum + (parseInt(c.capacity) || 0), 0);
   if (totalCap < activeKids.length) {
@@ -544,44 +554,67 @@ function generateCarpool() {
     return;
   }
 
+  // 「最低2人以上」のチェック（車が出ているのに選手が少なすぎる場合）
+  if (activeKids.length < activeCars.length * 2) {
+    let proceed = confirm(`現在、出勤車両が${activeCars.length}台に対して選手が${activeKids.length}人です。\n全員を各車2人以上乗せるには最低でも【${activeCars.length * 2}人】の選手、または車の台数を減らす必要があります。\nこのまま配車を続行しますか？`);
+    if (!proceed) return;
+  }
+
+  // 1. 各車両に乗せる「目標人数」を均等に計算（例：8人を3台なら 3人, 3人, 2人）
+  let targetCounts = {};
+  let baseCount = Math.floor(activeKids.length / activeCars.length);
+  let remainder = activeKids.length % activeCars.length;
+
+  // 定員が大きい順に余りを割り振る
+  let sortedCars = [...activeCars].sort((a, b) => (parseInt(b.capacity) || 0) - (parseInt(a.capacity) || 0));
+  sortedCars.forEach((c, idx) => {
+    let ideal = baseCount + (idx < remainder ? 1 : 0);
+    // ただし車の物理定員を超えないように
+    targetCounts[c.name] = Math.min(ideal, parseInt(c.capacity) || 0);
+  });
+
   let assignments = {};
-  let carCaps = {};
+  let currentCaps = {};
   activeCars.forEach(c => {
     assignments[c.name] = [];
-    carCaps[c.name] = parseInt(c.capacity) || 0;
+    currentCaps[c.name] = targetCounts[c.name];
   });
 
   let unassigned = [...activeKids];
 
-  // 1. 親の車がある子を最優先
+  // 2. 親の車がある子を最優先
   for (let i = unassigned.length - 1; i >= 0; i--) {
     let kid = unassigned[i];
-    if (kid.parentCar && assignments[kid.parentCar] && carCaps[kid.parentCar] > 0) {
+    if (kid.parentCar && assignments[kid.parentCar] && currentCaps[kid.parentCar] > 0) {
       assignments[kid.parentCar].push(kid);
-      carCaps[kid.parentCar]--;
+      currentCaps[kid.parentCar]--;
       unassigned.splice(i, 1);
     }
   }
 
-  // 2. 親の車がない「車酔いの子」を優先配備
+  // 3. 親の車がない「車酔いの子」を優先配備（助手席・ゆとり枠）
   for (let i = unassigned.length - 1; i >= 0; i--) {
     let kid = unassigned[i];
     if (kid.motionSick) {
-      let availableCars = activeCars.filter(c => carCaps[c.name] > 0);
+      let availableCars = activeCars.filter(c => currentCaps[c.name] > 0);
+      if (availableCars.length === 0) {
+        // 目標人数が埋まっている場合は物理定員枠を開放
+        availableCars = activeCars.filter(c => (parseInt(c.capacity) || 0) - assignments[c.name].length > 0);
+      }
       availableCars.sort((a, b) => {
         let diffA = (kid.lastCar === a.name) ? 99 : 0;
         let diffB = (kid.lastCar === b.name) ? 99 : 0;
         if(diffA !== diffB) return diffA - diffB;
-        return carCaps[b.name] - carCaps[a.name];
+        return currentCaps[b.name] - currentCaps[a.name];
       });
       let targetCar = availableCars[0];
       assignments[targetCar.name].push(kid);
-      carCaps[targetCar.name]--;
+      currentCaps[targetCar.name]--;
       unassigned.splice(i, 1);
     }
   }
 
-  // 3. モード別ソート
+  // 4. モード別ソート
   if (mode === 'grade_same') {
     unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
   } else if (mode === 'grade_diff') {
@@ -600,22 +633,34 @@ function generateCarpool() {
     unassigned.sort(() => Math.random() - 0.5);
   }
 
-  // 4. 車両割り当て
+  // 5. 車両割り当て（均等乗車 & 最低2人 & 履歴公平）
   unassigned.forEach(kid => {
     if (!kid.rideHistory) kid.rideHistory = {};
 
-    let availableCars = activeCars.filter(c => carCaps[c.name] > 0);
+    // 均等目標枠に空きがある車
+    let availableCars = activeCars.filter(c => currentCaps[c.name] > 0);
+    // もし均等目標が埋まりきったら物理定員で判定
+    if (availableCars.length === 0) {
+      availableCars = activeCars.filter(c => (parseInt(c.capacity) || 0) - assignments[c.name].length > 0);
+    }
 
     availableCars.sort((a, b) => {
       let scoreA = 0;
       let scoreB = 0;
 
+      // 【重要】まだ1人以下しか乗っていない車を最優先（最低2人以上にするため）
+      if (assignments[a.name].length < 2) scoreA -= 2000;
+      if (assignments[b.name].length < 2) scoreB -= 2000;
+
+      // 直近の車は回避
       if (kid.lastCar === a.name) scoreA += 500;
       if (kid.lastCar === b.name) scoreB += 500;
 
-      scoreA += (kid.rideHistory[a.name] || 0) * 10;
-      scoreB += (kid.rideHistory[b.name] || 0) * 10;
+      // 過去乗車履歴ペナルティ（乗った回数が多い車を避ける）
+      scoreA += (kid.rideHistory[a.name] || 0) * 15;
+      scoreB += (kid.rideHistory[b.name] || 0) * 15;
 
+      // モード別スコア
       if (mode === 'grade_same') {
         let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
         let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
@@ -634,16 +679,18 @@ function generateCarpool() {
       }
 
       if (scoreA !== scoreB) return scoreA - scoreB;
-      return carCaps[b.name] - carCaps[a.name];
+      // スコア同点時は現在乗っている人数が少ない車を優先（均等化）
+      return assignments[a.name].length - assignments[b.name].length;
     });
 
     let targetCar = availableCars[0];
     assignments[targetCar.name].push(kid);
-    carCaps[targetCar.name]--;
+    currentCaps[targetCar.name]--;
   });
 
   currentAssignments = assignments;
 
+  // 結果テキストの生成
   let hasMotionSick = activeKids.some(k => k.motionSick);
   let text = `【連絡】本日の配車です🚗\n---------------------\n`;
   for (let carName in assignments) {
