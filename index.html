@@ -7,7 +7,42 @@
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 12px; color: #333; }
-  h1 { font-size: 19px; text-align: center; margin: 10px 0 15px; color: #1e3a8a; }
+  h1 { font-size: 19px; text-align: center; margin: 10px 0 10px; color: #1e3a8a; }
+  
+  /* リアルタイム集計バー */
+  .status-bar {
+    position: sticky;
+    top: 8px;
+    z-index: 50;
+    background: #1e293b;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    transition: background 0.3s;
+  }
+  .status-bar.alert {
+    background: #dc2626;
+  }
+  .status-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .status-label {
+    font-size: 10px;
+    opacity: 0.8;
+  }
+  .status-val {
+    font-size: 16px;
+    font-weight: bold;
+  }
+
   .card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   .card h2 { font-size: 15px; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; color: #334155; display: flex; justify-content: space-between; align-items: center; }
   
@@ -52,6 +87,24 @@
 <body>
 
 <h1>⚾ 少年野球 配車ヘルパー</h1>
+
+<!-- リアルタイム状況バー -->
+<div class="status-bar" id="statusBar">
+  <div class="status-item">
+    <span class="status-label">参加選手</span>
+    <span class="status-val" id="countKids">0人</span>
+  </div>
+  <div style="font-size: 18px; opacity: 0.5;">/</div>
+  <div class="status-item">
+    <span class="status-label">乗車可能定員</span>
+    <span class="status-val" id="countSeats">0席</span>
+  </div>
+  <div style="font-size: 18px; opacity: 0.5;">▶</div>
+  <div class="status-item">
+    <span class="status-label" id="statusDiffLabel">空き状況</span>
+    <span class="status-val" id="statusDiff">0席</span>
+  </div>
+</div>
 
 <!-- 1. 車両設定 -->
 <div class="card">
@@ -188,6 +241,31 @@ let children = JSON.parse(localStorage.getItem('cp_children')) || [
 function saveData() {
   localStorage.setItem('cp_cars', JSON.stringify(cars));
   localStorage.setItem('cp_children', JSON.stringify(children));
+  updateStatusBar();
+}
+
+/* リアルタイム集計バーの更新 */
+function updateStatusBar() {
+  const activeKids = children.filter(c => c.active).length;
+  const activeSeats = cars.filter(c => c.active).reduce((sum, c) => sum + (parseInt(c.capacity) || 0), 0);
+  const diff = activeSeats - activeKids;
+
+  document.getElementById('countKids').innerText = `${activeKids}人`;
+  document.getElementById('countSeats').innerText = `${activeSeats}席`;
+
+  const bar = document.getElementById('statusBar');
+  const diffEl = document.getElementById('statusDiff');
+  const labelEl = document.getElementById('statusDiffLabel');
+
+  if (diff < 0) {
+    bar.classList.add('alert');
+    labelEl.innerText = "不足！";
+    diffEl.innerText = `${Math.abs(diff)}席 不足`;
+  } else {
+    bar.classList.remove('alert');
+    labelEl.innerText = "残り席";
+    diffEl.innerText = `+${diff}席 OK`;
+  }
 }
 
 function renderCars() {
@@ -209,6 +287,7 @@ function renderCars() {
       </div>
     `;
   });
+  updateStatusBar();
 }
 
 function renderChildren() {
@@ -234,6 +313,7 @@ function renderChildren() {
       </div>
     `;
   });
+  updateStatusBar();
 }
 
 function toggleCar(id) {
@@ -362,7 +442,7 @@ function generateCarpool() {
 
   const totalCap = activeCars.reduce((sum, c) => sum + c.capacity, 0);
   if (totalCap < activeKids.length) {
-    alert(`座席が足りません！\n子供の人数: ${activeKids.length}人\n現在の空き席: ${totalCap}席`);
+    alert(`座席が足りません！\n参加選手: ${activeKids.length}人\n乗車可能定員: ${totalCap}席\nあと ${activeKids.length - totalCap} 席の車が必要です。`);
     return;
   }
 
@@ -464,7 +544,7 @@ function generateCarpool() {
     carCaps[targetCar.name]--;
   });
 
-  // 結果テキストの生成（※名前のみ表示にシンプル化）
+  // 結果テキストの生成（名前＋車酔いマークのみ）
   let hasMotionSick = activeKids.some(k => k.motionSick);
   let text = `【連絡】本日の配車です🚗\n---------------------\n`;
   for (let carName in assignments) {
