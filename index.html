@@ -23,11 +23,15 @@
   .item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
   .item-right { display: flex; align-items: center; flex-shrink: 0; font-size: 13px; color: #475569; }
   
-  /* 入力フォームの崩れ防止レイアウト */
-  .add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; }
-  input[type="text"], input[type="number"] { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+  .add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap; }
+  input[type="text"], input[type="number"], select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
   
   .badge { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #e0e7ff; color: #3730a3; margin-left: 4px; white-space: nowrap; }
+  .badge-sub { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #f1f5f9; color: #475569; margin-left: 4px; white-space: nowrap; }
+  
+  .mode-select-box { margin-top: 10px; padding: 10px; background: #eef2ff; border-radius: 8px; }
+  .mode-select-box select { width: 100%; background: white; font-weight: bold; color: #1e3a8a; }
+  
   .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-top: 10px; line-height: 1.5; }
   .reset-link { text-align: center; margin-top: 25px; margin-bottom: 15px; }
   .reset-link button { background: none; border: none; color: #94a3b8; font-size: 12px; text-decoration: underline; cursor: pointer; }
@@ -42,8 +46,8 @@
   <h2>1. 本日の車（出せる車にチェック）</h2>
   <div id="carList"></div>
   <div class="add-form">
-    <input type="text" id="newCarName" placeholder="車の名前/親の名前" style="flex: 3; min-width: 0;">
-    <input type="number" id="newCarCapacity" placeholder="定員" value="3" style="width: 50px;">
+    <input type="text" id="newCarName" placeholder="車の名前/親の名前" style="flex: 3; min-width: 120px;">
+    <input type="number" id="newCarCapacity" placeholder="定員" value="3" style="width: 55px;">
     <button class="btn-secondary" onclick="addCar()">追加</button>
   </div>
 </div>
@@ -53,14 +57,41 @@
   <h2>2. 参加する子供（乗車する子にチェック）</h2>
   <div id="childList"></div>
   <div class="add-form">
-    <input type="text" id="newChildName" placeholder="子供の名前" style="flex: 2; min-width: 0;">
-    <input type="text" id="newChildParentCar" placeholder="親の車名(任意)" style="flex: 2; min-width: 0;">
+    <input type="text" id="newChildName" placeholder="名前" style="flex: 2; min-width: 70px;">
+    <select id="newChildGrade" style="width: 65px;">
+      <option value="6">6年</option>
+      <option value="5">5年</option>
+      <option value="4">4年</option>
+      <option value="3">3年</option>
+      <option value="2">2年</option>
+      <option value="1">1年</option>
+    </select>
+    <select id="newChildPos" style="width: 75px;">
+      <option value="投手">投手</option>
+      <option value="捕手">捕手</option>
+      <option value="内野">内野</option>
+      <option value="外野">外野</option>
+      <option value="未定">未定</option>
+    </select>
+    <input type="text" id="newChildParentCar" placeholder="親の車名(任意)" style="flex: 2; min-width: 90px;">
     <button class="btn-secondary" onclick="addChild()">追加</button>
   </div>
 </div>
 
-<!-- 3. 配車実行 -->
-<button class="btn btn-primary" onclick="generateCarpool()">⚡ 前回の重複を避けて配車を組む</button>
+<!-- 3. 配車設定・実行 -->
+<div class="card">
+  <h2>3. 配車ルール・条件</h2>
+  <div class="mode-select-box">
+    <label style="font-size: 12px; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">割り振りの優先モード:</label>
+    <select id="carpoolMode">
+      <option value="balance">⚖️ 標準（過去の履歴と乗車バランス重視）</option>
+      <option value="grade_same">🎒 学年を固める（同学年同士を同乗）</option>
+      <option value="grade_diff">🔀 学年をバラバラに（高学年と低学年を分散）</option>
+      <option value="position">⚾ ポジション分散（投手・捕手などの偏り防止）</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" onclick="generateCarpool()">⚡ 条件に合わせて配車を組む</button>
+</div>
 
 <!-- 4. 結果表示 -->
 <div class="card" id="resultCard" style="display:none; margin-top: 15px;">
@@ -69,7 +100,6 @@
   <button class="btn btn-success" onclick="copyResult()">📋 LINE用テキストをコピー</button>
 </div>
 
-<!-- 全データ初期化（必要に応じて） -->
 <div class="reset-link">
   <button onclick="resetAllData()">データを初期状態にリセット</button>
 </div>
@@ -82,12 +112,12 @@ let cars = JSON.parse(localStorage.getItem('cp_cars')) || [
 ];
 
 let children = JSON.parse(localStorage.getItem('cp_children')) || [
-  { id: 1, name: 'ゆうと', parentCar: '佐藤号', active: true, lastCar: '' },
-  { id: 2, name: 'そうた', parentCar: '鈴木号', active: true, lastCar: '' },
-  { id: 3, name: 'れん', parentCar: '', active: true, lastCar: '佐藤号' },
-  { id: 4, name: 'はると', parentCar: '', active: true, lastCar: '鈴木号' },
-  { id: 5, name: 'こうき', parentCar: '', active: true, lastCar: '' },
-  { id: 6, name: '大和', parentCar: '', active: true, lastCar: '' }
+  { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', active: true, lastCar: '', rideHistory: {} },
+  { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', active: true, lastCar: '', rideHistory: {} },
+  { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', active: true, lastCar: '', rideHistory: {} },
+  { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', active: true, lastCar: '', rideHistory: {} },
+  { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', active: true, lastCar: '', rideHistory: {} },
+  { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', active: true, lastCar: '', rideHistory: {} }
 ];
 
 function saveData() {
@@ -126,6 +156,8 @@ function renderChildren() {
           <label>
             <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleChild(${c.id})">
             <span>${c.name}</span>
+            <span class="badge-sub">${c.grade ? c.grade + '年' : ''}</span>
+            <span class="badge-sub">${c.pos || ''}</span>
             ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
           </label>
         </div>
@@ -187,9 +219,11 @@ function addCar() {
 
 function addChild() {
   const name = document.getElementById('newChildName').value.trim();
+  const grade = parseInt(document.getElementById('newChildGrade').value) || 6;
+  const pos = document.getElementById('newChildPos').value;
   const parent = document.getElementById('newChildParentCar').value.trim();
   if(name) {
-    children.push({ id: Date.now(), name: name, parentCar: parent, active: true, lastCar: '' });
+    children.push({ id: Date.now(), name: name, grade: grade, pos: pos, parentCar: parent, active: true, lastCar: '', rideHistory: {} });
     saveData();
     renderChildren();
     document.getElementById('newChildName').value = '';
@@ -209,6 +243,7 @@ let lastGeneratedPlan = "";
 function generateCarpool() {
   const activeCars = cars.filter(c => c.active);
   const activeKids = children.filter(c => c.active);
+  const mode = document.getElementById('carpoolMode').value;
 
   const totalCap = activeCars.reduce((sum, c) => sum + c.capacity, 0);
   if (totalCap < activeKids.length) {
@@ -225,7 +260,7 @@ function generateCarpool() {
 
   let unassigned = [...activeKids];
 
-  // 1. 親の車がある子を最優先で割り当て
+  // 1. 親の車がある子を最優先
   for (let i = unassigned.length - 1; i >= 0; i--) {
     let kid = unassigned[i];
     if (kid.parentCar && assignments[kid.parentCar] && carCaps[kid.parentCar] > 0) {
@@ -235,34 +270,99 @@ function generateCarpool() {
     }
   }
 
-  // 2. 残りの子を「前回と同じ車を避けて」割り当て
-  unassigned.sort(() => Math.random() - 0.5);
-
-  unassigned.forEach(kid => {
-    let availableCars = activeCars.filter(c => carCaps[c.name] > 0);
-    let preferredCars = availableCars.filter(c => c.name !== kid.lastCar);
-    
-    let targetCar = null;
-    if (preferredCars.length > 0) {
-      preferredCars.sort((a, b) => carCaps[b.name] - carCaps[a.name]);
-      targetCar = preferredCars[0];
-    } else {
-      availableCars.sort((a, b) => carCaps[b.name] - carCaps[a.name]);
-      targetCar = availableCars[0];
+  // 2. モード別のソート順設定
+  if (mode === 'grade_same') {
+    // 学年が同じ子を連続して処理
+    unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
+  } else if (mode === 'grade_diff') {
+    // 高学年と低学年を交互に配分
+    unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
+    let interleaved = [];
+    let left = 0, right = unassigned.length - 1;
+    while(left <= right) {
+      if(left === right) { interleaved.push(unassigned[left]); break; }
+      interleaved.push(unassigned[left++]);
+      interleaved.push(unassigned[right--]);
     }
+    unassigned = interleaved;
+  } else if (mode === 'position') {
+    // ポジション順に並べて分散
+    unassigned.sort((a, b) => (a.pos || '').localeCompare(b.pos || ''));
+  } else {
+    // 標準シャッフル
+    unassigned.sort(() => Math.random() - 0.5);
+  }
 
+  // 3. 各子供を車両へ割り当て
+  unassigned.forEach(kid => {
+    if (!kid.rideHistory) kid.rideHistory = {};
+
+    let availableCars = activeCars.filter(c => carCaps[c.name] > 0);
+
+    availableCars.sort((a, b) => {
+      let scoreA = 0;
+      let scoreB = 0;
+
+      // 直近の車は回避
+      if (kid.lastCar === a.name) scoreA += 500;
+      if (kid.lastCar === b.name) scoreB += 500;
+
+      // 過去乗車履歴ペナルティ
+      scoreA += (kid.rideHistory[a.name] || 0) * 10;
+      scoreB += (kid.rideHistory[b.name] || 0) * 10;
+
+      // モード別スコア
+      if (mode === 'grade_same') {
+        // 同じ車に同學年がいるとスコア優遇（マイナス）
+        let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
+        let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
+        scoreA -= countSameGradeA * 50;
+        scoreB -= countSameGradeB * 50;
+      } else if (mode === 'grade_diff') {
+        // 既に同じ学年が多い車は避ける
+        let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
+        let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
+        scoreA += countSameGradeA * 40;
+        scoreB += countSameGradeB * 40;
+      } else if (mode === 'position') {
+        // 同じポジションが既にいる車は避ける
+        let countSamePosA = assignments[a.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
+        let countSamePosB = assignments[b.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
+        scoreA += countSamePosA * 40;
+        scoreB += countSamePosB * 40;
+      }
+
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      // スコア同点時は残席が多い車を優先
+      return carCaps[b.name] - carCaps[a.name];
+    });
+
+    let targetCar = availableCars[0];
     assignments[targetCar.name].push(kid);
     carCaps[targetCar.name]--;
   });
 
-  let text = "【連絡】本日の配車です🚗\n---------------------\n";
+  // 結果テキストの生成
+  let modeLabels = {
+    balance: "標準公平",
+    grade_same: "同学年優先",
+    grade_diff: "学年分散",
+    position: "ポジション分散"
+  };
+
+  let text = `【連絡】本日の配車です🚗 (${modeLabels[mode]})\n---------------------\n`;
   for (let carName in assignments) {
-    let names = assignments[carName].map(k => k.name).join('、');
+    let names = assignments[carName].map(k => `${k.name}(${k.grade}年/${k.pos})`).join('、');
     text += `■ ${carName} (${assignments[carName].length}名)\n  乗車: ${names || 'なし'}\n\n`;
     
+    // 累計履歴更新
     assignments[carName].forEach(k => {
       let orig = children.find(x => x.id === k.id);
-      if(orig) orig.lastCar = carName;
+      if (orig) {
+        if (!orig.rideHistory) orig.rideHistory = {};
+        orig.rideHistory[carName] = (orig.rideHistory[carName] || 0) + 1;
+        orig.lastCar = carName;
+      }
     });
   }
   text += "---------------------\nよろしくお願いいたします！";
