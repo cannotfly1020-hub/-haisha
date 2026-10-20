@@ -111,8 +111,29 @@
   <button type="button" class="btn btn-success" data-action="copy-result">📋 LINE用テキストをコピー（履歴を確定保存）</button>
 </div>
 
+<div class="card backup-card">
+  <h2>📦 データのバックアップ・復元</h2>
+  <button type="button" class="btn btn-outline" data-action="copy-backup">📋 バックアップ用データをコピー</button>
+  <button type="button" class="btn btn-restore" data-action="open-restore">📥 データを復元する</button>
+</div>
+
 <div class="reset-link">
   <button type="button" data-action="reset-data">データを完全に初期化（初期サンプルに戻す）</button>
+</div>
+
+<!-- バックアップ復元モーダル -->
+<div class="modal-overlay" id="restoreModal">
+  <div class="modal-box">
+    <h3>データの復元</h3>
+    <div class="modal-field">
+      <label for="restoreJson">バックアップ用データを貼り付け</label>
+      <textarea id="restoreJson" class="restore-input" placeholder="コピーしたJSONをここに貼り付け"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" data-action="close-restore">キャンセル</button>
+      <button type="button" class="btn btn-primary" data-action="apply-restore">復元</button>
+    </div>
+  </div>
 </div>
 
 <!-- 選手情報 編集モーダル -->

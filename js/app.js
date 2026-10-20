@@ -37,6 +37,18 @@ function handleAppClick(event) {
     case 'reset-data':
       resetAllData();
       break;
+    case 'copy-backup':
+      copyBackupData();
+      break;
+    case 'open-restore':
+      openRestoreModal();
+      break;
+    case 'close-restore':
+      closeRestoreModal();
+      break;
+    case 'apply-restore':
+      applyRestore();
+      break;
     case 'close-modal':
       closeEditModal();
       break;

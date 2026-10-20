@@ -247,3 +247,20 @@ function addChild() {
     alert("選手の名前を入力してください");
   }
 }
+
+function openRestoreModal() {
+  const input = document.getElementById('restoreJson');
+  if (input) input.value = '';
+  document.getElementById('restoreModal').style.display = 'flex';
+}
+
+function closeRestoreModal() {
+  document.getElementById('restoreModal').style.display = 'none';
+}
+
+function applyRestore() {
+  const text = document.getElementById('restoreJson').value;
+  if (restoreBackupData(text)) {
+    closeRestoreModal();
+  }
+}

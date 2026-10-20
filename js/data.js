@@ -64,6 +64,68 @@ function resetAllData() {
   }
 }
 
+function isBackupCar(car) {
+  return !!car && typeof car === 'object' && typeof car.name === 'string' && car.name.trim() !== '' && car.id != null;
+}
+
+function isBackupChild(child) {
+  return !!child && typeof child === 'object' && typeof child.name === 'string' && child.name.trim() !== '' && child.id != null;
+}
+
+function copyBackupData() {
+  const payload = JSON.stringify({ cars: cars, children: children }, null, 2);
+  const notifyCopied = () => {
+    alert("データをコピーしました！LINEのKeepメモ等に貼り付けて保存してください");
+  };
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    alert("コピーに失敗しました。ブラウザの権限を確認してもう一度お試しください。");
+    return;
+  }
+  navigator.clipboard.writeText(payload).then(notifyCopied).catch(() => {
+    alert("コピーに失敗しました。ブラウザの権限を確認してもう一度お試しください。");
+  });
+}
+
+function restoreBackupData(text) {
+  const raw = (text || '').trim();
+  if (!raw) {
+    alert("バックアップデータを貼り付けてください。");
+    return false;
+  }
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    alert("バックアップデータの形式が正しくありません。コピーしたデータをそのまま貼り付けてください。");
+    return false;
+  }
+
+  if (!data || typeof data !== 'object' || !Array.isArray(data.cars) || !Array.isArray(data.children) || !data.cars.every(isBackupCar) || !data.children.every(isBackupChild)) {
+    alert("バックアップデータの形式が正しくありません。コピーしたデータをそのまま貼り付けてください。");
+    return false;
+  }
+
+  cars = data.cars;
+  children = data.children.map(child => ({
+    ...child,
+    lastCar: typeof child.lastCar === 'string' ? child.lastCar : '',
+    rideHistory: child.rideHistory && typeof child.rideHistory === 'object' && !Array.isArray(child.rideHistory) ? child.rideHistory : {}
+  }));
+  saveData();
+  renderCars();
+  renderChildren();
+  updateStatusBar();
+
+  const resultCard = document.getElementById('resultCard');
+  if (resultCard) resultCard.style.display = 'none';
+  currentAssignments = null;
+  lastGeneratedPlan = "";
+
+  alert("復元が完了しました！");
+  return true;
+}
+
 /* 一括進級機能 */
 function promoteAllGrades() {
   if (confirm("全選手の学年を1つ繰り上げますか？\n（現在6年生の選手はチェックが外れて卒団扱いになります）")) {

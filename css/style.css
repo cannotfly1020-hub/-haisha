@@ -58,6 +58,8 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
 .btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
 .btn-outline { background: white; color: #2563eb; border: 2px solid #2563eb; margin-top: 10px; }
 .btn-outline:active { background: #eff6ff; }
+.btn-restore { background: #1e3a8a; color: white; margin-top: 10px; }
+.btn-restore:active { background: #1e40af; }
 .btn-success { background-color: #16a34a; color: white; margin-top: 10px; }
 .btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
 .btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
@@ -99,6 +101,8 @@ input[type="text"], input[type="number"], select { padding: 8px; border: 1px sol
 
 .result-card { display: none; margin-top: 15px; }
 .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-top: 10px; line-height: 1.5; }
+.backup-card h2 { font-size: 15px; margin: 0 0 4px; color: #334155; }
+.restore-input { width: 100%; min-height: 140px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .reset-link { text-align: center; margin-top: 25px; margin-bottom: 15px; }
 .reset-link button { background: none; border: none; color: #94a3b8; font-size: 12px; text-decoration: underline; cursor: pointer; }
 
