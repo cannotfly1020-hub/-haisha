@@ -1,0 +1,115 @@
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 12px; color: #333; }
+h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
+
+/* リアルタイム集計バー */
+.status-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 50;
+  background: #1e293b;
+  color: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  transition: background 0.3s;
+}
+.status-bar.alert { background: #dc2626; }
+.status-item { display: flex; flex-direction: column; align-items: center; }
+.status-label { font-size: 10px; opacity: 0.8; }
+.status-val { font-size: 16px; font-weight: bold; }
+.status-sep { font-size: 18px; opacity: 0.5; }
+
+/* コントロールバー */
+.control-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.control-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: white;
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.control-btn:active { background: #f1f5f9; }
+
+.card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px; }
+.card-header h2 { font-size: 15px; margin: 0; color: #334155; }
+.header-actions { display: flex; gap: 4px; }
+
+.btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; }
+.btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
+.btn-success { background-color: #16a34a; color: white; margin-top: 10px; }
+.btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+.btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
+.btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
+.btn-mini { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; font-size: 11px; cursor: pointer; font-weight: normal; }
+
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 4px;
+  background: white;
+}
+.item-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+.item-left label { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; cursor: pointer; flex: 1; }
+.item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
+.item-right { display: flex; align-items: center; flex-shrink: 0; font-size: 13px; color: #475569; }
+
+.add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap; }
+input[type="text"], input[type="number"], select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+.item-right input.input-cap { width: 40px; margin: 0 4px; padding: 4px; }
+#newCarName { flex: 3; min-width: 120px; }
+#newCarCapacity { width: 55px; }
+#newChildName { flex: 2; min-width: 65px; }
+#newChildGrade { width: 60px; }
+#newChildPos { width: 68px; }
+#newChildParentCar { flex: 2; min-width: 90px; }
+.inline-check-label { display: flex; align-items: center; font-size: 12px; gap: 4px; padding: 4px; }
+
+.badge { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #e0e7ff; color: #3730a3; margin-left: 4px; white-space: nowrap; }
+.badge-sub { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #f1f5f9; color: #475569; margin-left: 4px; white-space: nowrap; }
+.badge-motion { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #fef2f2; color: #b91c1c; margin-left: 4px; white-space: nowrap; }
+
+.mode-select-box { margin-top: 10px; padding: 10px; background: #eef2ff; border-radius: 8px; }
+.mode-select-box select { width: 100%; background: white; font-weight: bold; color: #1e3a8a; }
+.mode-label { font-size: 12px; font-weight: bold; color: #475569; display: block; margin-bottom: 4px; }
+
+.result-card { display: none; margin-top: 15px; }
+.result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-top: 10px; line-height: 1.5; }
+.reset-link { text-align: center; margin-top: 25px; margin-bottom: 15px; }
+.reset-link button { background: none; border: none; color: #94a3b8; font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+/* 編集モーダル */
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
+.modal-box { background: white; width: 100%; max-width: 320px; border-radius: 12px; padding: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+.modal-box h3 { margin-top: 0; font-size: 16px; color: #1e3a8a; margin-bottom: 12px; }
+.modal-field { margin-bottom: 10px; }
+.modal-field label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; }
+.modal-field input, .modal-field select { width: 100%; }
+.modal-field-motion { margin-top: 12px; }
+.modal-field label.motion-edit-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #b91c1c; cursor: pointer; }
+#editChildMotionSick { width: 18px; height: 18px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 15px; }
+.modal-actions .btn { flex: 1; }
+.modal-actions .btn-primary { margin-top: 0; }

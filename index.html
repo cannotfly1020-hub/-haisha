@@ -4,107 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>少年野球 配車ヘルパー</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 12px; color: #333; }
-  h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
-  
-  /* リアルタイム集計バー */
-  .status-bar {
-    position: sticky;
-    top: 8px;
-    z-index: 50;
-    background: #1e293b;
-    color: white;
-    padding: 10px 14px;
-    border-radius: 10px;
-    margin-bottom: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13px;
-    transition: background 0.3s;
-  }
-  .status-bar.alert { background: #dc2626; }
-  .status-item { display: flex; flex-direction: column; align-items: center; }
-  .status-label { font-size: 10px; opacity: 0.8; }
-  .status-val { font-size: 16px; font-weight: bold; }
-
-  /* コントロールバー */
-  .control-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .control-btn {
-    flex: 1;
-    padding: 8px;
-    font-size: 12px;
-    font-weight: bold;
-    border-radius: 6px;
-    border: 1px solid #cbd5e1;
-    background: white;
-    color: #334155;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-  }
-  .control-btn:active { background: #f1f5f9; }
-
-  .card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px; }
-  .card-header h2 { font-size: 15px; margin: 0; color: #334155; }
-  .header-actions { display: flex; gap: 4px; }
-  
-  .btn { display: block; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; }
-  .btn-primary { background-color: #2563eb; color: white; margin-top: 10px; }
-  .btn-success { background-color: #16a34a; color: white; margin-top: 10px; }
-  .btn-secondary { background-color: #475569; color: white; padding: 8px 12px; font-size: 13px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
-  .btn-edit { background: #e0f2fe; color: #0284c7; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
-  .btn-delete { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer; margin-left: 4px; }
-  .btn-mini { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; font-size: 11px; cursor: pointer; font-weight: normal; }
-
-  .item-row { 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-    padding: 8px 0; 
-    border-bottom: 1px solid #f1f5f9; 
-    gap: 4px; 
-    background: white;
-  }
-  .item-left { display: flex; align-items: center; flex: 1; min-width: 0; }
-  .item-left label { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; cursor: pointer; flex: 1; }
-  .item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
-  .item-right { display: flex; align-items: center; flex-shrink: 0; font-size: 13px; color: #475569; }
-  
-  .add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap; }
-  input[type="text"], input[type="number"], select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
-  
-  .badge { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #e0e7ff; color: #3730a3; margin-left: 4px; white-space: nowrap; }
-  .badge-sub { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #f1f5f9; color: #475569; margin-left: 4px; white-space: nowrap; }
-  .badge-motion { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #fef2f2; color: #b91c1c; margin-left: 4px; white-space: nowrap; }
-  
-  .mode-select-box { margin-top: 10px; padding: 10px; background: #eef2ff; border-radius: 8px; }
-  .mode-select-box select { width: 100%; background: white; font-weight: bold; color: #1e3a8a; }
-  
-  .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; white-space: pre-wrap; margin-top: 10px; line-height: 1.5; }
-  .reset-link { text-align: center; margin-top: 25px; margin-bottom: 15px; }
-  .reset-link button { background: none; border: none; color: #94a3b8; font-size: 12px; text-decoration: underline; cursor: pointer; }
-
-  /* 編集モーダル */
-  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
-  .modal-box { background: white; width: 100%; max-width: 320px; border-radius: 12px; padding: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-  .modal-box h3 { margin-top: 0; font-size: 16px; color: #1e3a8a; margin-bottom: 12px; }
-  .modal-field { margin-bottom: 10px; }
-  .modal-field label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; }
-  .modal-field input, .modal-field select { width: 100%; }
-  .modal-actions { display: flex; gap: 8px; margin-top: 15px; }
-</style>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
@@ -116,12 +16,12 @@
     <span class="status-label">参加選手</span>
     <span class="status-val" id="countKids">0人</span>
   </div>
-  <div style="font-size: 18px; opacity: 0.5;">/</div>
+  <div class="status-sep">/</div>
   <div class="status-item">
     <span class="status-label">乗車定員</span>
     <span class="status-val" id="countSeats">0席</span>
   </div>
-  <div style="font-size: 18px; opacity: 0.5;">▶</div>
+  <div class="status-sep">▶</div>
   <div class="status-item">
     <span class="status-label" id="statusDiffLabel">状況</span>
     <span class="status-val" id="statusDiff">0席</span>
@@ -130,8 +30,8 @@
 
 <!-- クイック操作バー -->
 <div class="control-bar">
-  <button type="button" class="control-btn" onclick="clearAllChecks()">🔄 出欠チェックを全解除</button>
-  <button type="button" class="control-btn" onclick="manualSave()">💾 今の状態を保存</button>
+  <button type="button" class="control-btn" data-action="clear-checks">🔄 出欠チェックを全解除</button>
+  <button type="button" class="control-btn" data-action="manual-save">💾 今の状態を保存</button>
 </div>
 
 <!-- 1. 車両設定 -->
@@ -139,14 +39,14 @@
   <div class="card-header">
     <h2>1. 本日の車（出せる車）</h2>
     <div class="header-actions">
-      <button type="button" class="btn-mini" onclick="sortCarsByName()">🔤 名前順</button>
+      <button type="button" class="btn-mini" data-action="sort-cars">🔤 名前順</button>
     </div>
   </div>
   <div id="carList"></div>
   <div class="add-form">
-    <input type="text" id="newCarName" placeholder="車の名前/親の名前" style="flex: 3; min-width: 120px;">
-    <input type="number" id="newCarCapacity" placeholder="定員" value="3" style="width: 55px;">
-    <button type="button" class="btn-secondary" onclick="addCar()">追加</button>
+    <input type="text" id="newCarName" placeholder="車の名前/親の名前">
+    <input type="number" id="newCarCapacity" placeholder="定員" value="3">
+    <button type="button" class="btn-secondary" data-action="add-car">追加</button>
   </div>
 </div>
 
@@ -155,15 +55,15 @@
   <div class="card-header">
     <h2>2. 参加する子供（乗車する子）</h2>
     <div class="header-actions">
-      <button type="button" class="btn-mini" onclick="sortChildrenByGrade()">🎒 学年順</button>
-      <button type="button" class="btn-mini" onclick="sortChildrenByName()">🔤 五十音順</button>
-      <button type="button" class="btn-mini" onclick="promoteAllGrades()">🎓 進級</button>
+      <button type="button" class="btn-mini" data-action="sort-grade">🎒 学年順</button>
+      <button type="button" class="btn-mini" data-action="sort-name">🔤 五十音順</button>
+      <button type="button" class="btn-mini" data-action="promote">🎓 進級</button>
     </div>
   </div>
   <div id="childList"></div>
   <div class="add-form">
-    <input type="text" id="newChildName" placeholder="名前" style="flex: 2; min-width: 65px;">
-    <select id="newChildGrade" style="width: 60px;">
+    <input type="text" id="newChildName" placeholder="名前">
+    <select id="newChildGrade">
       <option value="6">6年</option>
       <option value="5">5年</option>
       <option value="4">4年</option>
@@ -171,20 +71,20 @@
       <option value="2">2年</option>
       <option value="1">1年</option>
     </select>
-    <select id="newChildPos" style="width: 68px;">
+    <select id="newChildPos">
       <option value="投手">投手</option>
       <option value="捕手">捕手</option>
       <option value="内野">内野</option>
       <option value="外野">外野</option>
       <option value="未定">未定</option>
     </select>
-    <select id="newChildParentCar" style="flex: 2; min-width: 90px;">
+    <select id="newChildParentCar">
       <option value="">親の車: なし</option>
     </select>
-    <label style="display: flex; align-items: center; font-size: 12px; gap: 4px; padding: 4px;">
+    <label class="inline-check-label">
       <input type="checkbox" id="newChildMotionSick"> 🤢車酔い
     </label>
-    <button type="button" class="btn-secondary" onclick="addChild()">追加</button>
+    <button type="button" class="btn-secondary" data-action="add-child">追加</button>
   </div>
 </div>
 
@@ -192,7 +92,7 @@
 <div class="card">
   <h2>3. 配車ルール・条件</h2>
   <div class="mode-select-box">
-    <label style="font-size: 12px; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">割り振りの優先モード:</label>
+    <label class="mode-label">割り振りの優先モード:</label>
     <select id="carpoolMode">
       <option value="balance">⚖ 標準（親の車固定 ＋ 過去履歴重視）</option>
       <option value="grade_same">🎒 学年を固める（同学年同士を同乗）</option>
@@ -200,18 +100,18 @@
       <option value="position">⚾ ポジション分散（投手・捕手などの偏り防止）</option>
     </select>
   </div>
-  <button type="button" class="btn-primary" onclick="generateCarpool()">⚡ 親の車優先 ＆ 均等配車を組む</button>
+  <button type="button" class="btn btn-primary" data-action="generate">⚡ 親の車優先 ＆ 均等配車を組む</button>
 </div>
 
 <!-- 4. 結果表示 -->
-<div class="card" id="resultCard" style="display:none; margin-top: 15px;">
+<div class="card result-card" id="resultCard">
   <h2>配車結果</h2>
   <div class="result-box" id="resultText"></div>
-  <button type="button" class="btn-success" onclick="copyResult()">📋 LINE用テキストをコピー（履歴を確定保存）</button>
+  <button type="button" class="btn btn-success" data-action="copy-result">📋 LINE用テキストをコピー（履歴を確定保存）</button>
 </div>
 
 <div class="reset-link">
-  <button type="button" onclick="resetAllData()">データを完全に初期化（初期サンプルに戻す）</button>
+  <button type="button" data-action="reset-data">データを完全に初期化（初期サンプルに戻す）</button>
 </div>
 
 <!-- 選手情報 編集モーダル -->
@@ -250,554 +150,23 @@
         <option value="">なし</option>
       </select>
     </div>
-    <div class="modal-field" style="margin-top: 12px;">
-      <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #b91c1c; cursor: pointer;">
-        <input type="checkbox" id="editChildMotionSick" style="width: 18px; height: 18px;">
+    <div class="modal-field modal-field-motion">
+      <label class="motion-edit-label">
+        <input type="checkbox" id="editChildMotionSick">
         🤢 車酔いしやすい（助手席・前方優先）
       </label>
     </div>
     <div class="modal-actions">
-      <button type="button" class="btn btn-secondary" onclick="closeEditModal()" style="flex:1;">キャンセル</button>
-      <button type="button" class="btn btn-primary" onclick="saveEditChild()" style="flex:1; margin-top:0;">保存</button>
+      <button type="button" class="btn btn-secondary" data-action="close-modal">キャンセル</button>
+      <button type="button" class="btn btn-primary" data-action="save-child">保存</button>
     </div>
   </div>
 </div>
 
-<script>
-let cars = [];
-let children = [];
-
-try {
-  cars = JSON.parse(localStorage.getItem('cp_cars')) || [
-    { id: 1, name: '佐藤号', capacity: 3, active: true },
-    { id: 2, name: '鈴木号', capacity: 3, active: true },
-    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true }
-  ];
-} catch(e) {
-  cars = [
-    { id: 1, name: '佐藤号', capacity: 3, active: true },
-    { id: 2, name: '鈴木号', capacity: 3, active: true },
-    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true }
-  ];
-}
-
-try {
-  children = JSON.parse(localStorage.getItem('cp_children')) || [
-    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', motionSick: true, active: true, lastCar: '', rideHistory: {} },
-    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} }
-  ];
-} catch(e) {
-  children = [
-    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', motionSick: true, active: true, lastCar: '', rideHistory: {} },
-    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} }
-  ];
-}
-
-function saveData() {
-  try {
-    localStorage.setItem('cp_cars', JSON.stringify(cars));
-    localStorage.setItem('cp_children', JSON.stringify(children));
-  } catch(e) {
-    console.error("保存エラー:", e);
-  }
-}
-
-function manualSave() {
-  saveData();
-  alert("💾 現在の登録内容とチェック状態を保存しました！");
-}
-
-function clearAllChecks() {
-  if (confirm("子供と車の出欠チェックをすべて外しますか？\n（選手一覧や車一覧は消えません）")) {
-    cars.forEach(c => c.active = false);
-    children.forEach(c => c.active = false);
-    saveData();
-    renderCars();
-    renderChildren();
-    updateStatusBar();
-  }
-}
-
-/* 並び替えソート機能 */
-function sortCarsByName() {
-  cars.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-  saveData();
-  renderCars();
-}
-
-function sortChildrenByGrade() {
-  // 学年順（6年→1年）、同級生内は五十音順
-  children.sort((a, b) => {
-    if (b.grade !== a.grade) return b.grade - a.grade;
-    return a.name.localeCompare(b.name, 'ja');
-  });
-  saveData();
-  renderChildren();
-}
-
-function sortChildrenByName() {
-  // 純粋な名前順（五十音順）
-  children.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-  saveData();
-  renderChildren();
-}
-
-function updateStatusBar() {
-  const activeKids = children.filter(c => c.active).length;
-  const activeSeats = cars.filter(c => c.active).reduce((sum, c) => sum + (parseInt(c.capacity) || 0), 0);
-  const diff = activeSeats - activeKids;
-
-  const countKidsEl = document.getElementById('countKids');
-  const countSeatsEl = document.getElementById('countSeats');
-  const bar = document.getElementById('statusBar');
-  const diffEl = document.getElementById('statusDiff');
-  const labelEl = document.getElementById('statusDiffLabel');
-
-  if (!countKidsEl || !countSeatsEl || !bar || !diffEl || !labelEl) return;
-
-  countKidsEl.innerText = `${activeKids}人`;
-  countSeatsEl.innerText = `${activeSeats}席`;
-
-  if (diff < 0) {
-    bar.classList.add('alert');
-    labelEl.innerText = "不足！";
-    diffEl.innerText = `${Math.abs(diff)}席 不足`;
-  } else {
-    bar.classList.remove('alert');
-    labelEl.innerText = "状況";
-    diffEl.innerText = `+${diff}席 OK`;
-  }
-}
-
-function updateCarSelectOptions() {
-  const addSelect = document.getElementById('newChildParentCar');
-  const editSelect = document.getElementById('editChildParentCar');
-  if (!addSelect) return;
-
-  let currentAddVal = addSelect.value;
-  addSelect.innerHTML = '<option value="">親の車: なし</option>';
-  cars.forEach(c => {
-    addSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
-  });
-  addSelect.value = currentAddVal;
-
-  if (editSelect) {
-    let currentEditVal = editSelect.value;
-    editSelect.innerHTML = '<option value="">親の車: なし</option>';
-    cars.forEach(c => {
-      editSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
-    });
-    editSelect.value = currentEditVal;
-  }
-}
-
-function renderCars() {
-  const list = document.getElementById('carList');
-  if (!list) return;
-  list.innerHTML = '';
-  cars.forEach((car) => {
-    list.innerHTML += `
-      <div class="item-row">
-        <div class="item-left">
-          <label>
-            <input type="checkbox" ${car.active ? 'checked' : ''} onchange="toggleCar(${car.id})">
-            <span><strong>${car.name}</strong></span>
-          </label>
-        </div>
-        <div class="item-right">
-          定員:<input type="number" value="${car.capacity}" style="width: 40px; margin: 0 4px; padding: 4px;" onchange="updateCapacity(${car.id}, this.value)">人
-          <button type="button" class="btn-delete" onclick="deleteCar(${car.id})">✕</button>
-        </div>
-      </div>
-    `;
-  });
-  updateCarSelectOptions();
-}
-
-function renderChildren() {
-  const list = document.getElementById('childList');
-  if (!list) return;
-  list.innerHTML = '';
-  children.forEach((c) => {
-    list.innerHTML += `
-      <div class="item-row">
-        <div class="item-left">
-          <label>
-            <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleChild(${c.id})">
-            <span>${c.name}</span>
-            <span class="badge-sub">${c.grade ? c.grade + '年' : ''}</span>
-            <span class="badge-sub">${c.pos || ''}</span>
-            ${c.motionSick ? `<span class="badge-motion">🤢酔い</span>` : ''}
-            ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
-          </label>
-        </div>
-        <div class="item-right">
-          <button type="button" class="btn-edit" onclick="openEditModal(${c.id})">✏️</button>
-          <button type="button" class="btn-delete" onclick="deleteChild(${c.id})">✕</button>
-        </div>
-      </div>
-    `;
-  });
-}
-
-function toggleCar(id) {
-  const c = cars.find(x => x.id === id);
-  if(c) c.active = !c.active;
-  saveData();
-  updateStatusBar();
-}
-
-function updateCapacity(id, val) {
-  const c = cars.find(x => x.id === id);
-  if(c) c.capacity = parseInt(val) || 0;
-  saveData();
-  updateStatusBar();
-}
-
-function toggleChild(id) {
-  const ch = children.find(x => x.id === id);
-  if(ch) ch.active = !ch.active;
-  saveData();
-  updateStatusBar();
-}
-
-function deleteCar(id) {
-  const car = cars.find(x => x.id === id);
-  if(car && confirm(`「${car.name}」を削除しますか？`)) {
-    cars = cars.filter(x => x.id !== id);
-    saveData();
-    renderCars();
-    updateStatusBar();
-  }
-}
-
-function deleteChild(id) {
-  const kid = children.find(x => x.id === id);
-  if(kid && confirm(`「${kid.name}」を削除しますか？`)) {
-    children = children.filter(x => x.id !== id);
-    saveData();
-    renderChildren();
-    updateStatusBar();
-  }
-}
-
-/* 編集機能 */
-function openEditModal(id) {
-  const kid = children.find(x => x.id === id);
-  if(!kid) return;
-  updateCarSelectOptions();
-  document.getElementById('editChildId').value = kid.id;
-  document.getElementById('editChildName').value = kid.name;
-  document.getElementById('editChildGrade').value = kid.grade || 6;
-  document.getElementById('editChildPos').value = kid.pos || '未定';
-  document.getElementById('editChildParentCar').value = kid.parentCar || '';
-  document.getElementById('editChildMotionSick').checked = !!kid.motionSick;
-  document.getElementById('editModal').style.display = 'flex';
-}
-
-function closeEditModal() {
-  document.getElementById('editModal').style.display = 'none';
-}
-
-function saveEditChild() {
-  const id = parseInt(document.getElementById('editChildId').value);
-  const kid = children.find(x => x.id === id);
-  if(kid) {
-    kid.name = document.getElementById('editChildName').value.trim() || kid.name;
-    kid.grade = parseInt(document.getElementById('editChildGrade').value);
-    kid.pos = document.getElementById('editChildPos').value;
-    kid.parentCar = document.getElementById('editChildParentCar').value;
-    kid.motionSick = document.getElementById('editChildMotionSick').checked;
-    saveData();
-    renderChildren();
-    updateStatusBar();
-  }
-  closeEditModal();
-}
-
-/* 一括進級機能 */
-function promoteAllGrades() {
-  if(confirm("全選手の学年を1つ繰り上げますか？\n（現在6年生の選手はチェックが外れて卒団扱いになります）")) {
-    children.forEach(c => {
-      if(c.grade < 6) {
-        c.grade += 1;
-      } else {
-        c.active = false;
-      }
-    });
-    saveData();
-    renderChildren();
-    updateStatusBar();
-  }
-}
-
-function addCar() {
-  const nameInput = document.getElementById('newCarName');
-  const capInput = document.getElementById('newCarCapacity');
-  const name = nameInput.value.trim();
-  const cap = parseInt(capInput.value) || 3;
-  if(name) {
-    cars.push({ id: Date.now(), name: name, capacity: cap, active: true });
-    renderCars();
-    saveData();
-    updateStatusBar();
-    nameInput.value = '';
-    capInput.value = '3';
-  } else {
-    alert("車の名前を入力してください");
-  }
-}
-
-function addChild() {
-  const nameInput = document.getElementById('newChildName');
-  const gradeInput = document.getElementById('newChildGrade');
-  const posInput = document.getElementById('newChildPos');
-  const parentSelect = document.getElementById('newChildParentCar');
-  const motionInput = document.getElementById('newChildMotionSick');
-
-  const name = nameInput.value.trim();
-  const grade = parseInt(gradeInput.value) || 6;
-  const pos = posInput.value;
-  const parent = parentSelect.value;
-  const motionSick = motionInput.checked;
-
-  if(name) {
-    children.push({ 
-      id: Date.now(), 
-      name: name, 
-      grade: grade, 
-      pos: pos, 
-      parentCar: parent, 
-      motionSick: motionSick, 
-      active: true, 
-      lastCar: '', 
-      rideHistory: {} 
-    });
-    renderChildren();
-    saveData();
-    updateStatusBar();
-    nameInput.value = '';
-    parentSelect.value = '';
-    motionInput.checked = false;
-  } else {
-    alert("選手の名前を入力してください");
-  }
-}
-
-function resetAllData() {
-  if(confirm("登録した車・子供・履歴データをすべて初期状態に消去しますか？")) {
-    localStorage.clear();
-    location.reload();
-  }
-}
-
-let lastGeneratedPlan = "";
-let currentAssignments = null;
-
-// 親の車優先 ＆ 均等配車ロジック
-function generateCarpool() {
-  const activeCars = cars.filter(c => c.active);
-  const activeKids = children.filter(c => c.active);
-  const mode = document.getElementById('carpoolMode').value;
-
-  if (activeCars.length === 0) {
-    alert("出せる車にチェックを入れてください。");
-    return;
-  }
-  if (activeKids.length === 0) {
-    alert("参加する子供にチェックを入れてください。");
-    return;
-  }
-
-  const totalCap = activeCars.reduce((sum, c) => sum + (parseInt(c.capacity) || 0), 0);
-  if (totalCap < activeKids.length) {
-    alert(`座席が足りません！\n参加選手: ${activeKids.length}人\n乗車定員: ${totalCap}席\nあと ${activeKids.length - totalCap} 席の車が必要です。`);
-    return;
-  }
-
-  // 1. 各車両に乗せる「目標人数」を均等計算
-  let targetCounts = {};
-  let baseCount = Math.floor(activeKids.length / activeCars.length);
-  let remainder = activeKids.length % activeCars.length;
-
-  let sortedCars = [...activeCars].sort((a, b) => (parseInt(b.capacity) || 0) - (parseInt(a.capacity) || 0));
-  sortedCars.forEach((c, idx) => {
-    let ideal = baseCount + (idx < remainder ? 1 : 0);
-    targetCounts[c.name] = Math.min(ideal, parseInt(c.capacity) || 0);
-  });
-
-  let assignments = {};
-  let currentCaps = {};
-  activeCars.forEach(c => {
-    assignments[c.name] = [];
-    currentCaps[c.name] = targetCounts[c.name];
-  });
-
-  let unassigned = [...activeKids];
-
-  // 2. 親の車が出ている子供を最優先固定
-  for (let i = unassigned.length - 1; i >= 0; i--) {
-    let kid = unassigned[i];
-    let parentCarObj = activeCars.find(c => c.name === kid.parentCar);
-    if (parentCarObj) {
-      let realRemainingSeats = (parseInt(parentCarObj.capacity) || 0) - assignments[parentCarObj.name].length;
-      if (realRemainingSeats > 0) {
-        assignments[parentCarObj.name].push(kid);
-        if (currentCaps[parentCarObj.name] > 0) {
-          currentCaps[parentCarObj.name]--;
-        }
-        unassigned.splice(i, 1);
-      }
-    }
-  }
-
-  // 3. 親の車がない「車酔いの子」を優先配備
-  for (let i = unassigned.length - 1; i >= 0; i--) {
-    let kid = unassigned[i];
-    if (kid.motionSick) {
-      let availableCars = activeCars.filter(c => currentCaps[c.name] > 0);
-      if (availableCars.length === 0) {
-        availableCars = activeCars.filter(c => (parseInt(c.capacity) || 0) - assignments[c.name].length > 0);
-      }
-      availableCars.sort((a, b) => {
-        let diffA = (kid.lastCar === a.name) ? 99 : 0;
-        let diffB = (kid.lastCar === b.name) ? 99 : 0;
-        if(diffA !== diffB) return diffA - diffB;
-        return currentCaps[b.name] - currentCaps[a.name];
-      });
-      let targetCar = availableCars[0];
-      assignments[targetCar.name].push(kid);
-      if (currentCaps[targetCar.name] > 0) currentCaps[targetCar.name]--;
-      unassigned.splice(i, 1);
-    }
-  }
-
-  // 4. モード別ソート
-  if (mode === 'grade_same') {
-    unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
-  } else if (mode === 'grade_diff') {
-    unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
-    let interleaved = [];
-    let left = 0, right = unassigned.length - 1;
-    while(left <= right) {
-      if(left === right) { interleaved.push(unassigned[left]); break; }
-      interleaved.push(unassigned[left++]);
-      interleaved.push(unassigned[right--]);
-    }
-    unassigned = interleaved;
-  } else if (mode === 'position') {
-    unassigned.sort((a, b) => (a.pos || '').localeCompare(b.pos || ''));
-  } else {
-    unassigned.sort(() => Math.random() - 0.5);
-  }
-
-  // 5. 残りの選手を割り当て
-  unassigned.forEach(kid => {
-    if (!kid.rideHistory) kid.rideHistory = {};
-
-    let availableCars = activeCars.filter(c => currentCaps[c.name] > 0);
-    if (availableCars.length === 0) {
-      availableCars = activeCars.filter(c => (parseInt(c.capacity) || 0) - assignments[c.name].length > 0);
-    }
-
-    availableCars.sort((a, b) => {
-      let scoreA = 0;
-      let scoreB = 0;
-
-      if (assignments[a.name].length < 2) scoreA -= 2000;
-      if (assignments[b.name].length < 2) scoreB -= 2000;
-
-      if (kid.lastCar === a.name) scoreA += 500;
-      if (kid.lastCar === b.name) scoreB += 500;
-
-      scoreA += (kid.rideHistory[a.name] || 0) * 15;
-      scoreB += (kid.rideHistory[b.name] || 0) * 15;
-
-      if (mode === 'grade_same') {
-        let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
-        let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
-        scoreA -= countSameGradeA * 50;
-        scoreB -= countSameGradeB * 50;
-      } else if (mode === 'grade_diff') {
-        let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
-        let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
-        scoreA += countSameGradeA * 40;
-        scoreB += countSameGradeB * 40;
-      } else if (mode === 'position') {
-        let countSamePosA = assignments[a.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
-        let countSamePosB = assignments[b.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
-        scoreA += countSamePosA * 40;
-        scoreB += countSamePosB * 40;
-      }
-
-      if (scoreA !== scoreB) return scoreA - scoreB;
-      return assignments[a.name].length - assignments[b.name].length;
-    });
-
-    let targetCar = availableCars[0];
-    assignments[targetCar.name].push(kid);
-    if (currentCaps[targetCar.name] > 0) currentCaps[targetCar.name]--;
-  });
-
-  currentAssignments = assignments;
-
-  // 結果テキストの生成（画面上の車の並び順通りに出力）
-  let hasMotionSick = activeKids.some(k => k.motionSick);
-  let text = `【連絡】本日の配車です🚗\n---------------------\n`;
-  activeCars.forEach(c => {
-    let carName = c.name;
-    let names = (assignments[carName] || []).map(k => {
-      let tag = k.motionSick ? '🤢' : '';
-      return `${k.name}${tag}`;
-    }).join('、');
-    text += `■ ${carName} (${(assignments[carName] || []).length}名)\n  乗車: ${names || 'なし'}\n\n`;
-  });
-
-  if (hasMotionSick) {
-    text += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
-  }
-  text += "---------------------\nよろしくお願いいたします！";
-
-  lastGeneratedPlan = text;
-  document.getElementById('resultText').innerText = text;
-  document.getElementById('resultCard').style.display = 'block';
-  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-}
-
-function copyResult() {
-  if (!currentAssignments) return;
-
-  for (let carName in currentAssignments) {
-    currentAssignments[carName].forEach(k => {
-      let orig = children.find(x => x.id === k.id);
-      if (orig) {
-        if (!orig.rideHistory) orig.rideHistory = {};
-        orig.rideHistory[carName] = (orig.rideHistory[carName] || 0) + 1;
-        orig.lastCar = carName;
-      }
-    });
-  }
-  saveData();
-  renderChildren();
-  updateStatusBar();
-
-  navigator.clipboard.writeText(lastGeneratedPlan).then(() => {
-    alert("📋 LINE用テキストをコピーしました！\n今回の乗車履歴も正常に確定保存されました。");
-  });
-}
-
-// 起動時の初期描画
-renderCars();
-renderChildren();
-updateStatusBar();
-</script>
+<!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
+<script src="js/data.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/carpool.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
