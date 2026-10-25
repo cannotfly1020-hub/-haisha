@@ -3,8 +3,8 @@ function updateStatusBar() {
   const onSiteKids = children.filter(isOnSite).length;
   const activeCarsList = cars.filter(c => c.active);
   const kidSeats = children.reduce((sum, c) => sum + seatCost(c), 0);
-  const familyDemand = activeCarsList.reduce((sum, c) => sum + familySeatsOf(c), 0);
-  const seatDemand = kidSeats + familyDemand;
+  const companionDemand = activeCarsList.reduce((sum, c) => sum + companionSeatsOf(c), 0);
+  const seatDemand = kidSeats + companionDemand;
   const activeSeats = activeCarsList.reduce((sum, c) => sum + (parseInt(c.capacity, 10) || 0), 0);
   const diff = activeSeats - seatDemand;
 
@@ -94,106 +94,25 @@ function buildCapacityDisplayHtml(summary) {
   `;
 }
 
-function buildFamilyChipsHtml(car) {
-  const n = familySeatsOf(car);
-  if (n === 0) {
-    return `<p class="preassign-empty">身内の同乗なし</p>`;
+const QUICK_COMPANION_LABELS = ['母', '兄', '姉', '弟', '妹'];
+
+function buildCompanionChipsHtml(car) {
+  const list = companionsOf(car);
+  if (list.length === 0) {
+    return `<span class="companion-empty">同乗なし</span>`;
   }
-  let html = '';
-  for (let i = 0; i < n; i++) {
-    html += `
-      <span class="preassign-chip preassign-chip-family">
-        身内同乗
-        <button type="button" class="preassign-remove" data-action="remove-family" data-id="${car.id}" title="解除">✕</button>
-      </span>
-    `;
-  }
-  return html;
+  return list.map(c => `
+    <span class="companion-chip">
+      ${c.label}
+      <button type="button" class="companion-remove" data-action="remove-companion" data-car-id="${car.id}" data-companion-id="${c.id}" title="削除">✕</button>
+    </span>
+  `).join('');
 }
 
-function buildGuestChipsHtml(car) {
-  const riders = getFixedRidersForCar(car.name);
-  if (riders.length === 0) {
-    return `<p class="preassign-empty">他選手の指定なし</p>`;
-  }
-  return riders.map(k => {
-    const label = k.guardianRide ? `${k.name}＋${guardianLabel(k)}` : k.name;
-    return `
-      <span class="preassign-chip preassign-chip-guest">
-        ${label}
-        <button type="button" class="preassign-remove" data-action="remove-preassign" data-id="${k.id}" title="解除">✕</button>
-      </span>
-    `;
-  }).join('');
-}
-
-function buildGuestOptionsHtml(car) {
-  const summary = carSeatSummary(car);
-  const riding = children.filter(k => isRiding(k) && !isGuestOptionHidden(k.id));
-  let html = `<option value="">選手を選んで追加…</option>`;
-
-  riding.forEach(k => {
-    const alreadyHere = k.fixedCar === car.name;
-    const elsewhere = k.fixedCar && k.fixedCar !== car.name;
-    const note = elsewhere ? `（※${k.fixedCar}）` : '';
-
-    if (alreadyHere && k.guardianRide) return;
-
-    const baseUsed = alreadyHere ? summary.used - seatCost(k) : summary.used;
-    const soloOk = baseUsed + 1 <= summary.capacity;
-    const pairOk = baseUsed + 2 <= summary.capacity;
-
-    if (alreadyHere && !k.guardianRide) {
-      html += `<option value="${k.id}:pair" ${pairOk ? '' : 'disabled'}>${k.name}（＋保護者・2席）${pairOk ? '' : ' ※満席'}</option>`;
-      return;
-    }
-
-    html += `<option value="${k.id}:solo" ${soloOk ? '' : 'disabled'}>${k.name}${note}${soloOk ? '' : ' ※満席'}</option>`;
-    html += `<option value="${k.id}:pair" ${pairOk ? '' : 'disabled'}>${k.name}（＋保護者・2席）${note}${pairOk ? '' : ' ※満席'}</option>`;
-  });
-
-  return html;
-}
-
-function buildGuestCandidateManageHtml() {
-  const visible = children.filter(k => isRiding(k) && !isGuestOptionHidden(k.id));
-  const hidden = children.filter(k => isGuestOptionHidden(k.id));
-
-  let html = `<div class="guest-manage">`;
-  html += `<div class="guest-manage-title">同乗候補の整理（🗑️で選択肢から削除）</div>`;
-
-  if (visible.length === 0) {
-    html += `<p class="preassign-empty">表示中の候補はありません</p>`;
-  } else {
-    html += `<div class="guest-manage-list">`;
-    visible.forEach(k => {
-      html += `
-        <span class="guest-manage-chip">
-          ${k.name}
-          <button type="button" class="guest-manage-trash" data-action="hide-guest-option" data-id="${k.id}" title="選択肢から削除">🗑️</button>
-        </span>
-      `;
-    });
-    html += `</div>`;
-  }
-
-  if (hidden.length > 0) {
-    html += `<div class="guest-manage-hidden">`;
-    html += `<div class="guest-manage-title">非表示中（戻すで再表示）</div>`;
-    html += `<div class="guest-manage-list">`;
-    hidden.forEach(k => {
-      html += `
-        <span class="guest-manage-chip is-hidden">
-          ${k.name}
-          <button type="button" class="guest-manage-restore" data-action="restore-guest-option" data-id="${k.id}" title="選択肢に戻す">戻す</button>
-        </span>
-      `;
-    });
-    html += `</div></div>`;
-  }
-
-  html += `</div>`;
-  return html;
+function buildQuickCompanionButtonsHtml(car, disabled) {
+  return QUICK_COMPANION_LABELS.map(label => `
+    <button type="button" class="companion-quick" data-action="add-companion" data-id="${car.id}" data-label="${label}" ${disabled ? 'disabled' : ''}>${label}</button>
+  `).join('');
 }
 
 function renderCars() {
@@ -204,8 +123,7 @@ function renderCars() {
     const summary = carSeatSummary(car);
     const inactiveClass = car.active ? '' : 'is-inactive';
     const fullBlock = summary.isFull || summary.isOver;
-    const addFamilyDisabled = !car.active || fullBlock ? 'disabled' : '';
-    const guestSelectDisabled = !car.active || fullBlock ? 'disabled' : '';
+    const addDisabled = !car.active || fullBlock ? 'disabled' : '';
 
     list.innerHTML += `
       <div class="car-card ${inactiveClass}">
@@ -223,29 +141,19 @@ function renderCars() {
           ${buildCapacityDisplayHtml(summary)}
         </div>
 
-        <div class="preassign-section preassign-family">
-          <div class="preassign-title">A. 身内同乗（運転手の家族・兄弟など）</div>
-          <div class="preassign-members">${buildFamilyChipsHtml(car)}</div>
-          <button type="button" class="btn-add-family" data-action="add-family" data-id="${car.id}" ${addFamilyDisabled}>
-            ＋ 身内を追加（1席消費）
-          </button>
-        </div>
-
-        <div class="preassign-section preassign-guest">
-          <div class="preassign-title">B. 他選手・他家族の同乗枠</div>
-          <div class="preassign-members">${buildGuestChipsHtml(car)}</div>
-          <select class="preassign-select" data-action="add-preassign" data-id="${car.id}" ${guestSelectDisabled}>
-            ${buildGuestOptionsHtml(car)}
-          </select>
+        <div class="companion-bar">
+          <div class="companion-chips">${buildCompanionChipsHtml(car)}</div>
+          <div class="companion-actions">
+            <div class="companion-quicks">${buildQuickCompanionButtonsHtml(car, !!addDisabled)}</div>
+            <div class="companion-custom">
+              <input type="text" class="companion-input" id="companionInput-${car.id}" placeholder="名前を入力" ${addDisabled} maxlength="20">
+              <button type="button" class="companion-add-btn" data-action="add-companion-custom" data-id="${car.id}" ${addDisabled}>＋追加</button>
+            </div>
+          </div>
         </div>
       </div>
     `;
   });
-
-  // 候補整理UIは車両リスト末尾に1つだけ（全車両共通）
-  if (cars.length > 0) {
-    list.innerHTML += buildGuestCandidateManageHtml();
-  }
   updateCarSelectOptions();
 }
 
@@ -322,9 +230,10 @@ function setChildFixedCar(id, carName) {
   const ch = children.find(x => x.id === id);
   if (!ch) return;
 
+  ch.guardianRide = false;
+
   if (!carName) {
     ch.fixedCar = '';
-    ch.guardianRide = false;
     saveData();
     refreshLists();
     return;
@@ -333,22 +242,10 @@ function setChildFixedCar(id, carName) {
   const car = cars.find(c => c.name === carName);
   if (!car) return;
 
-  // 選手側指定は選手1席。既に車両側で保護者同乗がある場合はそのまま試す
-  const cost = seatCost(ch) || 1;
-  if (!canFitOnCar(car, cost, ch.id)) {
-    if (ch.guardianRide) {
-      // 保護者付きだと入らない場合は保護者を外して再判定
-      if (!canFitOnCar(car, 1, ch.id)) {
-        alert(`「${car.name}」の定員を超えるため指定できません。`);
-        renderChildren();
-        return;
-      }
-      ch.guardianRide = false;
-    } else {
-      alert(`「${car.name}」の定員を超えるため指定できません。`);
-      renderChildren();
-      return;
-    }
+  if (!canFitOnCar(car, 1, ch.id)) {
+    alert(`「${car.name}」の定員を超えるため指定できません。`);
+    renderChildren();
+    return;
   }
 
   ch.fixedCar = carName;
@@ -356,71 +253,37 @@ function setChildFixedCar(id, carName) {
   refreshLists();
 }
 
-function onHideGuestOption(childId) {
-  const kid = children.find(x => x.id === childId);
-  const label = kid ? kid.name : 'この候補';
-  if (!confirm(`「${label}」を車両の同乗候補から削除しますか？\n（選手データ自体は消えません。下の「戻す」で再表示できます）`)) {
-    return;
-  }
-  hideGuestOption(childId);
-  renderCars();
-}
-
-function onRestoreGuestOption(childId) {
-  restoreGuestOption(childId);
-  renderCars();
-}
-
-function addFamilySeat(carId) {
+function addCompanion(carId, label) {
   const car = cars.find(x => x.id === carId);
-  if (!car || !car.active) return;
-  const summary = carSeatSummary(car);
-  if (summary.remaining < 1) {
+  const name = (label || '').trim();
+  if (!car || !car.active || !name) return;
+
+  if (!canFitOnCar(car, 1)) {
     alert(`「${car.name}」は満席です。`);
     renderCars();
     return;
   }
-  car.familySeats = familySeatsOf(car) + 1;
+
+  if (!Array.isArray(car.companions)) car.companions = [];
+  car.companions.push({ id: newCompanionId(), label: name });
   saveData();
   refreshLists();
 }
 
-function removeFamilySeat(carId) {
-  const car = cars.find(x => x.id === carId);
-  if (!car) return;
-  car.familySeats = Math.max(0, familySeatsOf(car) - 1);
-  saveData();
-  refreshLists();
-}
-
-function addPreassign(carId, value) {
-  if (!value) return;
-  const car = cars.find(x => x.id === carId);
-  if (!car || !car.active) return;
-
-  const [idStr, mode] = value.split(':');
-  const kid = children.find(x => x.id === parseInt(idStr, 10));
-  if (!kid || !isRiding(kid)) return;
-
-  const withGuardian = mode === 'pair';
-  const cost = seatCostForChoice(withGuardian);
-  if (!canFitOnCar(car, cost, kid.id)) {
-    alert(`「${car.name}」の定員（${car.capacity}席）を超えるため追加できません。`);
-    renderCars();
+function addCompanionCustom(carId) {
+  const input = document.getElementById(`companionInput-${carId}`);
+  const name = input ? input.value.trim() : '';
+  if (!name) {
+    alert('同乗者の名前を入力してください。');
     return;
   }
-
-  kid.fixedCar = car.name;
-  kid.guardianRide = withGuardian;
-  saveData();
-  refreshLists();
+  addCompanion(carId, name);
 }
 
-function removePreassign(childId) {
-  const kid = children.find(x => x.id === childId);
-  if (!kid) return;
-  kid.fixedCar = '';
-  kid.guardianRide = false;
+function removeCompanion(carId, companionId) {
+  const car = cars.find(x => x.id === carId);
+  if (!car || !Array.isArray(car.companions)) return;
+  car.companions = car.companions.filter(c => String(c.id) !== String(companionId));
   saveData();
   refreshLists();
 }
@@ -444,7 +307,6 @@ function deleteChild(id) {
   const kid = children.find(x => x.id === id);
   if (kid && confirm(`「${kid.name}」を削除しますか？`)) {
     children = children.filter(x => x.id !== id);
-    hiddenGuestIds = hiddenGuestIds.filter(x => x !== id);
     saveData();
     refreshLists();
   }
@@ -482,18 +344,17 @@ function saveEditChild() {
     kid.parentCar = document.getElementById('editChildParentCar').value;
     kid.motionSick = document.getElementById('editChildMotionSick').checked;
 
+    kid.guardianRide = false;
     const nextFixed = document.getElementById('editChildFixedCar').value || '';
     if (nextFixed) {
       const car = cars.find(c => c.name === nextFixed);
-      const cost = seatCost(kid) || 1;
-      if (car && !canFitOnCar(car, cost, kid.id)) {
+      if (car && !canFitOnCar(car, 1, kid.id)) {
         alert(`「${car.name}」の定員を超えるため指定できません。`);
         return;
       }
       kid.fixedCar = nextFixed;
     } else {
       kid.fixedCar = '';
-      kid.guardianRide = false;
     }
 
     saveData();
@@ -532,7 +393,7 @@ function addCar() {
   const name = nameInput.value.trim();
   const cap = parseInt(capInput.value) || 3;
   if (name) {
-    cars.push(normalizeCar({ id: Date.now(), name: name, capacity: cap, active: true, familySeats: 0 }));
+    cars.push(normalizeCar({ id: Date.now(), name: name, capacity: cap, active: true, companions: [] }));
     renderCars();
     saveData();
     updateStatusBar();

@@ -89,68 +89,21 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
 .fixed-car-label { display: flex; align-items: center; gap: 4px; width: 100%; margin-top: 4px; font-size: 11px; color: #64748b; }
 .fixed-car-label.is-disabled { opacity: 0.45; }
 .fixed-car-select { flex: 1; min-width: 0; padding: 4px 6px; font-size: 12px; }
-.guest-manage {
-  margin-top: 8px;
-  padding: 10px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 10px;
-}
-.guest-manage-title {
-  font-size: 11px;
-  font-weight: bold;
-  color: #475569;
-  margin-bottom: 6px;
-}
-.guest-manage-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.guest-manage-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  padding: 3px 6px 3px 10px;
-  font-size: 12px;
-  color: #334155;
-}
-.guest-manage-chip.is-hidden {
-  background: #f1f5f9;
-  color: #64748b;
-}
-.guest-manage-trash,
-.guest-manage-restore {
-  border: none;
-  background: #e2e8f0;
-  border-radius: 999px;
-  font-size: 11px;
-  cursor: pointer;
-  padding: 2px 6px;
-  line-height: 1.2;
-}
-.guest-manage-trash { background: #fee2e2; }
-.guest-manage-restore { background: #dbeafe; color: #1d4ed8; font-weight: bold; }
-.guest-manage-hidden { margin-top: 8px; }
-
 .car-card {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 10px 12px 12px;
-  margin-bottom: 12px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
   background: #fff;
 }
 .car-card.is-inactive { opacity: 0.55; background: #f8fafc; }
-.car-card-top { margin-bottom: 8px; }
+.car-card-top { margin-bottom: 6px; }
 .car-card-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .car-name-label {
   display: flex;
@@ -161,7 +114,7 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
   flex: 1;
 }
 .car-name-label input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
-.car-name { font-size: 16px; font-weight: 700; color: #1e293b; }
+.car-name { font-size: 15px; font-weight: 700; color: #1e293b; }
 .car-card-tools { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .cap-edit { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; }
 .capacity-display {
@@ -171,113 +124,115 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
   gap: 8px;
   background: #f1f5f9;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 6px 10px;
 }
 .capacity-main {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: #0f172a;
-  letter-spacing: 0.01em;
 }
 .seat-badge {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: bold;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 999px;
   white-space: nowrap;
 }
 .seat-badge-ok { background: #dcfce7; color: #166534; }
 .seat-badge-full { background: #fed7aa; color: #9a3412; }
 .seat-badge-over { background: #fecaca; color: #991b1b; }
-.preassign-section {
-  border-radius: 8px;
-  padding: 8px 10px 10px;
-  margin-top: 8px;
+
+.companion-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.preassign-family {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-}
-.preassign-guest {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-}
-.preassign-title {
-  font-size: 12px;
-  font-weight: bold;
-  color: #334155;
-  margin-bottom: 6px;
-}
-.preassign-members {
+.companion-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  min-height: 28px;
-  margin-bottom: 8px;
+  gap: 4px;
   align-items: center;
+  min-height: 24px;
 }
-.preassign-empty {
-  margin: 0;
-  font-size: 12px;
+.companion-empty {
+  font-size: 11px;
   color: #94a3b8;
 }
-.preassign-chip {
+.companion-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
   border-radius: 999px;
-  padding: 4px 6px 4px 10px;
-  font-size: 13px;
+  padding: 2px 4px 2px 8px;
+  font-size: 12px;
   font-weight: 600;
 }
-.preassign-chip-family {
-  background: #dbeafe;
-  color: #1e40af;
-  border: 1px solid #93c5fd;
-}
-.preassign-chip-guest {
-  background: #fef9c3;
-  color: #854d0e;
-  border: 1px solid #fde68a;
-}
-.preassign-remove {
+.companion-remove {
   border: none;
-  width: 20px;
-  height: 20px;
+  background: #bfdbfe;
+  color: #1e3a8a;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
 }
-.preassign-chip-family .preassign-remove { background: #93c5fd; color: #1e3a8a; }
-.preassign-chip-guest .preassign-remove { background: #fde68a; color: #92400e; }
-.btn-add-family {
-  width: 100%;
-  padding: 9px 10px;
-  border-radius: 8px;
-  border: 1px dashed #60a5fa;
+.companion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.companion-quicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.companion-quick {
+  border: 1px solid #cbd5e1;
   background: #fff;
-  color: #1d4ed8;
-  font-size: 13px;
-  font-weight: bold;
+  color: #334155;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
-.btn-add-family:disabled {
+.companion-quick:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  border-color: #cbd5e1;
-  color: #94a3b8;
 }
-.preassign-select {
-  width: 100%;
-  font-size: 13px;
-  background: white;
+.companion-custom {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  min-width: 160px;
 }
-.preassign-select:disabled {
-  opacity: 0.45;
+.companion-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+}
+.companion-add-btn {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.companion-add-btn:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
-  background: #f1f5f9;
 }
 
 .add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap; }

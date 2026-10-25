@@ -202,24 +202,35 @@ function generateCarpool() {
 
   currentAssignments = assignments;
 
-  // 画面用テキスト（📌・同乗・身内注記あり）
+  function carHasAnyone(car, riders) {
+    return (riders && riders.length > 0) || companionSeatsOf(car) > 0;
+  }
+
+  function buildNameBullets(car, riders) {
+    const lines = [];
+    (riders || []).forEach(k => {
+      lines.push(`・${k.name}`);
+    });
+    companionsOf(car).forEach(c => {
+      lines.push(`・${c.label}`);
+    });
+    return lines;
+  }
+
+  // 画面用テキスト（📌あり／同乗は名前列挙）
   function buildScreenPlanText() {
     let hasMotionSick = ridingKids.some(k => k.motionSick);
     let hasPinned = ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
     let text = `【連絡】本日の配車です🚗\n---------------------\n`;
 
-    if (ridingKids.length > 0 || activeCars.some(c => familySeatsOf(c) > 0)) {
+    if (ridingKids.length > 0 || activeCars.some(c => companionSeatsOf(c) > 0)) {
       activeCars.forEach(c => {
-        let carName = c.name;
-        let riders = assignments[carName] || [];
-        let names = riders.map(k => formatRiderLabel(k, carName, { showPin: true })).join('、');
-        const family = familySeatsOf(c);
-        if (family > 0) {
-          const familyNote = `（＋身内${family}名）`;
-          names = names ? `${names}${familyNote}` : familyNote;
-        }
-        let people = carPeopleCount(c, riders);
-        text += `■ ${carName} (${people}名)\n  乗車: ${names || 'なし'}\n\n`;
+        const riders = assignments[c.name] || [];
+        const riderNames = riders.map(k => formatRiderLabel(k, c.name, { showPin: true }));
+        const companionNames = companionsOf(c).map(x => x.label);
+        const names = [...riderNames, ...companionNames].join('、');
+        const people = carPeopleCount(c, riders);
+        text += `■ ${c.name} (${people}名)\n  乗車: ${names || 'なし'}\n\n`;
       });
     } else {
       text += "本日の乗車配車はありません。\n\n";
@@ -240,28 +251,20 @@ function generateCarpool() {
   }
 
   // LINE用テキスト（名前のみ・箇条書き／注記なし）
-  function buildLineRiderBullets(riders) {
-    const lines = [];
-    (riders || []).forEach(k => {
-      lines.push(`・${k.name}`);
-      if (k.guardianRide) {
-        const custom = (k.guardianName || '').trim();
-        lines.push(`・${custom || `${k.name}母`}`);
-      }
-    });
-    return lines;
-  }
-
   function buildLinePlanText() {
     let text = `【連絡】本日の配車です🚗\n---------------------\n`;
 
-    if (ridingKids.length > 0 || activeCars.some(c => familySeatsOf(c) > 0)) {
+    if (ridingKids.length > 0 || activeCars.some(c => companionSeatsOf(c) > 0)) {
       activeCars.forEach(c => {
         const riders = assignments[c.name] || [];
-        const bullets = buildLineRiderBullets(riders);
+        const bullets = buildNameBullets(c, riders);
         const people = carPeopleCount(c, riders);
         text += `■ ${c.name} (${people}名)\n`;
-        text += bullets.length > 0 ? `${bullets.join('\n')}\n\n` : `・なし\n\n`;
+        if (!carHasAnyone(c, riders)) {
+          text += `・なし\n\n`;
+        } else {
+          text += `${bullets.join('\n')}\n\n`;
+        }
       });
     } else {
       text += "本日の乗車配車はありません。\n\n";

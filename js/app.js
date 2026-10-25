@@ -64,21 +64,18 @@ function handleAppClick(event) {
     case 'delete-child':
       deleteChild(id);
       break;
-    case 'remove-preassign':
-      removePreassign(id);
+    case 'add-companion':
+      addCompanion(id, target.dataset.label || '');
       break;
-    case 'add-family':
-      addFamilySeat(id);
+    case 'add-companion-custom':
+      addCompanionCustom(id);
       break;
-    case 'remove-family':
-      removeFamilySeat(id);
+    case 'remove-companion': {
+      const carId = Number(target.dataset.carId);
+      const companionId = target.dataset.companionId;
+      removeCompanion(carId, companionId);
       break;
-    case 'hide-guest-option':
-      onHideGuestOption(id);
-      break;
-    case 'restore-guest-option':
-      onRestoreGuestOption(id);
-      break;
+    }
     default:
       break;
   }
@@ -102,9 +99,6 @@ function handleAppChange(event) {
     case 'set-fixed-car':
       setChildFixedCar(id, target.value);
       break;
-    case 'add-preassign':
-      addPreassign(id, target.value);
-      break;
     default:
       break;
   }
@@ -113,6 +107,15 @@ function handleAppChange(event) {
 function initApp() {
   document.body.addEventListener('click', handleAppClick);
   document.body.addEventListener('change', handleAppChange);
+  document.body.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    const input = event.target.closest('.companion-input');
+    if (!input || !input.id) return;
+    const match = input.id.match(/^companionInput-(\d+)$/);
+    if (!match) return;
+    event.preventDefault();
+    addCompanionCustom(Number(match[1]));
+  });
   renderCars();
   renderChildren();
   updateStatusBar();

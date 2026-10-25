@@ -1,24 +1,58 @@
 function createDefaultCars() {
   return [
-    { id: 1, name: '佐藤号', capacity: 3, active: true, familySeats: 0 },
-    { id: 2, name: '鈴木号', capacity: 3, active: true, familySeats: 0 },
-    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true, familySeats: 0 }
+    { id: 1, name: '佐藤号', capacity: 3, active: true, companions: [] },
+    { id: 2, name: '鈴木号', capacity: 3, active: true, companions: [] },
+    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true, companions: [] }
   ];
 }
 
-function normalizeCar(car) {
+function normalizeCompanion(item, fallbackId) {
+  if (!item || typeof item !== 'object') return null;
+  const label = typeof item.label === 'string' ? item.label.trim() : '';
+  if (!label) return null;
   return {
-    ...car,
-    name: typeof car.name === 'string' ? car.name : '',
-    capacity: Math.max(0, parseInt(car.capacity, 10) || 0),
-    active: !!car.active,
-    familySeats: Math.max(0, parseInt(car.familySeats, 10) || 0)
+    id: item.id != null ? item.id : fallbackId,
+    label: label
   };
 }
 
+function normalizeCar(car) {
+  let companions = [];
+  if (Array.isArray(car.companions)) {
+    companions = car.companions
+      .map((item, idx) => normalizeCompanion(item, `cmp-${car.id}-${idx}`))
+      .filter(Boolean);
+  }
+
+  // 旧 familySeats（人数のみ）からの移行
+  const legacyFamily = Math.max(0, parseInt(car.familySeats, 10) || 0);
+  if (companions.length === 0 && legacyFamily > 0) {
+    for (let i = 0; i < legacyFamily; i++) {
+      companions.push({ id: `legacy-family-${car.id}-${i}`, label: '身内' });
+    }
+  }
+
+  return {
+    id: car.id,
+    name: typeof car.name === 'string' ? car.name : '',
+    capacity: Math.max(0, parseInt(car.capacity, 10) || 0),
+    active: !!car.active,
+    companions: companions
+  };
+}
+
+function companionsOf(car) {
+  if (!car || !Array.isArray(car.companions)) return [];
+  return car.companions;
+}
+
+function companionSeatsOf(car) {
+  return companionsOf(car).length;
+}
+
+// 互換エイリアス（旧コード参照用）
 function familySeatsOf(car) {
-  if (!car) return 0;
-  return Math.max(0, parseInt(car.familySeats, 10) || 0);
+  return companionSeatsOf(car);
 }
 
 function createDefaultChildren() {
@@ -116,23 +150,19 @@ function fixedSeatsUsed(carName) {
 
 function carSeatSummary(car) {
   const capacity = parseInt(car.capacity, 10) || 0;
-  const family = familySeatsOf(car);
+  const companions = companionSeatsOf(car);
   const guests = fixedSeatsUsed(car.name);
-  const used = family + guests;
+  const used = companions + guests;
   const remaining = capacity - used;
   return {
     capacity,
-    family,
+    companions,
     guests,
     used,
     remaining,
     isFull: remaining <= 0,
     isOver: remaining < 0
   };
-}
-
-function seatCostForChoice(withGuardian) {
-  return 1 + (withGuardian ? 1 : 0);
 }
 
 function canFitOnCar(car, extraSeats, excludeChildId) {
@@ -148,9 +178,12 @@ function canFitOnCar(car, extraSeats, excludeChildId) {
   return used + extraSeats <= summary.capacity;
 }
 
+function newCompanionId() {
+  return `cmp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
 let cars = [];
 let children = [];
-let hiddenGuestIds = [];
 
 try {
   const loadedCars = JSON.parse(localStorage.getItem('cp_cars')) || createDefaultCars();
@@ -166,45 +199,32 @@ try {
   children = createDefaultChildren();
 }
 
-try {
-  const loadedHidden = JSON.parse(localStorage.getItem('cp_hidden_guest_ids'));
-  hiddenGuestIds = Array.isArray(loadedHidden)
-    ? loadedHidden.map(Number).filter(n => !Number.isNaN(n))
-    : [];
-} catch (e) {
-  hiddenGuestIds = [];
-}
-
-function saveHiddenGuestIds() {
-  try {
-    localStorage.setItem('cp_hidden_guest_ids', JSON.stringify(hiddenGuestIds));
-  } catch (e) {
-    console.error("同乗候補の保存エラー:", e);
+// 旧 guardianRide（選手＋保護者）を車の同乗チップへ移行
+(function migrateLegacyGuardianRides() {
+  let changed = false;
+  children.forEach(ch => {
+    if (!ch.guardianRide || !ch.fixedCar) return;
+    const car = cars.find(c => c.name === ch.fixedCar);
+    if (car) {
+      const label = (ch.guardianName || '').trim() || '母';
+      car.companions.push({ id: newCompanionId(), label: label });
+      changed = true;
+    }
+    ch.guardianRide = false;
+    changed = true;
+  });
+  if (changed) {
+    try {
+      localStorage.setItem('cp_cars', JSON.stringify(cars));
+      localStorage.setItem('cp_children', JSON.stringify(children));
+    } catch (e) { /* ignore */ }
   }
-}
-
-function isGuestOptionHidden(childId) {
-  return hiddenGuestIds.includes(Number(childId));
-}
-
-function hideGuestOption(childId) {
-  const id = Number(childId);
-  if (Number.isNaN(id) || hiddenGuestIds.includes(id)) return;
-  hiddenGuestIds.push(id);
-  saveHiddenGuestIds();
-}
-
-function restoreGuestOption(childId) {
-  const id = Number(childId);
-  hiddenGuestIds = hiddenGuestIds.filter(x => x !== id);
-  saveHiddenGuestIds();
-}
+})();
 
 function saveData() {
   try {
     localStorage.setItem('cp_cars', JSON.stringify(cars));
     localStorage.setItem('cp_children', JSON.stringify(children));
-    saveHiddenGuestIds();
   } catch (e) {
     console.error("保存エラー:", e);
   }
@@ -219,7 +239,7 @@ function clearAllChecks() {
   if (confirm("子供と車の出欠チェックをすべて外しますか？\n（選手一覧や車一覧は消えません）")) {
     cars.forEach(c => {
       c.active = false;
-      c.familySeats = 0;
+      c.companions = [];
     });
     children.forEach(c => {
       c.active = false;
@@ -250,7 +270,7 @@ function isBackupChild(child) {
 }
 
 function copyBackupData() {
-  const payload = JSON.stringify({ cars: cars, children: children, hiddenGuestIds: hiddenGuestIds }, null, 2);
+  const payload = JSON.stringify({ cars: cars, children: children }, null, 2);
   const notifyCopied = () => {
     alert("データをコピーしました！LINEのKeepメモ等に貼り付けて保存してください");
   };
@@ -285,9 +305,6 @@ function restoreBackupData(text) {
 
   cars = data.cars.map(normalizeCar);
   children = data.children.map(normalizeChild);
-  hiddenGuestIds = Array.isArray(data.hiddenGuestIds)
-    ? data.hiddenGuestIds.map(Number).filter(n => !Number.isNaN(n))
-    : [];
   saveData();
   renderCars();
   renderChildren();
