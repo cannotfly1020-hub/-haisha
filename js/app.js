@@ -81,8 +81,11 @@ function handleAppChange(event) {
     case 'update-capacity':
       updateCapacity(id, target.value);
       break;
-    case 'toggle-child':
-      toggleChild(id);
+    case 'set-attend':
+      setChildAttend(id, target.value);
+      break;
+    case 'toggle-guardian':
+      toggleGuardianRide(id);
       break;
     default:
       break;

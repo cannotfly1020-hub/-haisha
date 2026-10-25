@@ -8,13 +8,76 @@ function createDefaultCars() {
 
 function createDefaultChildren() {
   return [
-    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', motionSick: true, active: true, lastCar: '', rideHistory: {} },
-    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} },
-    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', motionSick: false, active: true, lastCar: '', rideHistory: {} }
+    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', motionSick: true, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} }
   ];
+}
+
+function normalizeChild(child) {
+  const meetOnSite = !!child.meetOnSite;
+  return {
+    ...child,
+    active: !!child.active,
+    meetOnSite: meetOnSite,
+    guardianRide: !!child.guardianRide && !meetOnSite,
+    guardianName: typeof child.guardianName === 'string' ? child.guardianName : '',
+    motionSick: !!child.motionSick,
+    parentCar: typeof child.parentCar === 'string' ? child.parentCar : '',
+    lastCar: typeof child.lastCar === 'string' ? child.lastCar : '',
+    rideHistory: child.rideHistory && typeof child.rideHistory === 'object' && !Array.isArray(child.rideHistory) ? child.rideHistory : {}
+  };
+}
+
+function isParticipating(child) {
+  return !!child && !!child.active;
+}
+
+function isOnSite(child) {
+  return isParticipating(child) && !!child.meetOnSite;
+}
+
+function isRiding(child) {
+  return isParticipating(child) && !child.meetOnSite;
+}
+
+function seatCost(child) {
+  if (!isRiding(child)) return 0;
+  return 1 + (child.guardianRide ? 1 : 0);
+}
+
+function guardianLabel(child) {
+  const name = (child && child.guardianName ? child.guardianName : '').trim();
+  return name || '母';
+}
+
+function formatRiderLabel(child) {
+  const sick = child.motionSick ? '🤢' : '';
+  const guardian = child.guardianRide ? `（＋${guardianLabel(child)}）` : '';
+  return `${child.name}${sick}${guardian}`;
+}
+
+function getAttendMode(child) {
+  if (!child.active) return 'off';
+  return child.meetOnSite ? 'site' : 'ride';
+}
+
+function setAttendMode(child, mode) {
+  if (mode === 'off') {
+    child.active = false;
+    child.meetOnSite = false;
+    child.guardianRide = false;
+  } else if (mode === 'site') {
+    child.active = true;
+    child.meetOnSite = true;
+    child.guardianRide = false;
+  } else {
+    child.active = true;
+    child.meetOnSite = false;
+  }
 }
 
 let cars = [];
@@ -27,7 +90,8 @@ try {
 }
 
 try {
-  children = JSON.parse(localStorage.getItem('cp_children')) || createDefaultChildren();
+  const loaded = JSON.parse(localStorage.getItem('cp_children')) || createDefaultChildren();
+  children = loaded.map(normalizeChild);
 } catch (e) {
   children = createDefaultChildren();
 }
@@ -49,7 +113,11 @@ function manualSave() {
 function clearAllChecks() {
   if (confirm("子供と車の出欠チェックをすべて外しますか？\n（選手一覧や車一覧は消えません）")) {
     cars.forEach(c => c.active = false);
-    children.forEach(c => c.active = false);
+    children.forEach(c => {
+      c.active = false;
+      c.meetOnSite = false;
+      c.guardianRide = false;
+    });
     saveData();
     renderCars();
     renderChildren();
@@ -107,11 +175,7 @@ function restoreBackupData(text) {
   }
 
   cars = data.cars;
-  children = data.children.map(child => ({
-    ...child,
-    lastCar: typeof child.lastCar === 'string' ? child.lastCar : '',
-    rideHistory: child.rideHistory && typeof child.rideHistory === 'object' && !Array.isArray(child.rideHistory) ? child.rideHistory : {}
-  }));
+  children = data.children.map(normalizeChild);
   saveData();
   renderCars();
   renderChildren();
@@ -134,6 +198,8 @@ function promoteAllGrades() {
         c.grade += 1;
       } else {
         c.active = false;
+        c.meetOnSite = false;
+        c.guardianRide = false;
       }
     });
     saveData();

@@ -16,6 +16,10 @@
     <span class="status-label">参加選手</span>
     <span class="status-val" id="countKids">0人</span>
   </div>
+  <div class="status-item">
+    <span class="status-label">現地</span>
+    <span class="status-val" id="countOnSite">0人</span>
+  </div>
   <div class="status-sep">/</div>
   <div class="status-item">
     <span class="status-label">乗車定員</span>
@@ -53,7 +57,7 @@
 <!-- 2. 子供・出欠設定 -->
 <div class="card">
   <div class="card-header">
-    <h2>2. 参加する子供（乗車する子）</h2>
+    <h2>2. 参加する子供（乗車 / 現地 / 同乗）</h2>
     <div class="header-actions">
       <button type="button" class="btn-mini" data-action="sort-grade">🎒 学年順</button>
       <button type="button" class="btn-mini" data-action="sort-name">🔤 五十音順</button>
@@ -81,8 +85,9 @@
     <select id="newChildParentCar">
       <option value="">親の車: なし</option>
     </select>
+    <input type="text" id="newChildGuardianName" placeholder="同乗保護者名(任意)">
     <label class="inline-check-label">
-      <input type="checkbox" id="newChildMotionSick"> 🤢車酔い
+      <input type="checkbox" id="newChildMotionSick"> 🤢車酔
     </label>
     <button type="button" class="btn-secondary" data-action="add-child">追加</button>
   </div>
@@ -171,6 +176,10 @@
       <select id="editChildParentCar">
         <option value="">なし</option>
       </select>
+    </div>
+    <div class="modal-field">
+      <label>同乗保護者の呼び名（任意）</label>
+      <input type="text" id="editChildGuardianName" placeholder="空欄なら「母」と表示">
     </div>
     <div class="modal-field modal-field-motion">
       <label class="motion-edit-label">

@@ -1,9 +1,12 @@
 function updateStatusBar() {
-  const activeKids = children.filter(c => c.active).length;
+  const activeKids = children.filter(isParticipating).length;
+  const onSiteKids = children.filter(isOnSite).length;
+  const seatDemand = children.reduce((sum, c) => sum + seatCost(c), 0);
   const activeSeats = cars.filter(c => c.active).reduce((sum, c) => sum + (parseInt(c.capacity) || 0), 0);
-  const diff = activeSeats - activeKids;
+  const diff = activeSeats - seatDemand;
 
   const countKidsEl = document.getElementById('countKids');
+  const countOnSiteEl = document.getElementById('countOnSite');
   const countSeatsEl = document.getElementById('countSeats');
   const bar = document.getElementById('statusBar');
   const diffEl = document.getElementById('statusDiff');
@@ -12,6 +15,7 @@ function updateStatusBar() {
   if (!countKidsEl || !countSeatsEl || !bar || !diffEl || !labelEl) return;
 
   countKidsEl.innerText = `${activeKids}人`;
+  if (countOnSiteEl) countOnSiteEl.innerText = `${onSiteKids}人`;
   countSeatsEl.innerText = `${activeSeats}席`;
 
   if (diff < 0) {
@@ -75,19 +79,31 @@ function renderChildren() {
   if (!list) return;
   list.innerHTML = '';
   children.forEach((c) => {
+    const mode = getAttendMode(c);
+    const guardianDisabled = mode !== 'ride' ? 'disabled' : '';
     list.innerHTML += `
-      <div class="item-row">
-        <div class="item-left">
-          <label>
-            <input type="checkbox" data-action="toggle-child" data-id="${c.id}" ${c.active ? 'checked' : ''}>
-            <span>${c.name}</span>
+      <div class="item-row item-row-child">
+        <div class="item-main">
+          <select class="attend-select" data-action="set-attend" data-id="${c.id}">
+            <option value="off" ${mode === 'off' ? 'selected' : ''}>欠席</option>
+            <option value="ride" ${mode === 'ride' ? 'selected' : ''}>乗車</option>
+            <option value="site" ${mode === 'site' ? 'selected' : ''}>現地</option>
+          </select>
+          <div class="item-info">
+            <span class="child-name">${c.name}</span>
             <span class="badge-sub">${c.grade ? c.grade + '年' : ''}</span>
             <span class="badge-sub">${c.pos || ''}</span>
             ${c.motionSick ? `<span class="badge-motion">🤢酔い</span>` : ''}
             ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
-          </label>
+            ${mode === 'site' ? `<span class="badge-site">現地集合</span>` : ''}
+            ${c.guardianRide && mode === 'ride' ? `<span class="badge-guardian">＋${guardianLabel(c)}</span>` : ''}
+          </div>
         </div>
         <div class="item-right">
+          <label class="guardian-check ${mode !== 'ride' ? 'is-disabled' : ''}">
+            <input type="checkbox" data-action="toggle-guardian" data-id="${c.id}" ${c.guardianRide ? 'checked' : ''} ${guardianDisabled}>
+            同乗
+          </label>
           <button type="button" class="btn-edit" data-action="edit-child" data-id="${c.id}">✏️</button>
           <button type="button" class="btn-delete" data-action="delete-child" data-id="${c.id}">✕</button>
         </div>
@@ -110,10 +126,21 @@ function updateCapacity(id, val) {
   updateStatusBar();
 }
 
-function toggleChild(id) {
+function setChildAttend(id, mode) {
   const ch = children.find(x => x.id === id);
-  if (ch) ch.active = !ch.active;
+  if (!ch) return;
+  setAttendMode(ch, mode);
   saveData();
+  renderChildren();
+  updateStatusBar();
+}
+
+function toggleGuardianRide(id) {
+  const ch = children.find(x => x.id === id);
+  if (!ch || !isRiding(ch)) return;
+  ch.guardianRide = !ch.guardianRide;
+  saveData();
+  renderChildren();
   updateStatusBar();
 }
 
@@ -148,6 +175,7 @@ function openEditModal(id) {
   document.getElementById('editChildPos').value = kid.pos || '未定';
   document.getElementById('editChildParentCar').value = kid.parentCar || '';
   document.getElementById('editChildMotionSick').checked = !!kid.motionSick;
+  document.getElementById('editChildGuardianName').value = kid.guardianName || '';
   document.getElementById('editModal').style.display = 'flex';
 }
 
@@ -164,6 +192,7 @@ function saveEditChild() {
     kid.pos = document.getElementById('editChildPos').value;
     kid.parentCar = document.getElementById('editChildParentCar').value;
     kid.motionSick = document.getElementById('editChildMotionSick').checked;
+    kid.guardianName = document.getElementById('editChildGuardianName').value.trim();
     saveData();
     renderChildren();
     updateStatusBar();
@@ -218,31 +247,37 @@ function addChild() {
   const posInput = document.getElementById('newChildPos');
   const parentSelect = document.getElementById('newChildParentCar');
   const motionInput = document.getElementById('newChildMotionSick');
+  const guardianNameInput = document.getElementById('newChildGuardianName');
 
   const name = nameInput.value.trim();
   const grade = parseInt(gradeInput.value) || 6;
   const pos = posInput.value;
   const parent = parentSelect.value;
   const motionSick = motionInput.checked;
+  const guardianName = guardianNameInput ? guardianNameInput.value.trim() : '';
 
   if (name) {
-    children.push({
+    children.push(normalizeChild({
       id: Date.now(),
       name: name,
       grade: grade,
       pos: pos,
       parentCar: parent,
       motionSick: motionSick,
+      guardianName: guardianName,
       active: true,
+      meetOnSite: false,
+      guardianRide: false,
       lastCar: '',
       rideHistory: {}
-    });
+    }));
     renderChildren();
     saveData();
     updateStatusBar();
     nameInput.value = '';
     parentSelect.value = '';
     motionInput.checked = false;
+    if (guardianNameInput) guardianNameInput.value = '';
   } else {
     alert("選手の名前を入力してください");
   }
