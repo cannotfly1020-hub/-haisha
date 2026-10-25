@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>少年野球 配車ヘルパー</title>
-<link rel="stylesheet" href="css/style.css?v=20261025o">
+<link rel="stylesheet" href="css/style.css?v=20261025q">
 </head>
 <body>
 
@@ -38,63 +38,78 @@
   <button type="button" class="control-btn" data-action="manual-save">💾 今の状態を保存</button>
 </div>
 
-<!-- 1. 車両設定 -->
-<div class="card">
-  <div class="card-header">
-    <h2>1. 本日の車（同乗クイック追加）</h2>
-    <div class="header-actions">
-      <button type="button" class="btn-mini" data-action="sort-cars">🔤 名前順</button>
+<!-- 本日の車 ＋ 選手一覧（スマホ1カラム / 768px〜2カラム） -->
+<div class="main-grid">
+
+  <section class="panel is-open" id="carsPanel" data-section="cars">
+    <button type="button" class="panel-toggle" data-action="toggle-section" data-section="cars" aria-expanded="true">
+      <div class="panel-toggle-main">
+        <span class="panel-title">本日の車</span>
+        <span class="panel-summary" id="carsSummary">車: 0台稼働</span>
+      </div>
+      <span class="panel-chevron" aria-hidden="true"></span>
+    </button>
+    <div class="panel-body">
+      <div class="panel-toolbar">
+        <button type="button" class="btn-mini" data-action="sort-cars">🔤 名前順</button>
+      </div>
+      <div id="carList"></div>
+      <div class="add-form">
+        <input type="text" id="newCarName" placeholder="車の名前/親の名前">
+        <input type="number" id="newCarCapacity" placeholder="定員" value="3">
+        <button type="button" class="btn-secondary" data-action="add-car">追加</button>
+      </div>
     </div>
-  </div>
-  <div id="carList"></div>
-  <div class="add-form">
-    <input type="text" id="newCarName" placeholder="車の名前/親の名前">
-    <input type="number" id="newCarCapacity" placeholder="定員" value="3">
-    <button type="button" class="btn-secondary" data-action="add-car">追加</button>
-  </div>
+  </section>
+
+  <section class="panel is-open" id="childrenPanel" data-section="children">
+    <button type="button" class="panel-toggle" data-action="toggle-section" data-section="children" aria-expanded="true">
+      <div class="panel-toggle-main">
+        <span class="panel-title">参加選手</span>
+        <span class="panel-summary" id="childrenSummary">選手: 0名出席</span>
+      </div>
+      <span class="panel-chevron" aria-hidden="true"></span>
+    </button>
+    <div class="panel-body">
+      <div class="panel-toolbar">
+        <button type="button" class="btn-mini" data-action="sort-grade">🎒 学年順</button>
+        <button type="button" class="btn-mini" data-action="sort-name">🔤 五十音順</button>
+        <button type="button" class="btn-mini" data-action="promote">🎓 進級</button>
+      </div>
+      <div id="childList"></div>
+      <div class="add-form add-form-child">
+        <input type="text" id="newChildName" placeholder="名前">
+        <select id="newChildGrade">
+          <option value="6">6年</option>
+          <option value="5">5年</option>
+          <option value="4">4年</option>
+          <option value="3">3年</option>
+          <option value="2">2年</option>
+          <option value="1">1年</option>
+        </select>
+        <select id="newChildPos">
+          <option value="投手">投手</option>
+          <option value="捕手">捕手</option>
+          <option value="内野">内野</option>
+          <option value="外野">外野</option>
+          <option value="未定">未定</option>
+        </select>
+        <select id="newChildParentCar">
+          <option value="">親の車: なし</option>
+        </select>
+        <label class="inline-check-label">
+          <input type="checkbox" id="newChildMotionSick"> 🤢車酔
+        </label>
+        <button type="button" class="btn-secondary" data-action="add-child">追加</button>
+      </div>
+    </div>
+  </section>
+
 </div>
 
-<!-- 2. 子供・出欠設定 -->
+<!-- 配車設定・実行 -->
 <div class="card">
-  <div class="card-header">
-    <h2>2. 参加する子供（出欠・親の車・指定車両）</h2>
-    <div class="header-actions">
-      <button type="button" class="btn-mini" data-action="sort-grade">🎒 学年順</button>
-      <button type="button" class="btn-mini" data-action="sort-name">🔤 五十音順</button>
-      <button type="button" class="btn-mini" data-action="promote">🎓 進級</button>
-    </div>
-  </div>
-  <div id="childList"></div>
-  <div class="add-form">
-    <input type="text" id="newChildName" placeholder="名前">
-    <select id="newChildGrade">
-      <option value="6">6年</option>
-      <option value="5">5年</option>
-      <option value="4">4年</option>
-      <option value="3">3年</option>
-      <option value="2">2年</option>
-      <option value="1">1年</option>
-    </select>
-    <select id="newChildPos">
-      <option value="投手">投手</option>
-      <option value="捕手">捕手</option>
-      <option value="内野">内野</option>
-      <option value="外野">外野</option>
-      <option value="未定">未定</option>
-    </select>
-    <select id="newChildParentCar">
-      <option value="">親の車: なし</option>
-    </select>
-    <label class="inline-check-label">
-      <input type="checkbox" id="newChildMotionSick"> 🤢車酔
-    </label>
-    <button type="button" class="btn-secondary" data-action="add-child">追加</button>
-  </div>
-</div>
-
-<!-- 3. 配車設定・実行 -->
-<div class="card">
-  <h2>3. 配車ルール・条件</h2>
+  <h2 class="card-heading">配車ルール・条件</h2>
   <div class="mode-select-box">
     <label class="mode-label">割り振りの優先モード:</label>
     <select id="carpoolMode">
@@ -107,16 +122,16 @@
   <button type="button" class="btn btn-primary" data-action="generate">⚡ 配車を組む / 組み直す</button>
 </div>
 
-<!-- 4. 結果表示 -->
+<!-- 結果表示 -->
 <div class="card result-card" id="resultCard">
-  <h2>配車結果</h2>
+  <h2 class="card-heading">配車結果</h2>
   <div class="result-box" id="resultText"></div>
   <button type="button" class="btn btn-outline" data-action="generate">🔄 別の組み合わせで再計算する</button>
   <button type="button" class="btn btn-success" data-action="copy-result">📋 LINE用テキストをコピー（履歴を確定保存）</button>
 </div>
 
 <div class="card backup-card">
-  <h2>📦 データのバックアップ・復元</h2>
+  <h2 class="card-heading">📦 データのバックアップ・復元</h2>
   <button type="button" class="btn btn-outline" data-action="copy-backup">📋 バックアップ用データをコピー</button>
   <button type="button" class="btn btn-restore" data-action="open-restore">📥 データを復元する</button>
 </div>
@@ -196,9 +211,9 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261025o"></script>
-<script src="js/ui.js?v=20261025o"></script>
-<script src="js/carpool.js?v=20261025o"></script>
-<script src="js/app.js?v=20261025o"></script>
+<script src="js/data.js?v=20261025q"></script>
+<script src="js/ui.js?v=20261025q"></script>
+<script src="js/carpool.js?v=20261025q"></script>
+<script src="js/app.js?v=20261025q"></script>
 </body>
 </html>

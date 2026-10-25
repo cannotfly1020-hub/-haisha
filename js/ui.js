@@ -1,3 +1,76 @@
+/** 選手カードの同乗入力を開いている ID（再描画でも維持） */
+const openChildCompanionEditors = new Set();
+
+function readSectionOpenState(key, fallback) {
+  try {
+    const raw = sessionStorage.getItem(`cp_section_${key}`);
+    if (raw === '0') return false;
+    if (raw === '1') return true;
+  } catch (e) { /* ignore */ }
+  return fallback;
+}
+
+function writeSectionOpenState(key, isOpen) {
+  try {
+    sessionStorage.setItem(`cp_section_${key}`, isOpen ? '1' : '0');
+  } catch (e) { /* ignore */ }
+}
+
+function applySectionOpenState() {
+  ['cars', 'children'].forEach((key) => {
+    const panel = document.getElementById(key === 'cars' ? 'carsPanel' : 'childrenPanel');
+    if (!panel) return;
+    const isOpen = readSectionOpenState(key, true);
+    panel.classList.toggle('is-open', isOpen);
+    const toggle = panel.querySelector('.panel-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+}
+
+function toggleSection(sectionKey) {
+  // ワイド画面では常時展開のためトグル無効
+  if (window.matchMedia && window.matchMedia('(min-width: 768px)').matches) return;
+
+  const panel = document.getElementById(sectionKey === 'cars' ? 'carsPanel' : 'childrenPanel');
+  if (!panel) return;
+  const nextOpen = !panel.classList.contains('is-open');
+  panel.classList.toggle('is-open', nextOpen);
+  writeSectionOpenState(sectionKey, nextOpen);
+  const toggle = panel.querySelector('.panel-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+}
+
+function openChildCompanionEditor(childId) {
+  const id = Number(childId);
+  if (!id) return;
+  openChildCompanionEditors.add(id);
+  renderChildren();
+  const input = document.getElementById(`childCompanionInput-${id}`);
+  if (input) {
+    input.focus();
+    if (typeof input.scrollIntoView === 'function') {
+      input.scrollIntoView({ block: 'nearest' });
+    }
+  }
+}
+
+function updatePanelSummaries(activeCarsList, activeSeats, seatDemand, activeKids) {
+  const carsSummary = document.getElementById('carsSummary');
+  const childrenSummary = document.getElementById('childrenSummary');
+  const remaining = activeSeats - seatDemand;
+  if (carsSummary) {
+    const n = activeCarsList.length;
+    if (remaining < 0) {
+      carsSummary.textContent = `車: ${n}台稼働（${Math.abs(remaining)}席不足）`;
+    } else {
+      carsSummary.textContent = `車: ${n}台稼働（残り${remaining}席）`;
+    }
+  }
+  if (childrenSummary) {
+    childrenSummary.textContent = `選手: ${activeKids}名出席`;
+  }
+}
+
 function updateStatusBar() {
   const activeKids = children.filter(isParticipating).length;
   const onSiteKids = children.filter(isOnSite).length;
@@ -14,6 +87,8 @@ function updateStatusBar() {
   const bar = document.getElementById('statusBar');
   const diffEl = document.getElementById('statusDiff');
   const labelEl = document.getElementById('statusDiffLabel');
+
+  updatePanelSummaries(activeCarsList, activeSeats, seatDemand, activeKids);
 
   if (!countKidsEl || !countSeatsEl || !bar || !diffEl || !labelEl) return;
 
@@ -88,9 +163,7 @@ const QUICK_COMPANION_LABELS = ['母', '兄', '姉', '弟', '妹'];
 
 function buildCompanionChipsHtml(car) {
   const list = companionsOf(car);
-  if (list.length === 0) {
-    return `<span class="companion-empty">同乗なし</span>`;
-  }
+  if (list.length === 0) return '';
   return list.map(c => `
     <span class="companion-chip">
       ${c.label}
@@ -114,6 +187,7 @@ function renderCars() {
     const inactiveClass = car.active ? '' : 'is-inactive';
     const fullBlock = summary.isFull || summary.isOver;
     const addDisabled = !car.active || fullBlock ? 'disabled' : '';
+    const carChips = buildCompanionChipsHtml(car);
 
     list.innerHTML += `
       <div class="car-card ${inactiveClass}">
@@ -130,7 +204,7 @@ function renderCars() {
         </div>
 
         <div class="companion-bar">
-          <div class="companion-chips">${buildCompanionChipsHtml(car)}</div>
+          ${carChips ? `<div class="companion-chips">${carChips}</div>` : ''}
           <div class="companion-add-row">
             ${buildQuickCompanionButtonsHtml(car, !!addDisabled)}
             <input type="text" class="companion-input" id="companionInput-${car.id}" placeholder="名前" ${addDisabled} maxlength="20">
@@ -145,9 +219,7 @@ function renderCars() {
 
 function buildChildCompanionChipsHtml(child) {
   const list = childCompanionsOf(child);
-  if (list.length === 0) {
-    return `<span class="companion-empty">同乗なし</span>`;
-  }
+  if (list.length === 0) return '';
   return list.map(cmp => `
     <span class="companion-chip">
       ${cmp.label}
@@ -164,6 +236,10 @@ function renderChildren() {
     const mode = getAttendMode(c);
     const fixedDisabled = mode !== 'ride' ? 'disabled' : '';
     const companionDisabled = mode !== 'ride' ? 'disabled' : '';
+    if (mode !== 'ride') openChildCompanionEditors.delete(Number(c.id));
+    const editorOpen = mode === 'ride' && openChildCompanionEditors.has(Number(c.id));
+    const chipsHtml = buildChildCompanionChipsHtml(c);
+
     list.innerHTML += `
       <div class="item-row item-row-child">
         <div class="item-main">
@@ -174,22 +250,25 @@ function renderChildren() {
               <option value="site" ${mode === 'site' ? 'selected' : ''}>現地</option>
             </select>
             <span class="child-name">${c.name}</span>
+            ${chipsHtml}
+            ${mode === 'ride' && !editorOpen ? `
+              <button type="button" class="btn-add-companion" data-action="open-child-companion" data-id="${c.id}">＋同乗</button>
+            ` : ''}
             <span class="badge-sub">${c.grade ? c.grade + '年' : ''}</span>
             ${c.motionSick ? `<span class="badge-motion">🤢酔い</span>` : ''}
             ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
-            ${mode === 'site' ? `<span class="badge-site">現地集合</span>` : ''}
+            ${mode === 'site' ? `<span class="badge-site">現地</span>` : ''}
             ${c.fixedCar && mode === 'ride' ? `<span class="badge-fixed">📌${c.fixedCar}</span>` : ''}
           </div>
-          <div class="child-companion-bar ${mode !== 'ride' ? 'is-disabled' : ''}">
-            <div class="companion-chips">${buildChildCompanionChipsHtml(c)}</div>
-            <div class="companion-add-row">
+          ${editorOpen ? `
+            <div class="child-companion-editor">
               <input type="text" class="child-companion-input" id="childCompanionInput-${c.id}"
                 placeholder="名前を入力..." ${companionDisabled} maxlength="20">
               <button type="button" class="companion-add-btn" data-action="add-child-companion" data-id="${c.id}" ${companionDisabled}>＋追加</button>
             </div>
-          </div>
+          ` : ''}
           <label class="fixed-car-label ${mode !== 'ride' ? 'is-disabled' : ''}">
-            <span>指定車両</span>
+            <span>指定</span>
             <select class="fixed-car-select" data-action="set-fixed-car" data-id="${c.id}" ${fixedDisabled}>
               ${buildFixedCarOptionsHtml(c.fixedCar || '', c)}
             </select>
@@ -287,6 +366,7 @@ function addChildCompanionCustom(childId) {
     alert('同乗者の名前を入力してください。');
     return;
   }
+  openChildCompanionEditors.add(Number(childId));
   addChildCompanion(childId, name);
 }
 

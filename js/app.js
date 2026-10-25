@@ -24,7 +24,9 @@ const CLICK_ACTIONS = new Set([
   'add-companion-custom',
   'remove-companion',
   'add-child-companion',
-  'remove-child-companion'
+  'remove-child-companion',
+  'toggle-section',
+  'open-child-companion'
 ]);
 
 /** touchend 直後の合成 click を無視するためのフラグ */
@@ -131,6 +133,12 @@ function runClickAction(target) {
       removeChildCompanion(childId, companionId);
       break;
     }
+    case 'toggle-section':
+      toggleSection(target.dataset.section || '');
+      break;
+    case 'open-child-companion':
+      openChildCompanionEditor(id);
+      break;
     default:
       break;
   }
@@ -239,6 +247,7 @@ function initApp() {
     }
   });
 
+  applySectionOpenState();
   renderCars();
   renderChildren();
   updateStatusBar();
