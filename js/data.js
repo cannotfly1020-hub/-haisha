@@ -57,29 +57,54 @@ function familySeatsOf(car) {
 
 function createDefaultChildren() {
   return [
-    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', fixedCar: '', motionSick: true, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} }
+    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', fixedCar: '', motionSick: false, active: true, meetOnSite: false, companions: [], lastCar: '', rideHistory: {} },
+    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', fixedCar: '', motionSick: false, active: true, meetOnSite: false, companions: [], lastCar: '', rideHistory: {} },
+    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', fixedCar: '', motionSick: true, active: true, meetOnSite: false, companions: [], lastCar: '', rideHistory: {} },
+    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, companions: [], lastCar: '', rideHistory: {} },
+    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, companions: [], lastCar: '', rideHistory: {} },
+    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, companions: [], lastCar: '', rideHistory: {} }
   ];
+}
+
+function normalizeChildCompanions(child) {
+  const meetOnSite = !!child.meetOnSite;
+  if (Array.isArray(child.companions)) {
+    return child.companions
+      .map((item, idx) => normalizeCompanion(item, `ch-cmp-${child.id}-${idx}`))
+      .filter(Boolean);
+  }
+
+  // 旧 guardianRide / guardianName（1人）からの移行
+  if (!meetOnSite && child.guardianRide) {
+    const label = (typeof child.guardianName === 'string' ? child.guardianName : '').trim() || '母';
+    return [{ id: `legacy-guardian-${child.id}`, label: label }];
+  }
+  return [];
 }
 
 function normalizeChild(child) {
   const meetOnSite = !!child.meetOnSite;
+  const companions = meetOnSite ? [] : normalizeChildCompanions(child);
   return {
     ...child,
     active: !!child.active,
     meetOnSite: meetOnSite,
-    guardianRide: !!child.guardianRide && !meetOnSite,
-    guardianName: typeof child.guardianName === 'string' ? child.guardianName : '',
+    companions: companions,
     motionSick: !!child.motionSick,
     parentCar: typeof child.parentCar === 'string' ? child.parentCar : '',
     fixedCar: typeof child.fixedCar === 'string' ? child.fixedCar : '',
     lastCar: typeof child.lastCar === 'string' ? child.lastCar : '',
     rideHistory: child.rideHistory && typeof child.rideHistory === 'object' && !Array.isArray(child.rideHistory) ? child.rideHistory : {}
   };
+}
+
+function childCompanionsOf(child) {
+  if (!child || !Array.isArray(child.companions)) return [];
+  return child.companions;
+}
+
+function childCompanionSeatsOf(child) {
+  return childCompanionsOf(child).length;
 }
 
 function isParticipating(child) {
@@ -96,26 +121,16 @@ function isRiding(child) {
 
 function seatCost(child) {
   if (!isRiding(child)) return 0;
-  return 1 + (child.guardianRide ? 1 : 0);
-}
-
-function guardianDisplayName(child) {
-  if (!child) return '母';
-  const custom = (child.guardianName || '').trim();
-  if (custom) return custom;
-  return `${child.name || ''}母`;
-}
-
-function guardianLabel(child) {
-  return guardianDisplayName(child);
+  return 1 + childCompanionSeatsOf(child);
 }
 
 function formatRiderLabel(child, carName, options) {
   const showPin = !options || options.showPin !== false;
   const pinned = showPin && child.fixedCar && carName && child.fixedCar === carName ? '📌' : '';
   const sick = child.motionSick ? '🤢' : '';
-  const guardian = child.guardianRide ? `（＋${guardianDisplayName(child)}）` : '';
-  return `${pinned}${child.name}${sick}${guardian}`;
+  const comps = childCompanionsOf(child);
+  const companion = comps.length > 0 ? `（＋${comps.map(c => c.label).join('、')}）` : '';
+  return `${pinned}${child.name}${sick}${companion}`;
 }
 
 function autoFixedLabel(child) {
@@ -132,14 +147,12 @@ function setAttendMode(child, mode) {
   if (mode === 'off') {
     child.active = false;
     child.meetOnSite = false;
-    child.guardianRide = false;
-    child.guardianName = '';
+    child.companions = [];
     child.fixedCar = '';
   } else if (mode === 'site') {
     child.active = true;
     child.meetOnSite = true;
-    child.guardianRide = false;
-    child.guardianName = '';
+    child.companions = [];
     child.fixedCar = '';
   } else {
     child.active = true;
@@ -207,23 +220,22 @@ try {
   children = createDefaultChildren();
 }
 
-// 旧 guardianRide（選手＋保護者）を車の同乗チップへ移行
-(function migrateLegacyGuardianRides() {
+// 旧 guardianRide / guardianName を companions 配列へ正規化して永続化
+(function migrateLegacyChildGuardians() {
   let changed = false;
   children.forEach(ch => {
-    if (!ch.guardianRide || !ch.fixedCar) return;
-    const car = cars.find(c => c.name === ch.fixedCar);
-    if (car) {
-      const label = (ch.guardianName || '').trim() || '母';
-      car.companions.push({ id: newCompanionId(), label: label });
+    if (ch.guardianRide != null || ch.guardianName != null) {
+      delete ch.guardianRide;
+      delete ch.guardianName;
       changed = true;
     }
-    ch.guardianRide = false;
-    changed = true;
+    if (!Array.isArray(ch.companions)) {
+      ch.companions = [];
+      changed = true;
+    }
   });
   if (changed) {
     try {
-      localStorage.setItem('cp_cars', JSON.stringify(cars));
       localStorage.setItem('cp_children', JSON.stringify(children));
     } catch (e) { /* ignore */ }
   }
@@ -252,7 +264,7 @@ function clearAllChecks() {
     children.forEach(c => {
       c.active = false;
       c.meetOnSite = false;
-      c.guardianRide = false;
+      c.companions = [];
       c.fixedCar = '';
     });
     saveData();
@@ -336,7 +348,7 @@ function promoteAllGrades() {
       } else {
         c.active = false;
         c.meetOnSite = false;
-        c.guardianRide = false;
+        c.companions = [];
         c.fixedCar = '';
       }
     });

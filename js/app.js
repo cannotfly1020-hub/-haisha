@@ -22,7 +22,9 @@ const CLICK_ACTIONS = new Set([
   'delete-child',
   'add-companion',
   'add-companion-custom',
-  'remove-companion'
+  'remove-companion',
+  'add-child-companion',
+  'remove-child-companion'
 ]);
 
 /** touchend 直後の合成 click を無視するためのフラグ */
@@ -120,6 +122,15 @@ function runClickAction(target) {
       removeCompanion(carId, companionId);
       break;
     }
+    case 'add-child-companion':
+      addChildCompanionCustom(id);
+      break;
+    case 'remove-child-companion': {
+      const childId = Number(target.dataset.childId);
+      const companionId = target.dataset.companionId;
+      removeChildCompanion(childId, companionId);
+      break;
+    }
     default:
       break;
   }
@@ -193,39 +204,39 @@ function handleAppChange(event) {
     case 'set-fixed-car':
       setChildFixedCar(id, target.value);
       break;
-    case 'toggle-guardian':
-      toggleGuardianRide(id);
-      break;
-    case 'set-guardian-name':
-      setGuardianName(id, target.value);
-      break;
     default:
       break;
   }
-}
-
-function handleAppInput(event) {
-  const target = event.target.closest('[data-action="set-guardian-name"]');
-  if (!target) return;
-  setGuardianName(Number(target.dataset.id), target.value);
 }
 
 function initApp() {
   // document へ委任（再描画後も確実に拾う）
   document.addEventListener('click', handleAppClick);
   document.addEventListener('change', handleAppChange);
-  document.addEventListener('input', handleAppInput);
   document.addEventListener('touchstart', handleAppTouchStart, { passive: true });
   document.addEventListener('touchend', handleAppTouchEnd, { passive: false });
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
-    const input = event.target.closest('.companion-input');
-    if (!input || !input.id) return;
-    const match = input.id.match(/^companionInput-(\d+)$/);
-    if (!match) return;
-    event.preventDefault();
-    addCompanionCustom(Number(match[1]));
+
+    const carInput = event.target.closest('.companion-input');
+    if (carInput && carInput.id) {
+      const carMatch = carInput.id.match(/^companionInput-(\d+)$/);
+      if (carMatch) {
+        event.preventDefault();
+        addCompanionCustom(Number(carMatch[1]));
+        return;
+      }
+    }
+
+    const childInput = event.target.closest('.child-companion-input');
+    if (childInput && childInput.id) {
+      const childMatch = childInput.id.match(/^childCompanionInput-(\d+)$/);
+      if (childMatch) {
+        event.preventDefault();
+        addChildCompanionCustom(Number(childMatch[1]));
+      }
+    }
   });
 
   renderCars();

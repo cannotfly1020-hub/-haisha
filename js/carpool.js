@@ -210,9 +210,9 @@ function generateCarpool() {
     const lines = [];
     (riders || []).forEach(k => {
       lines.push(`・${k.name}`);
-      if (k.guardianRide) {
-        lines.push(`・${guardianDisplayName(k)}`);
-      }
+      childCompanionsOf(k).forEach(c => {
+        lines.push(`・${c.label}`);
+      });
     });
     companionsOf(car).forEach(c => {
       lines.push(`・${c.label}`);

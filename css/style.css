@@ -90,21 +90,27 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
   min-width: 0;
 }
 .child-name { font-size: 14px; font-weight: 600; margin-right: 2px; }
-.guardian-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 12px;
-  color: #475569;
-  white-space: nowrap;
+.child-companion-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-top: 2px;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
 }
-.guardian-inline input { width: 15px; height: 15px; }
-.guardian-inline.is-disabled { opacity: 0.4; }
-.guardian-name-input {
-  width: 120px;
-  min-width: 90px;
-  padding: 4px 6px !important;
+.child-companion-bar.is-disabled {
+  opacity: 0.45;
+}
+.child-companion-input {
+  flex: 1 1 120px;
+  min-width: 100px;
+  padding: 6px 8px !important;
   font-size: 12px !important;
+  min-height: 36px;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 .badge-site { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #ecfdf5; color: #047857; margin-left: 4px; white-space: nowrap; }
 .badge-fixed { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #fef9c3; color: #a16207; margin-left: 4px; white-space: nowrap; }
