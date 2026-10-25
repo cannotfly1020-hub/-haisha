@@ -55,8 +55,9 @@ function guardianLabel(child) {
   return name || '母';
 }
 
-function formatRiderLabel(child, carName) {
-  const pinned = child.fixedCar && carName && child.fixedCar === carName ? '📌' : '';
+function formatRiderLabel(child, carName, options) {
+  const showPin = !options || options.showPin !== false;
+  const pinned = showPin && child.fixedCar && carName && child.fixedCar === carName ? '📌' : '';
   const sick = child.motionSick ? '🤢' : '';
   const guardian = child.guardianRide ? `（＋${guardianLabel(child)}）` : '';
   return `${pinned}${child.name}${sick}${guardian}`;

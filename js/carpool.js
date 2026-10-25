@@ -190,37 +190,41 @@ function generateCarpool() {
 
   currentAssignments = assignments;
 
-  // 結果テキストの生成（画面上の車の並び順通りに出力）
-  let hasMotionSick = ridingKids.some(k => k.motionSick);
-  let hasPinned = ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
-  let text = `【連絡】本日の配車です🚗\n---------------------\n`;
+  // 結果テキスト生成（画面用は📌あり、LINE用は📌・注記なし）
+  function buildPlanText(forScreen) {
+    let hasMotionSick = ridingKids.some(k => k.motionSick);
+    let hasPinned = forScreen && ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
+    let text = `【連絡】本日の配車です🚗\n---------------------\n`;
 
-  if (ridingKids.length > 0) {
-    activeCars.forEach(c => {
-      let carName = c.name;
-      let riders = assignments[carName] || [];
-      let names = riders.map(k => formatRiderLabel(k, carName)).join('、');
-      let people = occupiedSeats(riders);
-      text += `■ ${carName} (${people}名)\n  乗車: ${names || 'なし'}\n\n`;
-    });
-  } else {
-    text += "本日の乗車配車はありません。\n\n";
+    if (ridingKids.length > 0) {
+      activeCars.forEach(c => {
+        let carName = c.name;
+        let riders = assignments[carName] || [];
+        let names = riders.map(k => formatRiderLabel(k, carName, { showPin: forScreen })).join('、');
+        let people = occupiedSeats(riders);
+        text += `■ ${carName} (${people}名)\n  乗車: ${names || 'なし'}\n\n`;
+      });
+    } else {
+      text += "本日の乗車配車はありません。\n\n";
+    }
+
+    if (onSiteKids.length > 0) {
+      text += `【現地集合】${onSiteKids.map(k => k.name).join('、')}\n\n`;
+    }
+
+    if (hasPinned) {
+      text += "※「📌」は事前指定で固定した乗車です。\n";
+    }
+    if (hasMotionSick) {
+      text += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
+    }
+    text += "---------------------\nよろしくお願いいたします！";
+    return text;
   }
 
-  if (onSiteKids.length > 0) {
-    text += `【現地集合】${onSiteKids.map(k => k.name).join('、')}\n\n`;
-  }
-
-  if (hasPinned) {
-    text += "※「📌」は事前指定で固定した乗車です。\n";
-  }
-  if (hasMotionSick) {
-    text += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
-  }
-  text += "---------------------\nよろしくお願いいたします！";
-
-  lastGeneratedPlan = text;
-  document.getElementById('resultText').innerText = text;
+  const screenText = buildPlanText(true);
+  lastGeneratedPlan = buildPlanText(false);
+  document.getElementById('resultText').innerText = screenText;
   document.getElementById('resultCard').style.display = 'block';
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
