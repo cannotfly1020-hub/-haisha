@@ -16,6 +16,7 @@ const CLICK_ACTIONS = new Set([
   'open-restore',
   'close-restore',
   'apply-restore',
+  'toggle-settings',
   'close-modal',
   'save-child',
   'delete-car',
@@ -140,6 +141,9 @@ function runClickAction(target) {
     case 'toggle-section':
       toggleSection(target.dataset.section || '');
       break;
+    case 'toggle-settings':
+      toggleSettingsPanel();
+      break;
     case 'open-child-companion':
       openChildCompanionEditor(id);
       break;
@@ -252,6 +256,7 @@ function initApp() {
   });
 
   applySectionOpenState();
+  applySettingsPanelState();
   renderCars();
   renderChildren();
   updateStatusBar();

@@ -40,6 +40,26 @@ function toggleSection(sectionKey) {
   if (toggle) toggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
 }
 
+/** 設定・バックアップ（全画面幅で開閉可能・初期閉じ） */
+function toggleSettingsPanel() {
+  const panel = document.getElementById('settingsPanel');
+  if (!panel) return;
+  const nextOpen = !panel.classList.contains('is-open');
+  panel.classList.toggle('is-open', nextOpen);
+  writeSectionOpenState('settings', nextOpen);
+  const toggle = panel.querySelector('.panel-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+}
+
+function applySettingsPanelState() {
+  const panel = document.getElementById('settingsPanel');
+  if (!panel) return;
+  const isOpen = readSectionOpenState('settings', false);
+  panel.classList.toggle('is-open', isOpen);
+  const toggle = panel.querySelector('.panel-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
 function openChildCompanionEditor(childId) {
   const id = Number(childId);
   if (!id) return;

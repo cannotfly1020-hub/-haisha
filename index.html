@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>少年野球 配車ヘルパー</title>
-<link rel="stylesheet" href="css/style.css?v=20261025r">
+<link rel="stylesheet" href="css/style.css?v=20261025s">
 </head>
 <body>
 
@@ -130,23 +130,32 @@
   <button type="button" class="btn btn-success" data-action="copy-result">📋 LINE用テキストをコピー（履歴を確定保存）</button>
 </div>
 
-<div class="card backup-card">
-  <h2 class="card-heading">📦 データのバックアップ・復元</h2>
-  <button type="button" class="btn btn-outline" data-action="copy-backup">📋 バックアップ用データをコピー</button>
-  <button type="button" class="btn btn-restore" data-action="open-restore">📥 データを復元する</button>
-</div>
-
-<div class="reset-link">
-  <button type="button" data-action="reset-data">データを完全に初期化（初期サンプルに戻す）</button>
-</div>
+<!-- 設定・バックアップ（折りたたみ・初期は閉じる） -->
+<section class="panel panel-settings" id="settingsPanel">
+  <button type="button" class="panel-toggle" data-action="toggle-settings" aria-expanded="false">
+    <div class="panel-toggle-main">
+      <span class="panel-title">設定・バックアップ</span>
+      <span class="panel-summary">LINE/メモ退避</span>
+    </div>
+    <span class="panel-chevron" aria-hidden="true"></span>
+  </button>
+  <div class="panel-body">
+    <p class="settings-hint">iOSでデータが消えたときや機種変更用に、全データをテキストで退避・復元できます。</p>
+    <button type="button" class="btn btn-outline btn-compact" data-action="copy-backup">💾 データをLINE/メモへ退避（コピー）</button>
+    <button type="button" class="btn btn-restore btn-compact" data-action="open-restore">📥 退避テキストから復元</button>
+    <div class="reset-link reset-link-inline">
+      <button type="button" data-action="reset-data">データを完全に初期化（初期サンプルに戻す）</button>
+    </div>
+  </div>
+</section>
 
 <!-- バックアップ復元モーダル -->
 <div class="modal-overlay" id="restoreModal">
   <div class="modal-box">
     <h3>データの復元</h3>
     <div class="modal-field">
-      <label for="restoreJson">バックアップ用データを貼り付け</label>
-      <textarea id="restoreJson" class="restore-input" placeholder="コピーしたJSONをここに貼り付け"></textarea>
+      <label for="restoreJson">退避テキストを貼り付け</label>
+      <textarea id="restoreJson" class="restore-input" placeholder="LINEやメモに保管したバックアップ用テキストをここに貼り付け"></textarea>
     </div>
     <div class="modal-actions">
       <button type="button" class="btn btn-secondary" data-action="close-restore">キャンセル</button>
@@ -211,9 +220,9 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261025r"></script>
-<script src="js/ui.js?v=20261025r"></script>
-<script src="js/carpool.js?v=20261025r"></script>
-<script src="js/app.js?v=20261025r"></script>
+<script src="js/data.js?v=20261025s"></script>
+<script src="js/ui.js?v=20261025s"></script>
+<script src="js/carpool.js?v=20261025s"></script>
+<script src="js/app.js?v=20261025s"></script>
 </body>
 </html>

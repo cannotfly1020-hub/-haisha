@@ -160,16 +160,15 @@ h1 {
     gap: 12px;
     align-items: start;
   }
-  /* PC/タブレットでは両パネル常時展開 */
-  .panel .panel-body { display: block; }
-  .panel-chevron { display: none; }
-  .panel-toggle { cursor: default; pointer-events: none; }
-  .panel-toggle .panel-summary,
-  .panel-toolbar button {
+  /* PC/タブレットでは車・選手パネルのみ常時展開（設定は折りたたみ維持） */
+  .main-grid .panel .panel-body { display: block; }
+  .main-grid .panel .panel-chevron { display: none; }
+  .main-grid .panel .panel-toggle { cursor: default; pointer-events: none; }
+  .main-grid .panel-toolbar button {
     pointer-events: auto;
     cursor: pointer;
   }
-  .panel-body {
+  .main-grid .panel-body {
     max-height: calc(100vh - 220px);
     overflow-y: auto;
   }
@@ -542,10 +541,30 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
 
 .result-card { display: none; margin-top: 10px; }
 .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-top: 8px; line-height: 1.45; }
-.backup-card .card-heading { margin-bottom: 4px; }
+.panel-settings { margin-bottom: 10px; }
+.panel-settings .panel-toggle { pointer-events: auto; cursor: pointer; }
+.panel-settings .panel-chevron { display: inline-block; }
+.panel-settings .panel-body { max-height: none; overflow: visible; }
+.settings-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+.btn-compact { margin-top: 6px; padding: 10px; font-size: 13px; }
 .restore-input { width: 100%; min-height: 140px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .reset-link { text-align: center; margin-top: 18px; margin-bottom: 12px; }
-.reset-link button { background: none; border: none; color: #94a3b8; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.reset-link-inline { margin-top: 12px; margin-bottom: 4px; }
+.reset-link button,
+.reset-link-inline button {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  touch-action: manipulation;
+}
 
 /* 編集モーダル（非表示時はタップを遮断しない） */
 .modal-overlay {

@@ -314,24 +314,55 @@ function isBackupChild(child) {
   return !!child && typeof child === 'object' && typeof child.name === 'string' && child.name.trim() !== '' && child.id != null;
 }
 
-function copyBackupData() {
-  const payload = JSON.stringify({ cars: cars, children: children }, null, 2);
-  const notifyCopied = () => {
-    alert("データをコピーしました！LINEのKeepメモ等に貼り付けて保存してください");
+function buildBackupPayload() {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    cars: cars,
+    children: children
   };
-  if (!navigator.clipboard || !navigator.clipboard.writeText) {
-    alert("コピーに失敗しました。ブラウザの権限を確認してもう一度お試しください。");
-    return;
+}
+
+/** iOS Safari でも動くクリップボード書き込み（Clipboard API → execCommand フォールバック） */
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text).catch(() => copyTextFallback(text));
   }
-  navigator.clipboard.writeText(payload).then(notifyCopied).catch(() => {
-    alert("コピーに失敗しました。ブラウザの権限を確認してもう一度お試しください。");
+  return Promise.resolve().then(() => copyTextFallback(text));
+}
+
+function copyTextFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:none;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch (e) {
+    ok = false;
+  }
+  document.body.removeChild(ta);
+  if (!ok) throw new Error('clipboard copy failed');
+}
+
+function copyBackupData() {
+  const payload = JSON.stringify(buildBackupPayload(), null, 2);
+  copyTextToClipboard(payload).then(() => {
+    alert('バックアップ用テキストをコピーしました！LINEの自分用トークやメモ帳に貼り付けて保管してください');
+  }).catch(() => {
+    alert('コピーに失敗しました。ブラウザの権限を確認するか、別のブラウザでお試しください。');
   });
 }
 
 function restoreBackupData(text) {
   const raw = (text || '').trim();
   if (!raw) {
-    alert("バックアップデータを貼り付けてください。");
+    alert('退避テキストを貼り付けてください。');
     return false;
   }
 
@@ -339,12 +370,23 @@ function restoreBackupData(text) {
   try {
     data = JSON.parse(raw);
   } catch (e) {
-    alert("バックアップデータの形式が正しくありません。コピーしたデータをそのまま貼り付けてください。");
+    alert('退避テキストの形式が正しくありません。コピーしたデータをそのまま貼り付けてください。');
     return false;
   }
 
-  if (!data || typeof data !== 'object' || !Array.isArray(data.cars) || !Array.isArray(data.children) || !data.cars.every(isBackupCar) || !data.children.every(isBackupChild)) {
-    alert("バックアップデータの形式が正しくありません。コピーしたデータをそのまま貼り付けてください。");
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    !Array.isArray(data.cars) ||
+    !Array.isArray(data.children) ||
+    !data.cars.every(isBackupCar) ||
+    !data.children.every(isBackupChild)
+  ) {
+    alert('退避テキストの形式が正しくありません。コピーしたデータをそのまま貼り付けてください。');
+    return false;
+  }
+
+  if (!confirm('現在のデータを退避テキストの内容で上書きします。よろしいですか？')) {
     return false;
   }
 
@@ -355,12 +397,18 @@ function restoreBackupData(text) {
   renderChildren();
   updateStatusBar();
 
+  if (typeof openChildCompanionEditors !== 'undefined' && openChildCompanionEditors.clear) {
+    openChildCompanionEditors.clear();
+  }
+
   const resultCard = document.getElementById('resultCard');
   if (resultCard) resultCard.style.display = 'none';
+  const resultText = document.getElementById('resultText');
+  if (resultText) resultText.textContent = '';
   currentAssignments = null;
-  lastGeneratedPlan = "";
+  lastGeneratedPlan = '';
 
-  alert("復元が完了しました！");
+  alert('データを正常に復元しました');
   return true;
 }
 
