@@ -67,6 +67,12 @@ function handleAppClick(event) {
     case 'remove-preassign':
       removePreassign(id);
       break;
+    case 'add-family':
+      addFamilySeat(id);
+      break;
+    case 'remove-family':
+      removeFamilySeat(id);
+      break;
     default:
       break;
   }

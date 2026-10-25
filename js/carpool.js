@@ -5,8 +5,13 @@ function occupiedSeats(list) {
   return (list || []).reduce((sum, k) => sum + seatCost(k), 0);
 }
 
+function carPeopleCount(car, riders) {
+  return occupiedSeats(riders) + familySeatsOf(car);
+}
+
 function remainingSeats(car, assignments) {
-  return (parseInt(car.capacity) || 0) - occupiedSeats(assignments[car.name] || []);
+  const cap = parseInt(car.capacity, 10) || 0;
+  return cap - familySeatsOf(car) - occupiedSeats(assignments[car.name] || []);
 }
 
 function placeKid(kid, carName, assignments, currentCaps) {
@@ -38,22 +43,29 @@ function generateCarpool() {
       return;
     }
 
-    const totalCap = activeCars.reduce((sum, c) => sum + (parseInt(c.capacity) || 0), 0);
-    const seatDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0);
+    const totalCap = activeCars.reduce((sum, c) => sum + (parseInt(c.capacity, 10) || 0), 0);
+    const familyDemand = activeCars.reduce((sum, c) => sum + familySeatsOf(c), 0);
+    const seatDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0) + familyDemand;
     if (totalCap < seatDemand) {
-      alert(`座席が足りません！\n乗車人数: ${seatDemand}人（選手＋同乗保護者）\n乗車定員: ${totalCap}席\nあと ${seatDemand - totalCap} 席の車が必要です。`);
+      alert(`座席が足りません！\n必要席数: ${seatDemand}席（選手＋同乗保護者＋身内）\n乗車定員: ${totalCap}席\nあと ${seatDemand - totalCap} 席の車が必要です。`);
       return;
     }
 
-    // 1. 各車両に乗せる「目標座席数」を均等計算（同乗保護者分も含む）
+    // 1. 身内枠を除いた有効定員に対し、選手の目標座席数を均等計算
+    const kidDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0);
     let targetCounts = {};
-    let baseCount = Math.floor(seatDemand / activeCars.length);
-    let remainder = seatDemand % activeCars.length;
+    let baseCount = Math.floor(kidDemand / activeCars.length);
+    let remainder = kidDemand % activeCars.length;
 
-    let sortedCars = [...activeCars].sort((a, b) => (parseInt(b.capacity) || 0) - (parseInt(a.capacity) || 0));
+    let sortedCars = [...activeCars].sort((a, b) => {
+      const availA = Math.max(0, (parseInt(a.capacity, 10) || 0) - familySeatsOf(a));
+      const availB = Math.max(0, (parseInt(b.capacity, 10) || 0) - familySeatsOf(b));
+      return availB - availA;
+    });
     sortedCars.forEach((c, idx) => {
+      const avail = Math.max(0, (parseInt(c.capacity, 10) || 0) - familySeatsOf(c));
       let ideal = baseCount + (idx < remainder ? 1 : 0);
-      targetCounts[c.name] = Math.min(ideal, parseInt(c.capacity) || 0);
+      targetCounts[c.name] = Math.min(ideal, avail);
     });
 
     activeCars.forEach(c => {
@@ -64,7 +76,7 @@ function generateCarpool() {
     let unassigned = [...ridingKids];
     const overflowedCars = [];
 
-    // 2. 手動指定車両を最優先で固定（同乗保護者分の座席も消費）
+    // 2. 手動指定車両を最優先で固定（同乗保護者分の座席も消費／身内枠は既に確保済み）
     for (let i = unassigned.length - 1; i >= 0; i--) {
       let kid = unassigned[i];
       if (!kid.fixedCar) continue;
@@ -154,8 +166,8 @@ function generateCarpool() {
         let scoreA = 0;
         let scoreB = 0;
 
-        if (occupiedSeats(assignments[a.name]) < 2) scoreA -= 2000;
-        if (occupiedSeats(assignments[b.name]) < 2) scoreB -= 2000;
+        if (carPeopleCount(a, assignments[a.name]) < 2) scoreA -= 2000;
+        if (carPeopleCount(b, assignments[b.name]) < 2) scoreB -= 2000;
 
         if (kid.lastCar === a.name) scoreA += 500;
         if (kid.lastCar === b.name) scoreB += 500;
@@ -181,7 +193,7 @@ function generateCarpool() {
         }
 
         if (scoreA !== scoreB) return scoreA - scoreB;
-        return occupiedSeats(assignments[a.name]) - occupiedSeats(assignments[b.name]);
+        return carPeopleCount(a, assignments[a.name]) - carPeopleCount(b, assignments[b.name]);
       });
 
       placeKid(kid, availableCars[0].name, assignments, currentCaps);
@@ -190,18 +202,23 @@ function generateCarpool() {
 
   currentAssignments = assignments;
 
-  // 結果テキスト生成（画面用は📌あり、LINE用は📌・注記なし）
-  function buildPlanText(forScreen) {
+  // 画面用テキスト（📌・同乗・身内注記あり）
+  function buildScreenPlanText() {
     let hasMotionSick = ridingKids.some(k => k.motionSick);
-    let hasPinned = forScreen && ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
+    let hasPinned = ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
     let text = `【連絡】本日の配車です🚗\n---------------------\n`;
 
-    if (ridingKids.length > 0) {
+    if (ridingKids.length > 0 || activeCars.some(c => familySeatsOf(c) > 0)) {
       activeCars.forEach(c => {
         let carName = c.name;
         let riders = assignments[carName] || [];
-        let names = riders.map(k => formatRiderLabel(k, carName, { showPin: forScreen })).join('、');
-        let people = occupiedSeats(riders);
+        let names = riders.map(k => formatRiderLabel(k, carName, { showPin: true })).join('、');
+        const family = familySeatsOf(c);
+        if (family > 0) {
+          const familyNote = `（＋身内${family}名）`;
+          names = names ? `${names}${familyNote}` : familyNote;
+        }
+        let people = carPeopleCount(c, riders);
         text += `■ ${carName} (${people}名)\n  乗車: ${names || 'なし'}\n\n`;
       });
     } else {
@@ -222,8 +239,44 @@ function generateCarpool() {
     return text;
   }
 
-  const screenText = buildPlanText(true);
-  lastGeneratedPlan = buildPlanText(false);
+  // LINE用テキスト（名前のみ・箇条書き／注記なし）
+  function buildLineRiderBullets(riders) {
+    const lines = [];
+    (riders || []).forEach(k => {
+      lines.push(`・${k.name}`);
+      if (k.guardianRide) {
+        const custom = (k.guardianName || '').trim();
+        lines.push(`・${custom || `${k.name}母`}`);
+      }
+    });
+    return lines;
+  }
+
+  function buildLinePlanText() {
+    let text = `【連絡】本日の配車です🚗\n---------------------\n`;
+
+    if (ridingKids.length > 0 || activeCars.some(c => familySeatsOf(c) > 0)) {
+      activeCars.forEach(c => {
+        const riders = assignments[c.name] || [];
+        const bullets = buildLineRiderBullets(riders);
+        const people = carPeopleCount(c, riders);
+        text += `■ ${c.name} (${people}名)\n`;
+        text += bullets.length > 0 ? `${bullets.join('\n')}\n\n` : `・なし\n\n`;
+      });
+    } else {
+      text += "本日の乗車配車はありません。\n\n";
+    }
+
+    if (onSiteKids.length > 0) {
+      text += `【現地集合】\n${onSiteKids.map(k => `・${k.name}`).join('\n')}\n\n`;
+    }
+
+    text += "---------------------\nよろしくお願いいたします！";
+    return text;
+  }
+
+  const screenText = buildScreenPlanText();
+  lastGeneratedPlan = buildLinePlanText();
   document.getElementById('resultText').innerText = screenText;
   document.getElementById('resultCard').style.display = 'block';
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });

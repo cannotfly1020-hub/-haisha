@@ -1,9 +1,24 @@
 function createDefaultCars() {
   return [
-    { id: 1, name: '佐藤号', capacity: 3, active: true },
-    { id: 2, name: '鈴木号', capacity: 3, active: true },
-    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true }
+    { id: 1, name: '佐藤号', capacity: 3, active: true, familySeats: 0 },
+    { id: 2, name: '鈴木号', capacity: 3, active: true, familySeats: 0 },
+    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true, familySeats: 0 }
   ];
+}
+
+function normalizeCar(car) {
+  return {
+    ...car,
+    name: typeof car.name === 'string' ? car.name : '',
+    capacity: Math.max(0, parseInt(car.capacity, 10) || 0),
+    active: !!car.active,
+    familySeats: Math.max(0, parseInt(car.familySeats, 10) || 0)
+  };
+}
+
+function familySeatsOf(car) {
+  if (!car) return 0;
+  return Math.max(0, parseInt(car.familySeats, 10) || 0);
 }
 
 function createDefaultChildren() {
@@ -100,21 +115,45 @@ function fixedSeatsUsed(carName) {
 }
 
 function carSeatSummary(car) {
-  const capacity = parseInt(car.capacity) || 0;
-  const used = fixedSeatsUsed(car.name);
+  const capacity = parseInt(car.capacity, 10) || 0;
+  const family = familySeatsOf(car);
+  const guests = fixedSeatsUsed(car.name);
+  const used = family + guests;
   const remaining = capacity - used;
-  return { capacity, used, remaining, isFull: remaining <= 0, isOver: remaining < 0 };
+  return {
+    capacity,
+    family,
+    guests,
+    used,
+    remaining,
+    isFull: remaining <= 0,
+    isOver: remaining < 0
+  };
 }
 
 function seatCostForChoice(withGuardian) {
   return 1 + (withGuardian ? 1 : 0);
 }
 
+function canFitOnCar(car, extraSeats, excludeChildId) {
+  if (!car) return false;
+  const summary = carSeatSummary(car);
+  let used = summary.used;
+  if (excludeChildId != null) {
+    const existing = children.find(c => c.id === excludeChildId);
+    if (existing && existing.fixedCar === car.name && isRiding(existing)) {
+      used -= seatCost(existing);
+    }
+  }
+  return used + extraSeats <= summary.capacity;
+}
+
 let cars = [];
 let children = [];
 
 try {
-  cars = JSON.parse(localStorage.getItem('cp_cars')) || createDefaultCars();
+  const loadedCars = JSON.parse(localStorage.getItem('cp_cars')) || createDefaultCars();
+  cars = loadedCars.map(normalizeCar);
 } catch (e) {
   cars = createDefaultCars();
 }
@@ -142,7 +181,10 @@ function manualSave() {
 
 function clearAllChecks() {
   if (confirm("子供と車の出欠チェックをすべて外しますか？\n（選手一覧や車一覧は消えません）")) {
-    cars.forEach(c => c.active = false);
+    cars.forEach(c => {
+      c.active = false;
+      c.familySeats = 0;
+    });
     children.forEach(c => {
       c.active = false;
       c.meetOnSite = false;
@@ -205,7 +247,7 @@ function restoreBackupData(text) {
     return false;
   }
 
-  cars = data.cars;
+  cars = data.cars.map(normalizeCar);
   children = data.children.map(normalizeChild);
   saveData();
   renderCars();

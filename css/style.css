@@ -96,34 +96,74 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
 
 .car-card {
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 10px 10px;
-  margin-bottom: 10px;
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  margin-bottom: 12px;
   background: #fff;
 }
 .car-card.is-inactive { opacity: 0.55; background: #f8fafc; }
-.car-card-header { border-bottom: none; padding: 4px 0 8px; }
-.car-card-header .item-right { flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.car-card-top { margin-bottom: 8px; }
+.car-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.car-name-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  flex: 1;
+}
+.car-name-label input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; }
+.car-name { font-size: 16px; font-weight: 700; color: #1e293b; }
+.car-card-tools { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.cap-edit { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; }
+.capacity-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.capacity-main {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.01em;
+}
 .seat-badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: bold;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
   white-space: nowrap;
 }
-.seat-badge-ok { background: #ecfdf5; color: #047857; }
-.seat-badge-full { background: #fff7ed; color: #c2410c; }
-.seat-badge-over { background: #fef2f2; color: #b91c1c; }
-.preassign-panel {
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+.seat-badge-ok { background: #dcfce7; color: #166534; }
+.seat-badge-full { background: #fed7aa; color: #9a3412; }
+.seat-badge-over { background: #fecaca; color: #991b1b; }
+.preassign-section {
   border-radius: 8px;
-  padding: 8px;
+  padding: 8px 10px 10px;
+  margin-top: 8px;
+}
+.preassign-family {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.preassign-guest {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
 }
 .preassign-title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: bold;
-  color: #475569;
+  color: #334155;
   margin-bottom: 6px;
 }
 .preassign-members {
@@ -132,6 +172,7 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
   gap: 6px;
   min-height: 28px;
   margin-bottom: 8px;
+  align-items: center;
 }
 .preassign-empty {
   margin: 0;
@@ -142,29 +183,59 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  border-radius: 999px;
+  padding: 4px 6px 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.preassign-chip-family {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+.preassign-chip-guest {
   background: #fef9c3;
   color: #854d0e;
   border: 1px solid #fde68a;
-  border-radius: 999px;
-  padding: 3px 6px 3px 8px;
-  font-size: 12px;
 }
 .preassign-remove {
   border: none;
-  background: #fde68a;
-  color: #92400e;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
 }
+.preassign-chip-family .preassign-remove { background: #93c5fd; color: #1e3a8a; }
+.preassign-chip-guest .preassign-remove { background: #fde68a; color: #92400e; }
+.btn-add-family {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px dashed #60a5fa;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-add-family:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+}
 .preassign-select {
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   background: white;
+}
+.preassign-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f1f5f9;
 }
 
 .add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap; }
