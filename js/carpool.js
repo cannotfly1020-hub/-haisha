@@ -1,6 +1,79 @@
 let lastGeneratedPlan = "";
 let currentAssignments = null;
 
+/** 同セッション内の直前 LINE 確定分 { [childId]: carName }（二重加算防止用） */
+const LAST_SESSION_COMMIT_KEY = 'cp_lastSessionCommit';
+let lastSessionCommit = null;
+
+function readLastSessionCommit() {
+  if (lastSessionCommit && typeof lastSessionCommit === 'object') return lastSessionCommit;
+  try {
+    const raw = sessionStorage.getItem(LAST_SESSION_COMMIT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    lastSessionCommit = parsed;
+    return lastSessionCommit;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeLastSessionCommit(map) {
+  lastSessionCommit = map && typeof map === 'object' ? map : null;
+  try {
+    if (lastSessionCommit) {
+      sessionStorage.setItem(LAST_SESSION_COMMIT_KEY, JSON.stringify(lastSessionCommit));
+    } else {
+      sessionStorage.removeItem(LAST_SESSION_COMMIT_KEY);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function clearLastSessionCommit() {
+  writeLastSessionCommit(null);
+}
+
+/** 直前セッション確定分の rideHistory を -1（0以下のキーは削除） */
+function rollbackLastSessionCommit() {
+  const prev = readLastSessionCommit();
+  if (!prev) return;
+
+  Object.keys(prev).forEach((childId) => {
+    const carName = prev[childId];
+    if (!carName) return;
+    const child = children.find((c) => String(c.id) === String(childId));
+    if (!child) return;
+    if (!child.rideHistory || typeof child.rideHistory !== 'object') {
+      child.rideHistory = {};
+      return;
+    }
+    const next = (parseInt(child.rideHistory[carName], 10) || 0) - 1;
+    if (next <= 0) {
+      delete child.rideHistory[carName];
+    } else {
+      child.rideHistory[carName] = next;
+    }
+  });
+}
+
+function applyAssignmentHistoryCommit(assignments) {
+  const commitMap = {};
+  if (!assignments) return commitMap;
+
+  Object.keys(assignments).forEach((carName) => {
+    (assignments[carName] || []).forEach((k) => {
+      const orig = children.find((x) => x.id === k.id);
+      if (!orig) return;
+      if (!orig.rideHistory || typeof orig.rideHistory !== 'object') orig.rideHistory = {};
+      orig.rideHistory[carName] = (parseInt(orig.rideHistory[carName], 10) || 0) + 1;
+      orig.lastCar = carName;
+      commitMap[String(orig.id)] = carName;
+    });
+  });
+  return commitMap;
+}
+
 function occupiedSeats(list) {
   return (list || []).reduce((sum, k) => sum + seatCost(k), 0);
 }
@@ -516,16 +589,10 @@ function copyResult() {
   if (!currentAssignments && !lastGeneratedPlan) return;
 
   if (currentAssignments) {
-    for (let carName in currentAssignments) {
-      currentAssignments[carName].forEach(k => {
-        let orig = children.find(x => x.id === k.id);
-        if (orig) {
-          if (!orig.rideHistory) orig.rideHistory = {};
-          orig.rideHistory[carName] = (orig.rideHistory[carName] || 0) + 1;
-          orig.lastCar = carName;
-        }
-      });
-    }
+    // 同セッション内の再コピー: 直前確定分を差し戻してから今回分を加算
+    rollbackLastSessionCommit();
+    const commitMap = applyAssignmentHistoryCommit(currentAssignments);
+    writeLastSessionCommit(commitMap);
     saveData();
     renderChildren();
     updateStatusBar();

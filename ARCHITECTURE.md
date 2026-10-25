@@ -191,7 +191,13 @@ isRiding(child) ? 1 + child.companions.length : 0
 ### 2.6 AppHistory / Settings
 
 - **履歴**: 選手オブジェクト内の `rideHistory` / `lastCar`（別ストアなし）。
-- **履歴の更新タイミング**: 「📋 LINE用テキストをコピー（履歴を確定保存）」=`copyResult()` 成功時のみ。配車計算だけでは履歴を増やさない。
+- **履歴の更新タイミング**: 「📋 LINE用テキストをコピー（履歴を確定保存）」=`copyResult()` 時のみ。配車計算だけでは履歴を増やさない。
+- **同セッション二重加算防止** (`lastSessionCommit`):
+  - 形状: `{ [childId: string]: carName: string }`
+  - 保持先: メモリ + `sessionStorage` キー `cp_lastSessionCommit`
+  - `copyResult` 時: 既存の `lastSessionCommit` があれば各選手の `rideHistory[直前車両]` を **-1**（0以下はキー削除）してロールバック → 今回の配車で再加算 → 新しいマップを `lastSessionCommit` に保存
+  - これにより**同日・同セッション内の複数回コピーでも履歴が積み増しされない**（直前確定の置き換え）
+  - `resetTodaySession` / `resetAllData` で `lastSessionCommit` を `null` クリア（翌週は新規1回分として加算）
 - **配車モード**: DOM `#carpoolMode`（localStorage 非保存。リロードで標準に戻る）。
   - `balance` | `grade_same` | `grade_diff` | `position`
 - **バックアップ JSON**:
@@ -209,8 +215,8 @@ interface BackupPayload {
 
 | 操作 | 関数 | 消す | 残す |
 |------|------|------|------|
-| 🔄 本日の配車をリセット | `resetTodaySession` | 出欠を全員乗車、両 companions、fixedCar、車 active=全ON、結果・診断 | 名前列、grade/pos、parentCar、motionSick、capacity、rideHistory、lastCar |
-| データを完全に初期化 | `resetAllData` | `localStorage.clear()` 後リロード | なし（サンプル再生成） |
+| 🔄 本日の配車をリセット | `resetTodaySession` | 出欠を全員乗車、両 companions、fixedCar、車 active=全ON、結果・診断、`lastSessionCommit` | 名前列、grade/pos、parentCar、motionSick、capacity、rideHistory、lastCar |
+| データを完全に初期化 | `resetAllData` | `localStorage.clear()`、`lastSessionCommit` クリア後リロード | なし（サンプル再生成） |
 
 ---
 
@@ -303,6 +309,12 @@ UI の状況バーも同様に `kidSeats + companionDemand` vs `activeSeats`。
 - 画面用 `buildScreenPlanText()`（📌・🤢・同乗括弧あり）を `#resultText`
 - LINE 用 `buildLinePlanText()` を `lastGeneratedPlan`
 - `#resultCard` 表示
+
+#### 履歴確定（`copyResult`・Step 7 の後続）
+
+- LINE テキストをクリップボードへコピーするタイミングで `rideHistory` / `lastCar` を更新する。
+- **同セッション内での再コピー時は `lastSessionCommit` による自動ロールバックが走り、同日内の複数回コピーによる履歴二重加算を防止する**（直前分を -1 してから今回分を +1）。
+- 週次の「本日の配車をリセット」後は `lastSessionCommit` が空のため、次のコピーは素直に +1 される。
 
 ### 3.3 デッドロック診断（`diagnoseCarpoolFailure`）
 
@@ -444,7 +456,9 @@ UI の状況バーも同様に `kidSeats + companionDemand` vs `activeSeats`。
 - [ ] 選手同乗 2 名で `seatCost === 3`、親車・指定・自動のすべてで席が減る  
 - [ ] 車両同乗チップ削除で残席が戻る  
 - [ ] LINE コピー文に 📌・🤢・「同乗」「選手」等が出ない（名前の `・` のみ）  
-- [ ] LINE コピー後にだけ `rideHistory` / `lastCar` が増える  
+- [ ] LINE コピー後にだけ `rideHistory` / `lastCar` が増える
+- [ ] 同セッションで配車→コピー→組み直し→再コピーしても履歴が二重加算されない（ロールバック後の1回分）
+- [ ] 本日リセット後の初回コピーは通常どおり +1 される  
 - [ ] 本日リセットで名簿・親車・酔い・定員・履歴が残る  
 - [ ] 席不足・出勤車ゼロ・未割当で診断カードが出て、成功時は消える  
 - [ ] iPhone PWA で車両クイック同乗・✕・出勤トグルが反応する  

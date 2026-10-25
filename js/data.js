@@ -335,6 +335,7 @@ function resetTodaySession() {
 
   currentAssignments = null;
   lastGeneratedPlan = '';
+  if (typeof clearLastSessionCommit === 'function') clearLastSessionCommit();
   const resultCard = document.getElementById('resultCard');
   if (resultCard) resultCard.style.display = 'none';
   const resultText = document.getElementById('resultText');
@@ -354,6 +355,8 @@ function clearAllChecks() {
 
 function resetAllData() {
   if (confirm("登録した車・子供・履歴データをすべて初期状態に消去しますか？")) {
+    if (typeof clearLastSessionCommit === 'function') clearLastSessionCommit();
+    try { sessionStorage.removeItem('cp_lastSessionCommit'); } catch (e) { /* ignore */ }
     localStorage.clear();
     location.reload();
   }
