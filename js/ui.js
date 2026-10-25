@@ -71,22 +71,106 @@ function updateCarSelectOptions() {
   }
 }
 
+function buildSeatBadgeHtml(summary) {
+  if (summary.isOver) {
+    return `<span class="seat-badge seat-badge-over">定員超過 ${summary.used}/${summary.capacity}</span>`;
+  }
+  if (summary.isFull) {
+    return `<span class="seat-badge seat-badge-full">満席 ${summary.used}/${summary.capacity}</span>`;
+  }
+  return `<span class="seat-badge seat-badge-ok">残り${summary.remaining}席（${summary.used}/${summary.capacity}）</span>`;
+}
+
+function buildPreassignMemberChips(car) {
+  const riders = getFixedRidersForCar(car.name);
+  if (riders.length === 0) {
+    return `<p class="preassign-empty">まだ確定メンバーはいません</p>`;
+  }
+  return riders.map(k => {
+    const label = k.guardianRide
+      ? `${k.name}（＋${guardianLabel(k)}・2席）`
+      : `${k.name}（1席）`;
+    return `
+      <span class="preassign-chip">
+        📌${label}
+        <button type="button" class="preassign-remove" data-action="remove-preassign" data-id="${k.id}" title="解除">✕</button>
+      </span>
+    `;
+  }).join('');
+}
+
+function buildPreassignOptionsHtml(car) {
+  const summary = carSeatSummary(car);
+  const riding = children.filter(isRiding);
+  let html = `<option value="">＋ 同乗者を追加…</option>`;
+
+  riding.forEach(k => {
+    const alreadyHere = k.fixedCar === car.name;
+    const elsewhere = k.fixedCar && k.fixedCar !== car.name;
+    const elsewhereNote = elsewhere ? ` ※現在${k.fixedCar}` : '';
+
+    // この車に既に「選手＋保護者」で入っている場合は選択肢から外す
+    if (alreadyHere && k.guardianRide) return;
+
+    const baseUsed = alreadyHere ? summary.used - seatCost(k) : summary.used;
+    const soloOk = baseUsed + 1 <= summary.capacity;
+    const pairOk = baseUsed + 2 <= summary.capacity;
+
+    // 選手のみで既にいる場合は「＋保護者に変更」のみ
+    if (alreadyHere && !k.guardianRide) {
+      const pairDisabled = pairOk ? '' : 'disabled';
+      const pairLabel = pairOk
+        ? `${k.name}を選手＋${guardianLabel(k)}に変更（計2席）`
+        : `${k.name}＋${guardianLabel(k)} ※定員不足`;
+      html += `<option value="${k.id}:pair" ${pairDisabled}>${pairLabel}</option>`;
+      return;
+    }
+
+    // 未配置・他車 → 選手のみ / 選手＋保護者
+    const soloDisabled = soloOk ? '' : 'disabled';
+    const soloLabel = soloOk
+      ? `${k.name}（選手のみ・1席）${elsewhereNote}`
+      : `${k.name}（選手のみ・1席）※定員不足`;
+    html += `<option value="${k.id}:solo" ${soloDisabled}>${soloLabel}</option>`;
+
+    const pairDisabled = pairOk ? '' : 'disabled';
+    const pairLabel = pairOk
+      ? `${k.name}＋${guardianLabel(k)}（2席）${elsewhereNote}`
+      : `${k.name}＋${guardianLabel(k)}（2席）※定員不足`;
+    html += `<option value="${k.id}:pair" ${pairDisabled}>${pairLabel}</option>`;
+  });
+
+  return html;
+}
+
 function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
   list.innerHTML = '';
   cars.forEach((car) => {
+    const summary = carSeatSummary(car);
+    const inactiveClass = car.active ? '' : 'is-inactive';
     list.innerHTML += `
-      <div class="item-row">
-        <div class="item-left">
-          <label>
-            <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
-            <span><strong>${car.name}</strong></span>
-          </label>
+      <div class="car-card ${inactiveClass}">
+        <div class="item-row car-card-header">
+          <div class="item-left">
+            <label>
+              <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
+              <span><strong>${car.name}</strong></span>
+            </label>
+          </div>
+          <div class="item-right">
+            ${buildSeatBadgeHtml(summary)}
+            定員:<input type="number" class="input-cap" data-action="update-capacity" data-id="${car.id}" value="${car.capacity}" min="0">人
+            <button type="button" class="btn-delete" data-action="delete-car" data-id="${car.id}">✕</button>
+          </div>
         </div>
-        <div class="item-right">
-          定員:<input type="number" class="input-cap" data-action="update-capacity" data-id="${car.id}" value="${car.capacity}">人
-          <button type="button" class="btn-delete" data-action="delete-car" data-id="${car.id}">✕</button>
+        <div class="preassign-panel">
+          <div class="preassign-title">同乗者の事前割り当て（乗車確定）</div>
+          <div class="preassign-members">${buildPreassignMemberChips(car)}</div>
+          <select class="preassign-select" data-action="add-preassign" data-id="${car.id}" ${car.active ? '' : 'disabled'}>
+            ${buildPreassignOptionsHtml(car)}
+          </select>
         </div>
       </div>
     `;
@@ -140,19 +224,24 @@ function renderChildren() {
   });
 }
 
+function refreshLists() {
+  renderCars();
+  renderChildren();
+  updateStatusBar();
+}
+
 function toggleCar(id) {
   const c = cars.find(x => x.id === id);
   if (c) c.active = !c.active;
   saveData();
-  updateCarSelectOptions();
-  renderChildren();
-  updateStatusBar();
+  refreshLists();
 }
 
 function updateCapacity(id, val) {
   const c = cars.find(x => x.id === id);
   if (c) c.capacity = parseInt(val) || 0;
   saveData();
+  renderCars();
   updateStatusBar();
 }
 
@@ -161,25 +250,91 @@ function setChildAttend(id, mode) {
   if (!ch) return;
   setAttendMode(ch, mode);
   saveData();
-  renderChildren();
-  updateStatusBar();
+  refreshLists();
 }
 
 function toggleGuardianRide(id) {
   const ch = children.find(x => x.id === id);
   if (!ch || !isRiding(ch)) return;
-  ch.guardianRide = !ch.guardianRide;
+
+  const next = !ch.guardianRide;
+  if (next && ch.fixedCar) {
+    const car = cars.find(c => c.name === ch.fixedCar);
+    if (car) {
+      const usedWithout = fixedSeatsUsed(car.name) - seatCost(ch);
+      if (usedWithout + 2 > (parseInt(car.capacity) || 0)) {
+        alert(`「${car.name}」の定員を超えるため、同乗保護者を追加できません。`);
+        return;
+      }
+    }
+  }
+
+  ch.guardianRide = next;
   saveData();
-  renderChildren();
-  updateStatusBar();
+  refreshLists();
 }
 
 function setChildFixedCar(id, carName) {
   const ch = children.find(x => x.id === id);
   if (!ch) return;
+
+  if (carName) {
+    const car = cars.find(c => c.name === carName);
+    if (car) {
+      const cost = seatCost(ch) || 1;
+      const used = getFixedRidersForCar(carName)
+        .filter(k => k.id !== ch.id)
+        .reduce((sum, k) => sum + seatCost(k), 0);
+      if (used + cost > (parseInt(car.capacity) || 0)) {
+        alert(`「${car.name}」の定員を超えるため指定できません。\n同乗保護者を外すか、別の車を選んでください。`);
+        renderChildren();
+        return;
+      }
+    }
+  }
+
   ch.fixedCar = carName || '';
   saveData();
-  renderChildren();
+  refreshLists();
+}
+
+function addPreassign(carId, value) {
+  if (!value) return;
+  const car = cars.find(x => x.id === carId);
+  if (!car || !car.active) return;
+
+  const [idStr, mode] = value.split(':');
+  const kid = children.find(x => x.id === parseInt(idStr, 10));
+  if (!kid || !isRiding(kid)) return;
+
+  const withGuardian = mode === 'pair';
+  const cost = seatCostForChoice(withGuardian);
+  const usedBase = getFixedRidersForCar(car.name)
+    .filter(k => k.id !== kid.id)
+    .reduce((sum, k) => sum + seatCost(k), 0);
+
+  if (usedBase + cost > (parseInt(car.capacity) || 0)) {
+    alert(`「${car.name}」の定員（${car.capacity}席）を超えるため追加できません。`);
+    renderCars();
+    return;
+  }
+
+  if (kid.fixedCar && kid.fixedCar !== car.name) {
+    // 他車からの移動は確認なしで上書き（UI上に※現在XXと出している）
+  }
+
+  kid.fixedCar = car.name;
+  kid.guardianRide = withGuardian;
+  saveData();
+  refreshLists();
+}
+
+function removePreassign(childId) {
+  const kid = children.find(x => x.id === childId);
+  if (!kid) return;
+  kid.fixedCar = '';
+  saveData();
+  refreshLists();
 }
 
 function deleteCar(id) {
@@ -202,8 +357,7 @@ function deleteChild(id) {
   if (kid && confirm(`「${kid.name}」を削除しますか？`)) {
     children = children.filter(x => x.id !== id);
     saveData();
-    renderChildren();
-    updateStatusBar();
+    refreshLists();
   }
 }
 
@@ -238,12 +392,25 @@ function saveEditChild() {
     kid.grade = parseInt(document.getElementById('editChildGrade').value);
     kid.pos = document.getElementById('editChildPos').value;
     kid.parentCar = document.getElementById('editChildParentCar').value;
-    kid.fixedCar = document.getElementById('editChildFixedCar').value || '';
+    const nextFixed = document.getElementById('editChildFixedCar').value || '';
+    if (nextFixed) {
+      const car = cars.find(c => c.name === nextFixed);
+      if (car) {
+        const cost = 1 + (kid.guardianRide ? 1 : 0);
+        const used = getFixedRidersForCar(nextFixed)
+          .filter(k => k.id !== kid.id)
+          .reduce((sum, k) => sum + seatCost(k), 0);
+        if (used + cost > (parseInt(car.capacity) || 0)) {
+          alert(`「${car.name}」の定員を超えるため指定できません。`);
+          return;
+        }
+      }
+    }
+    kid.fixedCar = nextFixed;
     kid.motionSick = document.getElementById('editChildMotionSick').checked;
     kid.guardianName = document.getElementById('editChildGuardianName').value.trim();
     saveData();
-    renderChildren();
-    updateStatusBar();
+    refreshLists();
   }
   closeEditModal();
 }
@@ -320,9 +487,8 @@ function addChild() {
       lastCar: '',
       rideHistory: {}
     }));
-    renderChildren();
     saveData();
-    updateStatusBar();
+    refreshLists();
     nameInput.value = '';
     parentSelect.value = '';
     motionInput.checked = false;

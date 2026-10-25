@@ -78,14 +78,36 @@ function setAttendMode(child, mode) {
     child.active = false;
     child.meetOnSite = false;
     child.guardianRide = false;
+    child.fixedCar = '';
   } else if (mode === 'site') {
     child.active = true;
     child.meetOnSite = true;
     child.guardianRide = false;
+    child.fixedCar = '';
   } else {
     child.active = true;
     child.meetOnSite = false;
   }
+}
+
+function getFixedRidersForCar(carName) {
+  if (!carName) return [];
+  return children.filter(c => isRiding(c) && c.fixedCar === carName);
+}
+
+function fixedSeatsUsed(carName) {
+  return getFixedRidersForCar(carName).reduce((sum, c) => sum + seatCost(c), 0);
+}
+
+function carSeatSummary(car) {
+  const capacity = parseInt(car.capacity) || 0;
+  const used = fixedSeatsUsed(car.name);
+  const remaining = capacity - used;
+  return { capacity, used, remaining, isFull: remaining <= 0, isOver: remaining < 0 };
+}
+
+function seatCostForChoice(withGuardian) {
+  return 1 + (withGuardian ? 1 : 0);
 }
 
 let cars = [];
@@ -125,6 +147,7 @@ function clearAllChecks() {
       c.active = false;
       c.meetOnSite = false;
       c.guardianRide = false;
+      c.fixedCar = '';
     });
     saveData();
     renderCars();
@@ -208,9 +231,11 @@ function promoteAllGrades() {
         c.active = false;
         c.meetOnSite = false;
         c.guardianRide = false;
+        c.fixedCar = '';
       }
     });
     saveData();
+    renderCars();
     renderChildren();
     updateStatusBar();
   }

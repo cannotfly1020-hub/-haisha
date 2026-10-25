@@ -64,6 +64,9 @@ function handleAppClick(event) {
     case 'delete-child':
       deleteChild(id);
       break;
+    case 'remove-preassign':
+      removePreassign(id);
+      break;
     default:
       break;
   }
@@ -89,6 +92,9 @@ function handleAppChange(event) {
       break;
     case 'set-fixed-car':
       setChildFixedCar(id, target.value);
+      break;
+    case 'add-preassign':
+      addPreassign(id, target.value);
       break;
     default:
       break;
