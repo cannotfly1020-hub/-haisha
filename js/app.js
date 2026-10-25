@@ -99,14 +99,27 @@ function handleAppChange(event) {
     case 'set-fixed-car':
       setChildFixedCar(id, target.value);
       break;
+    case 'toggle-guardian':
+      toggleGuardianRide(id);
+      break;
+    case 'set-guardian-name':
+      setGuardianName(id, target.value);
+      break;
     default:
       break;
   }
 }
 
+function handleAppInput(event) {
+  const target = event.target.closest('[data-action="set-guardian-name"]');
+  if (!target) return;
+  setGuardianName(Number(target.dataset.id), target.value);
+}
+
 function initApp() {
   document.body.addEventListener('click', handleAppClick);
   document.body.addEventListener('change', handleAppChange);
+  document.body.addEventListener('input', handleAppInput);
   document.body.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     const input = event.target.closest('.companion-input');

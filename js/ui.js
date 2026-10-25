@@ -164,29 +164,39 @@ function renderChildren() {
   children.forEach((c) => {
     const mode = getAttendMode(c);
     const fixedDisabled = mode !== 'ride' ? 'disabled' : '';
+    const guardianDisabled = mode !== 'ride' ? 'disabled' : '';
+    const showGuardianInput = mode === 'ride' && c.guardianRide;
     list.innerHTML += `
       <div class="item-row item-row-child">
         <div class="item-main">
-          <select class="attend-select" data-action="set-attend" data-id="${c.id}">
-            <option value="off" ${mode === 'off' ? 'selected' : ''}>欠席</option>
-            <option value="ride" ${mode === 'ride' ? 'selected' : ''}>乗車</option>
-            <option value="site" ${mode === 'site' ? 'selected' : ''}>現地</option>
-          </select>
-          <div class="item-info">
+          <div class="child-top-row">
+            <select class="attend-select" data-action="set-attend" data-id="${c.id}">
+              <option value="off" ${mode === 'off' ? 'selected' : ''}>欠席</option>
+              <option value="ride" ${mode === 'ride' ? 'selected' : ''}>乗車</option>
+              <option value="site" ${mode === 'site' ? 'selected' : ''}>現地</option>
+            </select>
             <span class="child-name">${c.name}</span>
+            <label class="guardian-inline ${mode !== 'ride' ? 'is-disabled' : ''}">
+              <input type="checkbox" data-action="toggle-guardian" data-id="${c.id}" ${c.guardianRide ? 'checked' : ''} ${guardianDisabled}>
+              同乗
+            </label>
+            ${showGuardianInput ? `
+              <input type="text" class="guardian-name-input" data-action="set-guardian-name" data-id="${c.id}"
+                value="${(c.guardianName || '').replace(/"/g, '&quot;')}"
+                placeholder="同乗者名（例: 母）" maxlength="20">
+            ` : ''}
             <span class="badge-sub">${c.grade ? c.grade + '年' : ''}</span>
-            <span class="badge-sub">${c.pos || ''}</span>
             ${c.motionSick ? `<span class="badge-motion">🤢酔い</span>` : ''}
             ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
             ${mode === 'site' ? `<span class="badge-site">現地集合</span>` : ''}
             ${c.fixedCar && mode === 'ride' ? `<span class="badge-fixed">📌${c.fixedCar}</span>` : ''}
-            <label class="fixed-car-label ${mode !== 'ride' ? 'is-disabled' : ''}">
-              <span>指定車両</span>
-              <select class="fixed-car-select" data-action="set-fixed-car" data-id="${c.id}" ${fixedDisabled}>
-                ${buildFixedCarOptionsHtml(c.fixedCar || '', c)}
-              </select>
-            </label>
           </div>
+          <label class="fixed-car-label ${mode !== 'ride' ? 'is-disabled' : ''}">
+            <span>指定車両</span>
+            <select class="fixed-car-select" data-action="set-fixed-car" data-id="${c.id}" ${fixedDisabled}>
+              ${buildFixedCarOptionsHtml(c.fixedCar || '', c)}
+            </select>
+          </label>
         </div>
         <div class="item-right">
           <button type="button" class="btn-edit" data-action="edit-child" data-id="${c.id}">✏️</button>
@@ -230,8 +240,6 @@ function setChildFixedCar(id, carName) {
   const ch = children.find(x => x.id === id);
   if (!ch) return;
 
-  ch.guardianRide = false;
-
   if (!carName) {
     ch.fixedCar = '';
     saveData();
@@ -242,7 +250,8 @@ function setChildFixedCar(id, carName) {
   const car = cars.find(c => c.name === carName);
   if (!car) return;
 
-  if (!canFitOnCar(car, 1, ch.id)) {
+  const cost = seatCost({ ...ch, fixedCar: carName, meetOnSite: false, active: true }) || 1;
+  if (!canFitOnCar(car, cost, ch.id)) {
     alert(`「${car.name}」の定員を超えるため指定できません。`);
     renderChildren();
     return;
@@ -251,6 +260,39 @@ function setChildFixedCar(id, carName) {
   ch.fixedCar = carName;
   saveData();
   refreshLists();
+}
+
+function toggleGuardianRide(id) {
+  const ch = children.find(x => x.id === id);
+  if (!ch || !isRiding(ch)) return;
+
+  if (ch.guardianRide) {
+    ch.guardianRide = false;
+    ch.guardianName = '';
+    saveData();
+    refreshLists();
+    return;
+  }
+
+  if (ch.fixedCar) {
+    const car = cars.find(c => c.name === ch.fixedCar);
+    if (car && !canFitOnCar(car, 2, ch.id)) {
+      alert(`「${car.name}」の定員を超えるため、同乗者を追加できません。`);
+      return;
+    }
+  }
+
+  ch.guardianRide = true;
+  saveData();
+  refreshLists();
+}
+
+function setGuardianName(id, value) {
+  const ch = children.find(x => x.id === id);
+  if (!ch || !ch.guardianRide) return;
+  ch.guardianName = typeof value === 'string' ? value : '';
+  // 入力中のフォーカスを保つため再描画しない
+  saveData();
 }
 
 function addCompanion(carId, label) {
@@ -344,11 +386,11 @@ function saveEditChild() {
     kid.parentCar = document.getElementById('editChildParentCar').value;
     kid.motionSick = document.getElementById('editChildMotionSick').checked;
 
-    kid.guardianRide = false;
     const nextFixed = document.getElementById('editChildFixedCar').value || '';
     if (nextFixed) {
       const car = cars.find(c => c.name === nextFixed);
-      if (car && !canFitOnCar(car, 1, kid.id)) {
+      const cost = 1 + (kid.guardianRide ? 1 : 0);
+      if (car && !canFitOnCar(car, cost, kid.id)) {
         alert(`「${car.name}」の定員を超えるため指定できません。`);
         return;
       }

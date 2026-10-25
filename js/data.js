@@ -99,16 +99,22 @@ function seatCost(child) {
   return 1 + (child.guardianRide ? 1 : 0);
 }
 
+function guardianDisplayName(child) {
+  if (!child) return '母';
+  const custom = (child.guardianName || '').trim();
+  if (custom) return custom;
+  return `${child.name || ''}母`;
+}
+
 function guardianLabel(child) {
-  const name = (child && child.guardianName ? child.guardianName : '').trim();
-  return name || '母';
+  return guardianDisplayName(child);
 }
 
 function formatRiderLabel(child, carName, options) {
   const showPin = !options || options.showPin !== false;
   const pinned = showPin && child.fixedCar && carName && child.fixedCar === carName ? '📌' : '';
   const sick = child.motionSick ? '🤢' : '';
-  const guardian = child.guardianRide ? `（＋${guardianLabel(child)}）` : '';
+  const guardian = child.guardianRide ? `（＋${guardianDisplayName(child)}）` : '';
   return `${pinned}${child.name}${sick}${guardian}`;
 }
 
@@ -127,11 +133,13 @@ function setAttendMode(child, mode) {
     child.active = false;
     child.meetOnSite = false;
     child.guardianRide = false;
+    child.guardianName = '';
     child.fixedCar = '';
   } else if (mode === 'site') {
     child.active = true;
     child.meetOnSite = true;
     child.guardianRide = false;
+    child.guardianName = '';
     child.fixedCar = '';
   } else {
     child.active = true;

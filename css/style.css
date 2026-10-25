@@ -80,10 +80,32 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
 .item-left input[type="checkbox"] { width: 18px; height: 18px; margin-right: 8px; flex-shrink: 0; }
 .item-right { display: flex; align-items: center; flex-shrink: 0; font-size: 13px; color: #475569; gap: 2px; }
 .item-row-child { align-items: flex-start; flex-wrap: wrap; }
-.item-main { display: flex; align-items: flex-start; gap: 8px; flex: 1; min-width: 0; }
+.item-main { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
 .attend-select { width: 64px; padding: 6px 4px; font-size: 12px; font-weight: bold; flex-shrink: 0; }
-.item-info { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; min-width: 0; padding-top: 4px; }
-.child-name { font-size: 14px; margin-right: 2px; }
+.child-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.child-name { font-size: 14px; font-weight: 600; margin-right: 2px; }
+.guardian-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: #475569;
+  white-space: nowrap;
+}
+.guardian-inline input { width: 15px; height: 15px; }
+.guardian-inline.is-disabled { opacity: 0.4; }
+.guardian-name-input {
+  width: 120px;
+  min-width: 90px;
+  padding: 4px 6px !important;
+  font-size: 12px !important;
+}
 .badge-site { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #ecfdf5; color: #047857; margin-left: 4px; white-space: nowrap; }
 .badge-fixed { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #fef9c3; color: #a16207; margin-left: 4px; white-space: nowrap; }
 .fixed-car-label { display: flex; align-items: center; gap: 4px; width: 100%; margin-top: 4px; font-size: 11px; color: #64748b; }
