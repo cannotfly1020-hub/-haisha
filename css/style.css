@@ -539,6 +539,63 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
 .mode-select-box select { width: 100%; background: white; font-weight: bold; color: #1e3a8a; }
 .mode-label { font-size: 11px; font-weight: bold; color: #475569; display: block; margin-bottom: 3px; }
 
+.diagnosis-card {
+  display: none;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: linear-gradient(180deg, #fef2f2 0%, #fff 70%);
+  box-shadow: 0 2px 8px rgba(185, 28, 28, 0.08);
+  color: #7f1d1d;
+}
+.diagnosis-card.is-visible { display: block; }
+.diagnosis-card.is-warning {
+  border-color: #fde68a;
+  background: linear-gradient(180deg, #fffbeb 0%, #fff 70%);
+  color: #78350f;
+  box-shadow: 0 2px 8px rgba(180, 83, 9, 0.08);
+}
+.diagnosis-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.diagnosis-shortage {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+.diagnosis-section-label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+.diagnosis-list {
+  margin: 0;
+  padding-left: 1.15em;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.diagnosis-list li { margin-bottom: 4px; }
+.diagnosis-list .tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-right: 4px;
+  background: rgba(0, 0, 0, 0.06);
+}
 .result-card { display: none; margin-top: 10px; }
 .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-top: 8px; line-height: 1.45; }
 .panel-settings { margin-bottom: 10px; }

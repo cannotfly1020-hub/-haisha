@@ -22,8 +22,221 @@ function placeKid(kid, carName, assignments, currentCaps) {
   }
 }
 
+function clearCarpoolDiagnosis() {
+  const el = document.getElementById('carpoolDiagnosis');
+  if (!el) return;
+  el.hidden = true;
+  el.classList.remove('is-visible', 'is-warning');
+  el.innerHTML = '';
+}
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * 配車失敗時の診断: 過不足・固定同乗・1席余り・車酔いなどを分析し
+ * 優先度付きの解決サジェストを返す。
+ */
+function diagnoseCarpoolFailure(options) {
+  const ridingKids = children.filter(isRiding);
+  const activeCars = cars.filter(c => c.active);
+  const inactiveCars = cars.filter(c => !c.active);
+  const leftoverKids = options && Array.isArray(options.leftoverKids) ? options.leftoverKids : [];
+
+  const kidSeatDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0);
+  const carCompanionSeats = activeCars.reduce((sum, c) => sum + companionSeatsOf(c), 0);
+  const totalCap = activeCars.reduce((sum, c) => sum + (parseInt(c.capacity, 10) || 0), 0);
+  const openSeats = Math.max(0, totalCap - carCompanionSeats);
+  const shortage = Math.max(0, kidSeatDemand - openSeats);
+  const totalNeed = kidSeatDemand + carCompanionSeats;
+
+  const suggestions = [];
+  const notes = [];
+
+  if (leftoverKids.length > 0) {
+    notes.push(`未割り当て: ${leftoverKids.map(k => k.name).join('、')}`);
+  }
+
+  if (carCompanionSeats > 0) {
+    notes.push(`車両側の事前同乗で ${carCompanionSeats}席 が確保済み`);
+  }
+
+  // A. 同乗枠の解放（車両側）
+  activeCars.forEach(car => {
+    companionsOf(car).forEach(cmp => {
+      suggestions.push({
+        priority: 10,
+        tag: 'A',
+        text: `「${car.name}」の同乗者『${cmp.label}』を解除すると 1席 空きます`
+      });
+    });
+  });
+
+  // A'. 選手側の同乗が多い場合も提案（不足時）
+  if (shortage > 0) {
+    ridingKids
+      .filter(k => childCompanionSeatsOf(k) > 0)
+      .sort((a, b) => childCompanionSeatsOf(b) - childCompanionSeatsOf(a))
+      .slice(0, 4)
+      .forEach(k => {
+        const n = childCompanionSeatsOf(k);
+        const labels = childCompanionsOf(k).map(c => c.label).join('、');
+        suggestions.push({
+          priority: 15,
+          tag: 'A',
+          text: `選手「${k.name}」の同乗者（${labels}）を減らすと最大 ${n}席 空きます`
+        });
+      });
+  }
+
+  // B. 休止車両の活用
+  inactiveCars
+    .slice()
+    .sort((a, b) => (parseInt(b.capacity, 10) || 0) - (parseInt(a.capacity, 10) || 0))
+    .forEach(car => {
+      const seats = parseInt(car.capacity, 10) || 0;
+      if (seats <= 0) return;
+      suggestions.push({
+        priority: 20,
+        tag: 'B',
+        text: `現在休止中の『${car.name}』を出勤にすると ${seats}席 確保できます`
+      });
+    });
+
+  // C. 現地集合の提案
+  if (shortage > 0 && ridingKids.length > 0) {
+    let need = shortage;
+    let count = 0;
+    const sorted = [...ridingKids].sort((a, b) => seatCost(b) - seatCost(a));
+    for (let i = 0; i < sorted.length && need > 0; i++) {
+      need -= seatCost(sorted[i]);
+      count += 1;
+    }
+    suggestions.push({
+      priority: 30,
+      tag: 'C',
+      text: `あと ${count}名を『現地集合』に変更すると成立します`
+    });
+  }
+
+  // D. 最低2人ルール / 1席のみ余り
+  activeCars.forEach(car => {
+    const cap = parseInt(car.capacity, 10) || 0;
+    const rem = cap - companionSeatsOf(car);
+    if (rem === 1) {
+      suggestions.push({
+        priority: 25,
+        tag: 'D',
+        text: `「${car.name}」が1席のみ余っているため、同乗者を調整して2席以上の空きを作ってください`
+      });
+    }
+  });
+
+  // 車酔い配慮
+  const sickKids = ridingKids.filter(k => k.motionSick);
+  if (sickKids.length > 0) {
+    const carsWithRoom = activeCars.filter(c => {
+      const rem = (parseInt(c.capacity, 10) || 0) - companionSeatsOf(c);
+      return rem >= 1;
+    });
+    if (carsWithRoom.length === 0) {
+      suggestions.push({
+        priority: 22,
+        tag: 'E',
+        text: `🤢酔いの選手（${sickKids.map(k => k.name).join('、')}）を乗せる空き車両がありません。出勤を増やすか同乗を減らしてください`
+      });
+    } else if (sickKids.length > carsWithRoom.length * 2) {
+      notes.push(`🤢酔い配慮: ${sickKids.map(k => k.name).join('、')}（空き車が少ない可能性）`);
+    }
+  }
+
+  if (activeCars.length === 0) {
+    suggestions.unshift({
+      priority: 5,
+      tag: 'B',
+      text: '出勤中の車がありません。車両の出勤チェックを入れてください'
+    });
+  }
+
+  suggestions.sort((a, b) => a.priority - b.priority || a.tag.localeCompare(b.tag));
+
+  // 重複テキスト除去
+  const seen = new Set();
+  const unique = [];
+  suggestions.forEach(s => {
+    if (seen.has(s.text)) return;
+    seen.add(s.text);
+    unique.push(s);
+  });
+
+  return {
+    kidSeatDemand,
+    carCompanionSeats,
+    totalCap,
+    openSeats,
+    totalNeed,
+    shortage,
+    notes,
+    suggestions: unique.slice(0, 10),
+    severity: shortage > 0 || leftoverKids.length > 0 || activeCars.length === 0 ? 'error' : 'warning'
+  };
+}
+
+function showCarpoolDiagnosis(diagnosis) {
+  const el = document.getElementById('carpoolDiagnosis');
+  if (!el || !diagnosis) return;
+
+  const shortageLine = diagnosis.shortage > 0
+    ? `必要座席数: ${diagnosis.totalNeed}席（選手・同乗 ${diagnosis.kidSeatDemand} ＋ 車両同乗 ${diagnosis.carCompanionSeats}）に対し、空き枠が ${diagnosis.shortage}席 不足しています（定員合計 ${diagnosis.totalCap}席）`
+    : diagnosis.leftoverKids && diagnosis.leftoverKids.length
+      ? `全体の席数は足りていますが、固定枠や1席余りの制約で一部の選手を割り当てられませんでした`
+      : `配車条件が競合しています。下記の調整をお試しください`;
+
+  const notesHtml = (diagnosis.notes || []).length
+    ? `<ul class="diagnosis-list">${diagnosis.notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
+    : '';
+
+  const actionsHtml = (diagnosis.suggestions || []).length
+    ? `<ul class="diagnosis-list">${diagnosis.suggestions.map(s =>
+        `<li><span class="tag">${escapeHtml(s.tag)}</span>${escapeHtml(s.text)}</li>`
+      ).join('')}</ul>`
+    : `<p class="diagnosis-section-label">具体的な解放候補が見つかりませんでした。定員の追加や現地集合への変更をご検討ください。</p>`;
+
+  el.classList.toggle('is-warning', diagnosis.severity === 'warning');
+  el.innerHTML = `
+    <h3 class="diagnosis-title">⚠️ 配車が成立しませんでした</h3>
+    <div class="diagnosis-shortage"><strong>【不足状況】</strong><br>${escapeHtml(shortageLine)}</div>
+    ${notesHtml ? `<p class="diagnosis-section-label">【診断メモ】</p>${notesHtml}` : ''}
+    <p class="diagnosis-section-label">【解決アクションのサジェスト】（優先度順）</p>
+    ${actionsHtml}
+  `;
+  el.hidden = false;
+  el.classList.add('is-visible');
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function presentCarpoolFailure(extra) {
+  currentAssignments = null;
+  lastGeneratedPlan = '';
+  const resultCard = document.getElementById('resultCard');
+  if (resultCard) resultCard.style.display = 'none';
+  const resultText = document.getElementById('resultText');
+  if (resultText) resultText.textContent = '';
+
+  const diagnosis = diagnoseCarpoolFailure(extra || {});
+  if (extra && extra.leftoverKids) diagnosis.leftoverKids = extra.leftoverKids;
+  showCarpoolDiagnosis(diagnosis);
+}
+
 // 親の車優先 ＆ 均等配車ロジック
 function generateCarpool() {
+  clearCarpoolDiagnosis();
+
   const activeCars = cars.filter(c => c.active);
   const ridingKids = children.filter(isRiding);
   const onSiteKids = children.filter(isOnSite);
@@ -39,7 +252,7 @@ function generateCarpool() {
 
   if (ridingKids.length > 0) {
     if (activeCars.length === 0) {
-      alert("出せる車にチェックを入れてください。");
+      presentCarpoolFailure();
       return;
     }
 
@@ -47,7 +260,7 @@ function generateCarpool() {
     const familyDemand = activeCars.reduce((sum, c) => sum + familySeatsOf(c), 0);
     const seatDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0) + familyDemand;
     if (totalCap < seatDemand) {
-      alert(`座席が足りません！\n必要席数: ${seatDemand}席（選手＋同乗保護者＋身内）\n乗車定員: ${totalCap}席\nあと ${seatDemand - totalCap} 席の車が必要です。`);
+      presentCarpoolFailure();
       return;
     }
 
@@ -152,6 +365,7 @@ function generateCarpool() {
     }
 
     // 6. 残りの選手を割り当て（最低2人優先・過去履歴の公平化・モード別スコア）
+    const stillUnassigned = [];
     unassigned.forEach(kid => {
       if (!kid.rideHistory) kid.rideHistory = {};
       const cost = seatCost(kid);
@@ -160,7 +374,10 @@ function generateCarpool() {
       if (availableCars.length === 0) {
         availableCars = activeCars.filter(c => remainingSeats(c, assignments) >= cost);
       }
-      if (availableCars.length === 0) return;
+      if (availableCars.length === 0) {
+        stillUnassigned.push(kid);
+        return;
+      }
 
       availableCars.sort((a, b) => {
         let scoreA = 0;
@@ -198,8 +415,15 @@ function generateCarpool() {
 
       placeKid(kid, availableCars[0].name, assignments, currentCaps);
     });
+
+    // 乗せるつもりだった選手が残っている場合は失敗として診断
+    if (stillUnassigned.length > 0) {
+      presentCarpoolFailure({ leftoverKids: stillUnassigned });
+      return;
+    }
   }
 
+  clearCarpoolDiagnosis();
   currentAssignments = assignments;
 
   function carHasAnyone(car, riders) {
@@ -307,7 +531,9 @@ function copyResult() {
     updateStatusBar();
   }
 
-  navigator.clipboard.writeText(lastGeneratedPlan).then(() => {
+  copyTextToClipboard(lastGeneratedPlan).then(() => {
     alert("📋 LINE用テキストをコピーしました！\n今回の乗車履歴も正常に確定保存されました。");
+  }).catch(() => {
+    alert("コピーに失敗しました。ブラウザの権限を確認してもう一度お試しください。");
   });
 }

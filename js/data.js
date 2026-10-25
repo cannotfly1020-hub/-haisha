@@ -287,6 +287,7 @@ function resetTodaySession() {
   if (resultCard) resultCard.style.display = 'none';
   const resultText = document.getElementById('resultText');
   if (resultText) resultText.textContent = '';
+  if (typeof clearCarpoolDiagnosis === 'function') clearCarpoolDiagnosis();
 
   saveData();
   renderCars();
