@@ -199,9 +199,10 @@ function refreshLists() {
   updateStatusBar();
 }
 
-function toggleCar(id) {
+function toggleCar(id, checked) {
   const c = cars.find(x => x.id === id);
-  if (c) c.active = !c.active;
+  if (!c) return;
+  c.active = typeof checked === 'boolean' ? checked : !c.active;
   saveData();
   refreshLists();
 }
@@ -355,11 +356,15 @@ function openEditModal(id) {
   if (fixedSelect) {
     fixedSelect.innerHTML = buildFixedCarOptionsHtml(kid.fixedCar || '', kid);
   }
-  document.getElementById('editModal').style.display = 'flex';
+  const editModal = document.getElementById('editModal');
+  editModal.classList.add('is-open');
+  editModal.style.display = '';
 }
 
 function closeEditModal() {
-  document.getElementById('editModal').style.display = 'none';
+  const editModal = document.getElementById('editModal');
+  editModal.classList.remove('is-open');
+  editModal.style.display = '';
 }
 
 function saveEditChild() {
@@ -474,11 +479,15 @@ function addChild() {
 function openRestoreModal() {
   const input = document.getElementById('restoreJson');
   if (input) input.value = '';
-  document.getElementById('restoreModal').style.display = 'flex';
+  const restoreModal = document.getElementById('restoreModal');
+  restoreModal.classList.add('is-open');
+  restoreModal.style.display = '';
 }
 
 function closeRestoreModal() {
-  document.getElementById('restoreModal').style.display = 'none';
+  const restoreModal = document.getElementById('restoreModal');
+  restoreModal.classList.remove('is-open');
+  restoreModal.style.display = '';
 }
 
 function applyRestore() {

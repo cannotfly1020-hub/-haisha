@@ -1,9 +1,53 @@
-function handleAppClick(event) {
-  const target = event.target.closest('[data-action]');
-  if (!target) return;
+/** クリックで処理する data-action（チェックボックス等の change 系は除外） */
+const CLICK_ACTIONS = new Set([
+  'clear-checks',
+  'manual-save',
+  'sort-cars',
+  'sort-grade',
+  'sort-name',
+  'promote',
+  'add-car',
+  'add-child',
+  'generate',
+  'copy-result',
+  'reset-data',
+  'copy-backup',
+  'open-restore',
+  'close-restore',
+  'apply-restore',
+  'close-modal',
+  'save-child',
+  'delete-car',
+  'edit-child',
+  'delete-child',
+  'add-companion',
+  'add-companion-custom',
+  'remove-companion'
+]);
+
+/** touchend 直後の合成 click を無視するためのフラグ */
+let suppressNextClick = false;
+
+function findActionEl(eventTarget) {
+  if (!eventTarget || typeof eventTarget.closest !== 'function') return null;
+  return eventTarget.closest('[data-action]');
+}
+
+function isDisabledControl(el) {
+  if (!el) return true;
+  if (el.disabled) return true;
+  if (el.getAttribute('aria-disabled') === 'true') return true;
+  return false;
+}
+
+function runClickAction(target) {
+  if (!target || isDisabledControl(target)) return;
+
+  const action = target.dataset.action;
+  if (!CLICK_ACTIONS.has(action)) return;
 
   const id = Number(target.dataset.id);
-  switch (target.dataset.action) {
+  switch (action) {
     case 'clear-checks':
       clearAllChecks();
       break;
@@ -81,14 +125,64 @@ function handleAppClick(event) {
   }
 }
 
+function handleAppClick(event) {
+  if (suppressNextClick) {
+    suppressNextClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  const target = findActionEl(event.target);
+  if (!target) return;
+  // input/select は change / input に任せる
+  if (target.matches('input, select, textarea')) return;
+
+  runClickAction(target);
+}
+
+/**
+ * iOS Safari / ホーム画面PWA 向け:
+ * 一部環境で click が欠落するため、ボタン系は touchend でも発火させる。
+ * preventDefault で後続の合成 click を抑止し二重実行を防ぐ。
+ */
+function handleAppTouchEnd(event) {
+  if (event.touches && event.touches.length > 0) return; // マルチタッチ中は無視
+  if (event.changedTouches && event.changedTouches.length > 1) return;
+
+  const target = findActionEl(event.target);
+  if (!target) return;
+  if (target.matches('input, select, textarea, label')) return;
+  if (!CLICK_ACTIONS.has(target.dataset.action)) return;
+  if (isDisabledControl(target)) return;
+
+  // スクロール直後の誤タップは無視（小さな移動は許容）
+  const touch = event.changedTouches && event.changedTouches[0];
+  if (touch && target._touchStartY != null) {
+    const dy = Math.abs(touch.clientY - target._touchStartY);
+    if (dy > 12) return;
+  }
+
+  suppressNextClick = true;
+  event.preventDefault();
+  runClickAction(target);
+}
+
+function handleAppTouchStart(event) {
+  const target = findActionEl(event.target);
+  if (!target || !event.touches || !event.touches[0]) return;
+  target._touchStartY = event.touches[0].clientY;
+}
+
 function handleAppChange(event) {
-  const target = event.target.closest('[data-action]');
+  const target = findActionEl(event.target);
   if (!target) return;
 
   const id = Number(target.dataset.id);
   switch (target.dataset.action) {
     case 'toggle-car':
-      toggleCar(id);
+      // ネイティブの checked を正とする（トグル二重反転を防ぐ）
+      toggleCar(id, target.checked);
       break;
     case 'update-capacity':
       updateCapacity(id, target.value);
@@ -117,10 +211,14 @@ function handleAppInput(event) {
 }
 
 function initApp() {
-  document.body.addEventListener('click', handleAppClick);
-  document.body.addEventListener('change', handleAppChange);
-  document.body.addEventListener('input', handleAppInput);
-  document.body.addEventListener('keydown', (event) => {
+  // document へ委任（再描画後も確実に拾う）
+  document.addEventListener('click', handleAppClick);
+  document.addEventListener('change', handleAppChange);
+  document.addEventListener('input', handleAppInput);
+  document.addEventListener('touchstart', handleAppTouchStart, { passive: true });
+  document.addEventListener('touchend', handleAppTouchEnd, { passive: false });
+
+  document.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     const input = event.target.closest('.companion-input');
     if (!input || !input.id) return;
@@ -129,6 +227,7 @@ function initApp() {
     event.preventDefault();
     addCompanionCustom(Number(match[1]));
   });
+
   renderCars();
   renderChildren();
   updateStatusBar();
