@@ -1,3 +1,4 @@
+(function (global) {
 /** クリックで処理する data-action（チェックボックス等の change 系は除外） */
 const CLICK_ACTIONS = new Set([
   'clear-checks',
@@ -265,4 +266,31 @@ function initApp() {
   updateStatusBar();
 }
 
-initApp();
+
+
+  const HaishaApp = {
+    init: initApp,
+    runClickAction,
+    handleAppClick,
+    handleAppChange,
+    handleAppTouchStart,
+    handleAppTouchEnd,
+    findActionEl,
+    isDisabledControl,
+    get CLICK_ACTIONS() { return CLICK_ACTIONS; }
+  };
+  global.HaishaApp = HaishaApp;
+
+  global.initApp = initApp;
+  global.runClickAction = runClickAction;
+  global.handleAppClick = handleAppClick;
+  global.handleAppChange = handleAppChange;
+  global.handleAppTouchStart = handleAppTouchStart;
+  global.handleAppTouchEnd = handleAppTouchEnd;
+  global.findActionEl = findActionEl;
+  global.isDisabledControl = isDisabledControl;
+
+  // 起動
+  initApp();
+
+})(typeof window !== 'undefined' ? window : globalThis);

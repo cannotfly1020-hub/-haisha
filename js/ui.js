@@ -1,3 +1,4 @@
+(function (global) {
 /** 選手カードの同乗入力を開いている ID（再描画でも維持） */
 const openChildCompanionEditors = new Set();
 
@@ -630,3 +631,52 @@ function applyRestore() {
     closeRestoreModal();
   }
 }
+
+
+  const HaishaUI = {
+    renderCars,
+    renderChildren,
+    refreshLists,
+    updateStatusBar,
+    openCompanionEditor: openChildCompanionEditor,
+    openChildCompanionEditor,
+    toggleSection,
+    toggleSettingsPanel,
+    applySectionOpenState,
+    applySettingsPanelState,
+    toggleCar,
+    updateCapacity,
+    commitCarRename,
+    setChildAttend,
+    setChildFixedCar,
+    addCompanion,
+    addCompanionCustom,
+    removeCompanion,
+    addChildCompanion,
+    addChildCompanionCustom,
+    removeChildCompanion,
+    addCar,
+    addChild,
+    deleteCar,
+    deleteChild,
+    openEditModal,
+    closeEditModal,
+    saveEditChild,
+    sortCarsByName,
+    sortChildrenByGrade,
+    sortChildrenByName,
+    openRestoreModal,
+    closeRestoreModal,
+    applyRestore,
+    updateCarSelectOptions,
+    get openChildCompanionEditors() { return openChildCompanionEditors; }
+  };
+  global.HaishaUI = HaishaUI;
+
+  const uiCompatFns = Object.keys(HaishaUI).filter((k) => typeof HaishaUI[k] === 'function');
+  uiCompatFns.forEach((name) => { global[name] = HaishaUI[name]; });
+  // 明示エイリアス
+  global.openCompanionEditor = openChildCompanionEditor;
+  global.openChildCompanionEditors = openChildCompanionEditors;
+
+})(typeof window !== 'undefined' ? window : globalThis);

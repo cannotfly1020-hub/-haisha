@@ -15,20 +15,20 @@
 ├── sw.js               # Cache First Service Worker（haisha-cache-v…）
 ├── icons/              # PWA アイコン 192 / 512
 ├── css/style.css       # レイアウト・タッチ領域・診断カード・2カラム
-├── js/data.js          # スキーマ正規化・永続化・リセット・バックアップ
-├── js/ui.js            # 描画・入力ハンドラ（マスタ編集含む）
-├── js/carpool.js       # 配車アルゴリズム・診断・LINEテキスト・履歴確定
-└── js/app.js           # イベント委任（click / change / touchend）
+├── js/data.js          # HaishaData — スキーマ・永続化・リセット・バックアップ
+├── js/ui.js            # HaishaUI — 描画・入力ハンドラ
+├── js/carpool.js       # HaishaCarpool — 配車・診断・LINE・履歴確定
+└── js/app.js           # HaishaApp — イベント委任・起動
 ```
 
-**PWA キャッシュ**: `sw.js` の `CACHE_NAME`（例: `haisha-cache-v20261025t`）を、`index.html` の `?v=` と**同時に**更新する。旧キャッシュは `activate` で削除される。
+**PWA キャッシュ**: `sw.js` の `CACHE_NAME`（例: `haisha-cache-v20261025w`）を、`index.html` の `?v=` と**同時に**更新する。旧キャッシュは `activate` で削除される。
 
 **スクリプト依存順（`index.html` 末尾・この順を崩さない）**:
 
-1. `data.js` — グローバル `cars` / `children`、`saveData`、正規化
-2. `ui.js` — `renderCars` / `renderChildren` / 編集系
-3. `carpool.js` — `generateCarpool` / `copyResult` / 診断
-4. `app.js` — `initApp()` でリスナ登録＋初回描画
+1. `data.js` → `HaishaData`（`cars` / `children` / `saveData` / 正規化）
+2. `ui.js` → `HaishaUI`（`renderCars` / `renderChildren` / 編集系）
+3. `carpool.js` → `HaishaCarpool`（`generate` / `copyResult` / 診断）
+4. `app.js` → `HaishaApp.init()`（リスナ登録＋初回描画）
 
 キャッシュバスター: `css/style.css?v=…` および各 `js/*.js?v=…` を**同時に**上げる。片方だけだと iOS PWA で古い JS/CSS が残る。
 
@@ -58,9 +58,16 @@
 
 ### 1.3 技術スタック
 
-- Vanilla JS（モジュールバンドラなし、グローバル関数）
+- Vanilla JS（モジュールバンドラなし）
+- **名前空間パターン**（各ファイルは IIFE で閉じ、公開 API のみ専用オブジェクトへ集約）:
+  - `window.HaishaData` ← `js/data.js`
+  - `window.HaishaUI` ← `js/ui.js`
+  - `window.HaishaCarpool` ← `js/carpool.js`
+  - `window.HaishaApp` ← `js/app.js`
+- 段階的移行のため、主要 API は `window.saveData` 等へエイリアスも残す（新規コードは必ず `Haisha*` 経由）
+- **禁止**: グローバル直下への新規 `function` / `var` / `let` / `const` 追加（必ず該当名前空間のプロパティとして追加する）
 - `localStorage` 永続化（`cp_cars` / `cp_children`）
-- 単一 HTML シェル + CSS
+- 単一 HTML シェル + CSS + PWA（`manifest.json` / `sw.js`）
 
 ---
 
@@ -438,14 +445,27 @@ UI の状況バーも同様に `kidSeats + companionDemand` vs `activeSeats`。
 
 ## 6. モジュール責務マトリクス（どこを触るか）
 
-| 変更内容 | 主ファイル | 注意 |
-|----------|------------|------|
-| フィールド追加 | `data.js` normalize + `ui.js` 描画 + バックアップ互換 | 旧データ migrate を書く |
-| 座席定義変更 | `seatCost` / `carSeatSummary` / `diagnose*` / 状況バー | 全箇所を同時更新 |
-| 配車優先度 | `carpool.js` Step 2–6 | LINE 形式を変えない |
-| ボタン追加 | `ui.js` HTML + `app.js` CLICK_ACTIONS | touchend 対象か確認 |
+### 6.1 名前空間と公開 API
+
+| 名前空間 | ファイル | 主な公開 API |
+|----------|----------|--------------|
+| `HaishaData` | `js/data.js` | `cars`, `children`, `loadData`, `saveData`, `renameCar`, `renameCarCascade`, `resetTodaySession`, `copyBackupData`, `restoreBackupData`, `seatCost`, `normalize*` |
+| `HaishaUI` | `js/ui.js` | `renderCars`, `renderChildren`, `refreshLists`, `openCompanionEditor`, `toggleSection`, 出欠・同乗・CRUD 系 |
+| `HaishaCarpool` | `js/carpool.js` | `generate`, `diagnose`, `copyResult`, `buildLinePlanText`, `clearDiagnosis`, `clearLastSessionCommit`, `currentAssignments` |
+| `HaishaApp` | `js/app.js` | `init`, `runClickAction`, イベント委任ハンドラ |
+
+**ルール**: 機能追加時は上記いずれかの名前空間オブジェクトにメソッド／プロパティを追加する。グローバル直下への関数追加は禁止（互換エイリアスが必要な場合のみ `global.foo = HaishaX.foo` を明示）。
+
+### 6.2 変更箇所ガイド
+
+| 変更内容 | 主ファイル / 名前空間 | 注意 |
+|----------|----------------------|------|
+| フィールド追加 | `HaishaData` normalize + `HaishaUI` 描画 + バックアップ互換 | 旧データ migrate を書く |
+| 座席定義変更 | `HaishaData.seatCost` / `carSeatSummary` / `HaishaCarpool.diagnose*` | 全箇所を同時更新 |
+| 配車優先度 | `HaishaCarpool.generate`（旧 `generateCarpool`） | LINE 形式を変えない |
+| ボタン追加 | `HaishaUI` HTML 生成 + `HaishaApp` の `CLICK_ACTIONS` | touchend 対象か確認 |
 | 見た目 | `style.css` | タップ領域・768px ルール |
-| キャッシュ | `index.html` の `?v=` 全箇所 | |
+| キャッシュ | `index.html` の `?v=` と `sw.js` の `CACHE_NAME` | 同時更新 |
 
 ---
 

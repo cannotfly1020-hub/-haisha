@@ -1,3 +1,4 @@
+(function (global) {
 let lastGeneratedPlan = "";
 let currentAssignments = null;
 
@@ -604,3 +605,63 @@ function copyResult() {
     alert("コピーに失敗しました。ブラウザの権限を確認してもう一度お試しください。");
   });
 }
+
+
+  const HaishaCarpool = {
+    generate: generateCarpool,
+    diagnose: diagnoseCarpoolFailure,
+    copyResult,
+    clearDiagnosis: clearCarpoolDiagnosis,
+    clearLastSessionCommit,
+    clearCarpoolDiagnosis,
+    diagnoseCarpoolFailure,
+    generateCarpool,
+    presentCarpoolFailure,
+    showCarpoolDiagnosis,
+    buildLinePlanText: function buildLinePlanText() { return lastGeneratedPlan || ''; },
+    get lastGeneratedPlan() { return lastGeneratedPlan; },
+    set lastGeneratedPlan(v) { lastGeneratedPlan = v; },
+    get currentAssignments() { return currentAssignments; },
+    set currentAssignments(v) { currentAssignments = v; },
+    get lastSessionCommit() { return lastSessionCommit; }
+  };
+  global.HaishaCarpool = HaishaCarpool;
+
+  Object.defineProperty(global, 'currentAssignments', {
+    get() { return currentAssignments; },
+    set(v) { currentAssignments = v; },
+    configurable: true,
+    enumerable: true
+  });
+  Object.defineProperty(global, 'lastGeneratedPlan', {
+    get() { return lastGeneratedPlan; },
+    set(v) { lastGeneratedPlan = v; },
+    configurable: true,
+    enumerable: true
+  });
+  Object.defineProperty(global, 'lastSessionCommit', {
+    get() { return lastSessionCommit; },
+    set(v) { lastSessionCommit = v; },
+    configurable: true,
+    enumerable: true
+  });
+
+  global.generateCarpool = generateCarpool;
+  global.generate = generateCarpool;
+  global.copyResult = copyResult;
+  global.clearCarpoolDiagnosis = clearCarpoolDiagnosis;
+  global.clearLastSessionCommit = clearLastSessionCommit;
+  global.diagnoseCarpoolFailure = diagnoseCarpoolFailure;
+  global.presentCarpoolFailure = presentCarpoolFailure;
+  global.showCarpoolDiagnosis = showCarpoolDiagnosis;
+  global.readLastSessionCommit = readLastSessionCommit;
+  global.writeLastSessionCommit = writeLastSessionCommit;
+  global.rollbackLastSessionCommit = rollbackLastSessionCommit;
+  global.applyAssignmentHistoryCommit = applyAssignmentHistoryCommit;
+  global.occupiedSeats = occupiedSeats;
+  global.carPeopleCount = carPeopleCount;
+  global.remainingSeats = remainingSeats;
+  global.placeKid = placeKid;
+  global.escapeHtml = escapeHtml;
+
+})(typeof window !== 'undefined' ? window : globalThis);

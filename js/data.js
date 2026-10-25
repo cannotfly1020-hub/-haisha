@@ -1,3 +1,4 @@
+(function (global) {
 function createDefaultCars() {
   return [
     { id: 1, name: '佐藤号', capacity: 3, active: true, companions: [] },
@@ -258,22 +259,22 @@ function renameCar(carId, newName) {
 let cars = [];
 let children = [];
 
-try {
-  const loadedCars = JSON.parse(localStorage.getItem('cp_cars')) || createDefaultCars();
-  cars = loadedCars.map(normalizeCar);
-} catch (e) {
-  cars = createDefaultCars();
-}
+function loadData() {
+  try {
+    const loadedCars = JSON.parse(localStorage.getItem('cp_cars')) || createDefaultCars();
+    cars = loadedCars.map(normalizeCar);
+  } catch (e) {
+    cars = createDefaultCars();
+  }
 
-try {
-  const loaded = JSON.parse(localStorage.getItem('cp_children')) || createDefaultChildren();
-  children = loaded.map(normalizeChild);
-} catch (e) {
-  children = createDefaultChildren();
-}
+  try {
+    const loaded = JSON.parse(localStorage.getItem('cp_children')) || createDefaultChildren();
+    children = loaded.map(normalizeChild);
+  } catch (e) {
+    children = createDefaultChildren();
+  }
 
-// 旧 guardianRide / guardianName を companions 配列へ正規化して永続化
-(function migrateLegacyChildGuardians() {
+  // 旧 guardianRide / guardianName を companions 配列へ正規化して永続化
   let changed = false;
   children.forEach(ch => {
     if (ch.guardianRide != null || ch.guardianName != null) {
@@ -291,7 +292,9 @@ try {
       localStorage.setItem('cp_children', JSON.stringify(children));
     } catch (e) { /* ignore */ }
   }
-})();
+}
+
+loadData();
 
 function saveData() {
   try {
@@ -487,3 +490,103 @@ function promoteAllGrades() {
     updateStatusBar();
   }
 }
+
+
+  const HaishaData = {
+    get cars() { return cars; },
+    set cars(v) { cars = v; },
+    get children() { return children; },
+    set children(v) { children = v; },
+    loadData,
+    saveData,
+    manualSave,
+    renameCar,
+    renameCarCascade,
+    resetTodaySession,
+    clearAllChecks,
+    resetAllData,
+    copyBackupData,
+    restoreBackupData,
+    promoteAllGrades,
+    copyTextToClipboard,
+    normalizeCar,
+    normalizeChild,
+    normalizeCompanion,
+    companionsOf,
+    companionSeatsOf,
+    familySeatsOf,
+    childCompanionsOf,
+    childCompanionSeatsOf,
+    isParticipating,
+    isOnSite,
+    isRiding,
+    seatCost,
+    formatRiderLabel,
+    autoFixedLabel,
+    getAttendMode,
+    setAttendMode,
+    getFixedRidersForCar,
+    fixedSeatsUsed,
+    carSeatSummary,
+    canFitOnCar,
+    newCompanionId,
+    buildBackupPayload
+  };
+  global.HaishaData = HaishaData;
+
+  Object.defineProperty(global, 'cars', {
+    get() { return cars; },
+    set(v) { cars = v; },
+    configurable: true,
+    enumerable: true
+  });
+  Object.defineProperty(global, 'children', {
+    get() { return children; },
+    set(v) { children = v; },
+    configurable: true,
+    enumerable: true
+  });
+
+  // 後方互換: 既存のグローバル呼び出しを維持
+  global.loadData = loadData;
+  global.saveData = saveData;
+  global.manualSave = manualSave;
+  global.renameCar = renameCar;
+  global.renameCarCascade = renameCarCascade;
+  global.resetTodaySession = resetTodaySession;
+  global.clearAllChecks = clearAllChecks;
+  global.resetAllData = resetAllData;
+  global.copyBackupData = copyBackupData;
+  global.restoreBackupData = restoreBackupData;
+  global.promoteAllGrades = promoteAllGrades;
+  global.copyTextToClipboard = copyTextToClipboard;
+  global.copyTextFallback = copyTextFallback;
+  global.normalizeCar = normalizeCar;
+  global.normalizeChild = normalizeChild;
+  global.normalizeCompanion = normalizeCompanion;
+  global.normalizeChildCompanions = normalizeChildCompanions;
+  global.companionsOf = companionsOf;
+  global.companionSeatsOf = companionSeatsOf;
+  global.familySeatsOf = familySeatsOf;
+  global.childCompanionsOf = childCompanionsOf;
+  global.childCompanionSeatsOf = childCompanionSeatsOf;
+  global.isParticipating = isParticipating;
+  global.isOnSite = isOnSite;
+  global.isRiding = isRiding;
+  global.seatCost = seatCost;
+  global.formatRiderLabel = formatRiderLabel;
+  global.autoFixedLabel = autoFixedLabel;
+  global.getAttendMode = getAttendMode;
+  global.setAttendMode = setAttendMode;
+  global.getFixedRidersForCar = getFixedRidersForCar;
+  global.fixedSeatsUsed = fixedSeatsUsed;
+  global.carSeatSummary = carSeatSummary;
+  global.canFitOnCar = canFitOnCar;
+  global.newCompanionId = newCompanionId;
+  global.buildBackupPayload = buildBackupPayload;
+  global.isBackupCar = isBackupCar;
+  global.isBackupChild = isBackupChild;
+  global.createDefaultCars = createDefaultCars;
+  global.createDefaultChildren = createDefaultChildren;
+
+})(typeof window !== 'undefined' ? window : globalThis);
