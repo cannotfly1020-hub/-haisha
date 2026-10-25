@@ -73,6 +73,12 @@ function handleAppClick(event) {
     case 'remove-family':
       removeFamilySeat(id);
       break;
+    case 'hide-guest-option':
+      onHideGuestOption(id);
+      break;
+    case 'restore-guest-option':
+      onRestoreGuestOption(id);
+      break;
     default:
       break;
   }
@@ -92,9 +98,6 @@ function handleAppChange(event) {
       break;
     case 'set-attend':
       setChildAttend(id, target.value);
-      break;
-    case 'toggle-guardian':
-      toggleGuardianRide(id);
       break;
     case 'set-fixed-car':
       setChildFixedCar(id, target.value);

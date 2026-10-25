@@ -79,7 +79,7 @@ function formatRiderLabel(child, carName, options) {
 }
 
 function autoFixedLabel(child) {
-  if (child.parentCar) return `自動（親:${child.parentCar}）`;
+  if (child && child.parentCar) return `自動（親:${child.parentCar}）`;
   return '自動（指定なし）';
 }
 
@@ -150,6 +150,7 @@ function canFitOnCar(car, extraSeats, excludeChildId) {
 
 let cars = [];
 let children = [];
+let hiddenGuestIds = [];
 
 try {
   const loadedCars = JSON.parse(localStorage.getItem('cp_cars')) || createDefaultCars();
@@ -165,10 +166,45 @@ try {
   children = createDefaultChildren();
 }
 
+try {
+  const loadedHidden = JSON.parse(localStorage.getItem('cp_hidden_guest_ids'));
+  hiddenGuestIds = Array.isArray(loadedHidden)
+    ? loadedHidden.map(Number).filter(n => !Number.isNaN(n))
+    : [];
+} catch (e) {
+  hiddenGuestIds = [];
+}
+
+function saveHiddenGuestIds() {
+  try {
+    localStorage.setItem('cp_hidden_guest_ids', JSON.stringify(hiddenGuestIds));
+  } catch (e) {
+    console.error("同乗候補の保存エラー:", e);
+  }
+}
+
+function isGuestOptionHidden(childId) {
+  return hiddenGuestIds.includes(Number(childId));
+}
+
+function hideGuestOption(childId) {
+  const id = Number(childId);
+  if (Number.isNaN(id) || hiddenGuestIds.includes(id)) return;
+  hiddenGuestIds.push(id);
+  saveHiddenGuestIds();
+}
+
+function restoreGuestOption(childId) {
+  const id = Number(childId);
+  hiddenGuestIds = hiddenGuestIds.filter(x => x !== id);
+  saveHiddenGuestIds();
+}
+
 function saveData() {
   try {
     localStorage.setItem('cp_cars', JSON.stringify(cars));
     localStorage.setItem('cp_children', JSON.stringify(children));
+    saveHiddenGuestIds();
   } catch (e) {
     console.error("保存エラー:", e);
   }
@@ -214,7 +250,7 @@ function isBackupChild(child) {
 }
 
 function copyBackupData() {
-  const payload = JSON.stringify({ cars: cars, children: children }, null, 2);
+  const payload = JSON.stringify({ cars: cars, children: children, hiddenGuestIds: hiddenGuestIds }, null, 2);
   const notifyCopied = () => {
     alert("データをコピーしました！LINEのKeepメモ等に貼り付けて保存してください");
   };
@@ -249,6 +285,9 @@ function restoreBackupData(text) {
 
   cars = data.cars.map(normalizeCar);
   children = data.children.map(normalizeChild);
+  hiddenGuestIds = Array.isArray(data.hiddenGuestIds)
+    ? data.hiddenGuestIds.map(Number).filter(n => !Number.isNaN(n))
+    : [];
   saveData();
   renderCars();
   renderChildren();
