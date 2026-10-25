@@ -89,6 +89,10 @@ h1 { font-size: 19px; text-align: center; margin: 8px 0 10px; color: #1e3a8a; }
 .guardian-check.is-disabled { opacity: 0.4; }
 .badge-site { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #ecfdf5; color: #047857; margin-left: 4px; white-space: nowrap; }
 .badge-guardian { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #fff7ed; color: #c2410c; margin-left: 4px; white-space: nowrap; }
+.badge-fixed { font-size: 11px; padding: 2px 5px; border-radius: 4px; background: #fef9c3; color: #a16207; margin-left: 4px; white-space: nowrap; }
+.fixed-car-label { display: flex; align-items: center; gap: 4px; width: 100%; margin-top: 4px; font-size: 11px; color: #64748b; }
+.fixed-car-label.is-disabled { opacity: 0.45; }
+.fixed-car-select { flex: 1; min-width: 0; padding: 4px 6px; font-size: 12px; }
 
 .add-form { display: flex; gap: 6px; margin-top: 10px; width: 100%; flex-wrap: wrap; }
 input[type="text"], input[type="number"], select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }

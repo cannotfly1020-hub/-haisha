@@ -8,12 +8,12 @@ function createDefaultCars() {
 
 function createDefaultChildren() {
   return [
-    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', motionSick: true, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
-    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} }
+    { id: 1, name: 'ゆうと', grade: 6, pos: '投手', parentCar: '佐藤号', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 2, name: 'そうた', grade: 6, pos: '捕手', parentCar: '鈴木号', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 3, name: 'れん', grade: 5, pos: '内野', parentCar: '', fixedCar: '', motionSick: true, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 4, name: 'はると', grade: 5, pos: '外野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 5, name: 'こうき', grade: 4, pos: '内野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} },
+    { id: 6, name: '大和', grade: 3, pos: '外野', parentCar: '', fixedCar: '', motionSick: false, active: true, meetOnSite: false, guardianRide: false, guardianName: '', lastCar: '', rideHistory: {} }
   ];
 }
 
@@ -27,6 +27,7 @@ function normalizeChild(child) {
     guardianName: typeof child.guardianName === 'string' ? child.guardianName : '',
     motionSick: !!child.motionSick,
     parentCar: typeof child.parentCar === 'string' ? child.parentCar : '',
+    fixedCar: typeof child.fixedCar === 'string' ? child.fixedCar : '',
     lastCar: typeof child.lastCar === 'string' ? child.lastCar : '',
     rideHistory: child.rideHistory && typeof child.rideHistory === 'object' && !Array.isArray(child.rideHistory) ? child.rideHistory : {}
   };
@@ -54,10 +55,16 @@ function guardianLabel(child) {
   return name || '母';
 }
 
-function formatRiderLabel(child) {
+function formatRiderLabel(child, carName) {
+  const pinned = child.fixedCar && carName && child.fixedCar === carName ? '📌' : '';
   const sick = child.motionSick ? '🤢' : '';
   const guardian = child.guardianRide ? `（＋${guardianLabel(child)}）` : '';
-  return `${child.name}${sick}${guardian}`;
+  return `${pinned}${child.name}${sick}${guardian}`;
+}
+
+function autoFixedLabel(child) {
+  if (child.parentCar) return `自動（親:${child.parentCar}）`;
+  return '自動（指定なし）';
 }
 
 function getAttendMode(child) {

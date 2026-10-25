@@ -29,9 +29,22 @@ function updateStatusBar() {
   }
 }
 
+function buildFixedCarOptionsHtml(selected, child) {
+  let html = `<option value="">${autoFixedLabel(child || {})}</option>`;
+  const activeCars = cars.filter(c => c.active);
+  activeCars.forEach(c => {
+    html += `<option value="${c.name}" ${selected === c.name ? 'selected' : ''}>${c.name}</option>`;
+  });
+  if (selected && !activeCars.some(c => c.name === selected)) {
+    html += `<option value="${selected}" selected>${selected}（本日休み）</option>`;
+  }
+  return html;
+}
+
 function updateCarSelectOptions() {
   const addSelect = document.getElementById('newChildParentCar');
   const editSelect = document.getElementById('editChildParentCar');
+  const editFixedSelect = document.getElementById('editChildFixedCar');
   if (!addSelect) return;
 
   let currentAddVal = addSelect.value;
@@ -48,6 +61,13 @@ function updateCarSelectOptions() {
       editSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
     });
     editSelect.value = currentEditVal;
+  }
+
+  if (editFixedSelect) {
+    const id = parseInt(document.getElementById('editChildId').value);
+    const kid = children.find(x => x.id === id);
+    const selected = editFixedSelect.value || (kid ? kid.fixedCar : '') || '';
+    editFixedSelect.innerHTML = buildFixedCarOptionsHtml(selected, kid);
   }
 }
 
@@ -81,6 +101,7 @@ function renderChildren() {
   children.forEach((c) => {
     const mode = getAttendMode(c);
     const guardianDisabled = mode !== 'ride' ? 'disabled' : '';
+    const fixedDisabled = mode !== 'ride' ? 'disabled' : '';
     list.innerHTML += `
       <div class="item-row item-row-child">
         <div class="item-main">
@@ -97,6 +118,13 @@ function renderChildren() {
             ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
             ${mode === 'site' ? `<span class="badge-site">現地集合</span>` : ''}
             ${c.guardianRide && mode === 'ride' ? `<span class="badge-guardian">＋${guardianLabel(c)}</span>` : ''}
+            ${c.fixedCar && mode === 'ride' ? `<span class="badge-fixed">📌${c.fixedCar}</span>` : ''}
+            <label class="fixed-car-label ${mode !== 'ride' ? 'is-disabled' : ''}">
+              <span>指定車両</span>
+              <select class="fixed-car-select" data-action="set-fixed-car" data-id="${c.id}" ${fixedDisabled}>
+                ${buildFixedCarOptionsHtml(c.fixedCar || '', c)}
+              </select>
+            </label>
           </div>
         </div>
         <div class="item-right">
@@ -116,6 +144,8 @@ function toggleCar(id) {
   const c = cars.find(x => x.id === id);
   if (c) c.active = !c.active;
   saveData();
+  updateCarSelectOptions();
+  renderChildren();
   updateStatusBar();
 }
 
@@ -144,12 +174,25 @@ function toggleGuardianRide(id) {
   updateStatusBar();
 }
 
+function setChildFixedCar(id, carName) {
+  const ch = children.find(x => x.id === id);
+  if (!ch) return;
+  ch.fixedCar = carName || '';
+  saveData();
+  renderChildren();
+}
+
 function deleteCar(id) {
   const car = cars.find(x => x.id === id);
   if (car && confirm(`「${car.name}」を削除しますか？`)) {
     cars = cars.filter(x => x.id !== id);
+    children.forEach(ch => {
+      if (ch.parentCar === car.name) ch.parentCar = '';
+      if (ch.fixedCar === car.name) ch.fixedCar = '';
+    });
     saveData();
     renderCars();
+    renderChildren();
     updateStatusBar();
   }
 }
@@ -168,14 +211,18 @@ function deleteChild(id) {
 function openEditModal(id) {
   const kid = children.find(x => x.id === id);
   if (!kid) return;
-  updateCarSelectOptions();
   document.getElementById('editChildId').value = kid.id;
   document.getElementById('editChildName').value = kid.name;
   document.getElementById('editChildGrade').value = kid.grade || 6;
   document.getElementById('editChildPos').value = kid.pos || '未定';
-  document.getElementById('editChildParentCar').value = kid.parentCar || '';
-  document.getElementById('editChildMotionSick').checked = !!kid.motionSick;
   document.getElementById('editChildGuardianName').value = kid.guardianName || '';
+  document.getElementById('editChildMotionSick').checked = !!kid.motionSick;
+  updateCarSelectOptions();
+  document.getElementById('editChildParentCar').value = kid.parentCar || '';
+  const fixedSelect = document.getElementById('editChildFixedCar');
+  if (fixedSelect) {
+    fixedSelect.innerHTML = buildFixedCarOptionsHtml(kid.fixedCar || '', kid);
+  }
   document.getElementById('editModal').style.display = 'flex';
 }
 
@@ -191,6 +238,7 @@ function saveEditChild() {
     kid.grade = parseInt(document.getElementById('editChildGrade').value);
     kid.pos = document.getElementById('editChildPos').value;
     kid.parentCar = document.getElementById('editChildParentCar').value;
+    kid.fixedCar = document.getElementById('editChildFixedCar').value || '';
     kid.motionSick = document.getElementById('editChildMotionSick').checked;
     kid.guardianName = document.getElementById('editChildGuardianName').value.trim();
     saveData();
@@ -263,6 +311,7 @@ function addChild() {
       grade: grade,
       pos: pos,
       parentCar: parent,
+      fixedCar: '',
       motionSick: motionSick,
       guardianName: guardianName,
       active: true,

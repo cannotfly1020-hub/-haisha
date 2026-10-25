@@ -87,6 +87,9 @@ function handleAppChange(event) {
     case 'toggle-guardian':
       toggleGuardianRide(id);
       break;
+    case 'set-fixed-car':
+      setChildFixedCar(id, target.value);
+      break;
     default:
       break;
   }

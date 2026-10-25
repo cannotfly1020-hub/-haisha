@@ -62,10 +62,33 @@ function generateCarpool() {
     });
 
     let unassigned = [...ridingKids];
+    const overflowedCars = [];
 
-    // 2. 親の車が出ている子供を最優先固定
+    // 2. 手動指定車両を最優先で固定（同乗保護者分の座席も消費）
     for (let i = unassigned.length - 1; i >= 0; i--) {
       let kid = unassigned[i];
+      if (!kid.fixedCar) continue;
+      let fixedCarObj = activeCars.find(c => c.name === kid.fixedCar);
+      if (!fixedCarObj) continue;
+      let cost = seatCost(kid);
+      if (remainingSeats(fixedCarObj, assignments) >= cost) {
+        placeKid(kid, fixedCarObj.name, assignments, currentCaps);
+        unassigned.splice(i, 1);
+      } else {
+        if (!overflowedCars.includes(fixedCarObj.name)) {
+          overflowedCars.push(fixedCarObj.name);
+        }
+      }
+    }
+
+    if (overflowedCars.length > 0) {
+      alert(`${overflowedCars.map(n => `「${n}」`).join('、')}の定員を超えて指定されています。\nあふれた分は自動配車に回します。`);
+    }
+
+    // 3. 手動指定（本日稼働中の車）がなく、親の車が出ている子供を固定
+    for (let i = unassigned.length - 1; i >= 0; i--) {
+      let kid = unassigned[i];
+      if (kid.fixedCar && activeCars.some(c => c.name === kid.fixedCar)) continue;
       let parentCarObj = activeCars.find(c => c.name === kid.parentCar);
       if (parentCarObj) {
         let cost = seatCost(kid);
@@ -76,7 +99,7 @@ function generateCarpool() {
       }
     }
 
-    // 3. 親の車がない「車酔いの子」を優先配備
+    // 4. 親の車がない「車酔いの子」を優先配備
     for (let i = unassigned.length - 1; i >= 0; i--) {
       let kid = unassigned[i];
       if (kid.motionSick) {
@@ -97,7 +120,7 @@ function generateCarpool() {
       }
     }
 
-    // 4. モード別ソート
+    // 5. モード別ソート
     if (mode === 'grade_same') {
       unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
     } else if (mode === 'grade_diff') {
@@ -116,7 +139,7 @@ function generateCarpool() {
       unassigned.sort(() => Math.random() - 0.5);
     }
 
-    // 5. 残りの選手を割り当て（最低2人優先・過去履歴の公平化・モード別スコア）
+    // 6. 残りの選手を割り当て（最低2人優先・過去履歴の公平化・モード別スコア）
     unassigned.forEach(kid => {
       if (!kid.rideHistory) kid.rideHistory = {};
       const cost = seatCost(kid);
@@ -169,13 +192,14 @@ function generateCarpool() {
 
   // 結果テキストの生成（画面上の車の並び順通りに出力）
   let hasMotionSick = ridingKids.some(k => k.motionSick);
+  let hasPinned = ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
   let text = `【連絡】本日の配車です🚗\n---------------------\n`;
 
   if (ridingKids.length > 0) {
     activeCars.forEach(c => {
       let carName = c.name;
       let riders = assignments[carName] || [];
-      let names = riders.map(formatRiderLabel).join('、');
+      let names = riders.map(k => formatRiderLabel(k, carName)).join('、');
       let people = occupiedSeats(riders);
       text += `■ ${carName} (${people}名)\n  乗車: ${names || 'なし'}\n\n`;
     });
@@ -187,6 +211,9 @@ function generateCarpool() {
     text += `【現地集合】${onSiteKids.map(k => k.name).join('、')}\n\n`;
   }
 
+  if (hasPinned) {
+    text += "※「📌」は事前指定で固定した乗車です。\n";
+  }
   if (hasMotionSick) {
     text += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
   }
