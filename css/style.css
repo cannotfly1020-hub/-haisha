@@ -366,6 +366,27 @@ h1 {
   touch-action: manipulation;
 }
 .car-name { font-size: 13px; font-weight: 700; color: #1e293b; pointer-events: none; }
+.car-name-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 160px;
+  margin: 0;
+  padding: 4px 6px !important;
+  font-size: 13px !important;
+  font-weight: 700;
+  color: #1e293b;
+  border: 1px solid transparent !important;
+  border-radius: 6px;
+  background: transparent;
+  min-height: 32px;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.car-name-input:focus {
+  border-color: #93c5fd !important;
+  background: #fff;
+  outline: none;
+}
 .car-card-tools {
   display: flex;
   align-items: center;

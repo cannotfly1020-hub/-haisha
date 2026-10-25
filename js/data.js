@@ -203,6 +203,58 @@ function newCompanionId() {
   return `cmp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
 
+/**
+ * 車両改名時の参照カスケード:
+ * 全選手の parentCar / fixedCar / rideHistory / lastCar を oldName → newName に同期する。
+ */
+function renameCarCascade(car, oldName, newName) {
+  if (!car || !oldName || !newName || oldName === newName) return;
+
+  children.forEach((child) => {
+    if (child.parentCar === oldName) child.parentCar = newName;
+    if (child.fixedCar === oldName) child.fixedCar = newName;
+    if (child.lastCar === oldName) child.lastCar = newName;
+
+    if (child.rideHistory && typeof child.rideHistory === 'object' && !Array.isArray(child.rideHistory)) {
+      if (Object.prototype.hasOwnProperty.call(child.rideHistory, oldName)) {
+        const migrated = child.rideHistory[oldName] || 0;
+        child.rideHistory[newName] = (child.rideHistory[newName] || 0) + migrated;
+        delete child.rideHistory[oldName];
+      }
+    }
+  });
+
+  // メモリ上の直近配車結果キーも追随（永続化対象外）
+  if (typeof currentAssignments !== 'undefined' && currentAssignments && currentAssignments[oldName]) {
+    currentAssignments[newName] = currentAssignments[oldName];
+    delete currentAssignments[oldName];
+  }
+
+  car.name = newName;
+}
+
+/**
+ * 車両名を更新し、選手側の名前参照をすべて連動更新して保存する。
+ * @returns {boolean} 実際に改名した場合 true
+ */
+function renameCar(carId, newName) {
+  const car = cars.find((c) => String(c.id) === String(carId));
+  if (!car) return false;
+
+  const oldName = car.name;
+  const trimmed = typeof newName === 'string' ? newName.trim() : '';
+  if (!trimmed || trimmed === oldName) return false;
+
+  if (cars.some((c) => String(c.id) !== String(carId) && c.name === trimmed)) {
+    alert(`「${trimmed}」は既に別の車両で使われています。別の名前にしてください。`);
+    return false;
+  }
+
+  renameCarCascade(car, oldName, trimmed);
+  saveData();
+  return true;
+}
+
 let cars = [];
 let children = [];
 

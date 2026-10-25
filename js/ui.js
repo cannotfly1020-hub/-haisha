@@ -209,12 +209,14 @@ function renderCars() {
     const addDisabled = !car.active || fullBlock ? 'disabled' : '';
     const carChips = buildCompanionChipsHtml(car);
 
+    const safeName = String(car.name || '').replace(/"/g, '&quot;');
     list.innerHTML += `
       <div class="car-card ${inactiveClass}">
         <div class="car-card-header">
           <label class="car-name-label">
             <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
-            <span class="car-name">${car.name}</span>
+            <input type="text" class="car-name-input" data-action="rename-car" data-id="${car.id}"
+              value="${safeName}" maxlength="40" title="車両名（変更すると参照も連動更新）" aria-label="車両名">
           </label>
           ${buildCapacityBadgeHtml(summary)}
           <div class="car-card-tools">
@@ -323,6 +325,23 @@ function updateCapacity(id, val) {
   saveData();
   renderCars();
   updateStatusBar();
+}
+
+/** 車両名変更（参照カスケード付き）。失敗時は表示を元に戻す。 */
+function commitCarRename(id, newName) {
+  const car = cars.find(x => String(x.id) === String(id));
+  if (!car) return;
+  const prev = car.name;
+  const ok = renameCar(id, newName);
+  if (!ok) {
+    // 空・同一名・重複時は入力をマスタに戻して再描画
+    renderCars();
+    updateCarSelectOptions();
+    return;
+  }
+  if (prev !== car.name) {
+    refreshLists();
+  }
 }
 
 function setChildAttend(id, mode) {

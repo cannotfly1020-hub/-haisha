@@ -96,8 +96,8 @@
 | Player | `children[]` の要素 | |
 | Vehicle | `cars[]` の要素 | |
 | status | `active` + `meetOnSite` | UI は `getAttendMode` → `'off'\|'ride'\|'site'` |
-| parentVehicleId | `parentCar: string` | **車両名**で参照（ID ではない） |
-| assignedVehicleId | `fixedCar: string` | 空文字 = 自動。値は**車両名** |
+| parentVehicleId | `parentCar: string` | **車両名**で参照（ID ではない）。改名時は `renameCarCascade` で同期 |
+| assignedVehicleId | `fixedCar: string` | 空文字 = 自動。値は**車両名**。改名時はカスケード同期 |
 | isCarsick | `motionSick: boolean` | |
 | companions | `{ id, label }[]` | **文字列配列ではない** |
 | isActive（車） | `active: boolean` | |
@@ -131,6 +131,16 @@ interface Car {
 ```
 
 **永続化関数**: `normalizeCar` → `saveData` で `cp_cars`。
+
+**車両改名（参照切れ防止）**:
+
+- UI: 車両カードの名前入力（`data-action="rename-car"`）確定時 → `commitCarRename` → `renameCar(carId, newName)`
+- `renameCar`: 空／同一名は中断。他車との名前重複は拒否。成功時 `saveData()`
+- `renameCarCascade(car, oldName, newName)` が全選手を走査し自動同期:
+  - `parentCar` / `fixedCar` / `lastCar` の `oldName` → `newName`
+  - `rideHistory[oldName]` の回数を `rideHistory[newName]` に合算して旧キー削除
+  - メモリ上の `currentAssignments` キーも追随
+- このため車両を改名しても親車・指定・公平化履歴の参照切れは発生しない
 
 **座席サマリ** `carSeatSummary(car)`:
 
@@ -463,7 +473,7 @@ UI の状況バーも同様に `kidSeats + companionDemand` vs `activeSeats`。
 将来「理想仕様」へ寄せる際に誤解しないための注記:
 
 1. **車両に `driverName` フィールドは無い** — `name` に含める。  
-2. **親車・指定は ID ではなく車両 `name` 文字列** — 改名時は参照切れに注意。  
+2. **親車・指定・履歴キーは ID ではなく車両 `name` 文字列** — ただし車両改名時は `renameCar` / `renameCarCascade` により、全選手の `parentCar` / `fixedCar` / `rideHistory` / `lastCar` が自動同期されるため**参照切れは発生しない**。  
 3. **companions は `string[]` ではなく `{id,label}[]`**。  
 4. **出欠は enum 1 フィールドではなく `active`×`meetOnSite`**。  
 5. **最低2人ルールはハード失敗条件ではなくスコアバイアス**。  

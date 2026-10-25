@@ -214,6 +214,9 @@ function handleAppChange(event) {
     case 'update-capacity':
       updateCapacity(id, target.value);
       break;
+    case 'rename-car':
+      commitCarRename(id, target.value);
+      break;
     case 'set-attend':
       setChildAttend(id, target.value);
       break;
