@@ -63,6 +63,13 @@ h1 {
   touch-action: manipulation;
 }
 .control-btn:active { background: #f1f5f9; }
+.control-btn-reset {
+  color: #64748b;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  font-weight: 600;
+}
+.control-btn-reset:active { background: #f1f5f9; color: #475569; }
 
 /* ===== メイン2パネル（アコーディオン + レスポンシブ） ===== */
 .main-grid {

@@ -1,6 +1,7 @@
 /** クリックで処理する data-action（チェックボックス等の change 系は除外） */
 const CLICK_ACTIONS = new Set([
   'clear-checks',
+  'reset-today',
   'manual-save',
   'sort-cars',
   'sort-grade',
@@ -54,6 +55,9 @@ function runClickAction(target) {
   switch (action) {
     case 'clear-checks':
       clearAllChecks();
+      break;
+    case 'reset-today':
+      resetTodaySession();
       break;
     case 'manual-save':
       manualSave();

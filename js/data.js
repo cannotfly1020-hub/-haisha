@@ -255,23 +255,48 @@ function manualSave() {
   alert("💾 現在の登録内容とチェック状態を保存しました！");
 }
 
-function clearAllChecks() {
-  if (confirm("子供と車の出欠チェックをすべて外しますか？\n（選手一覧や車一覧は消えません）")) {
-    cars.forEach(c => {
-      c.active = false;
-      c.companions = [];
-    });
-    children.forEach(c => {
-      c.active = false;
-      c.meetOnSite = false;
-      c.companions = [];
-      c.fixedCar = '';
-    });
-    saveData();
-    renderCars();
-    renderChildren();
-    updateStatusBar();
+/**
+ * 次回運用向けリセット:
+ * 出欠・同乗・指定枠・車両同乗・配車結果のみクリア。
+ * 選手/車両マスタと rideHistory・lastCar は保持。
+ */
+function resetTodaySession() {
+  const msg = '出欠・同乗・指定枠を初期化して、次回の配車を開始しますか？\n（選手・車両リストと配車履歴は消えません）';
+  if (!confirm(msg)) return;
+
+  cars.forEach(c => {
+    c.active = true;
+    c.companions = [];
+  });
+
+  children.forEach(c => {
+    // 既存の初期状態に合わせ、全員「乗車」に戻す（マスタ情報は触らない）
+    c.active = true;
+    c.meetOnSite = false;
+    c.companions = [];
+    c.fixedCar = '';
+  });
+
+  if (typeof openChildCompanionEditors !== 'undefined' && openChildCompanionEditors.clear) {
+    openChildCompanionEditors.clear();
   }
+
+  currentAssignments = null;
+  lastGeneratedPlan = '';
+  const resultCard = document.getElementById('resultCard');
+  if (resultCard) resultCard.style.display = 'none';
+  const resultText = document.getElementById('resultText');
+  if (resultText) resultText.textContent = '';
+
+  saveData();
+  renderCars();
+  renderChildren();
+  updateStatusBar();
+}
+
+/** @deprecated 互換: 旧「出欠チェック全解除」→ 本日リセットへ誘導 */
+function clearAllChecks() {
+  resetTodaySession();
 }
 
 function resetAllData() {
