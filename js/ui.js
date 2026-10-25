@@ -74,24 +74,14 @@ function updateCarSelectOptions() {
   }
 }
 
-function buildCapacityDisplayHtml(summary) {
-  let badge = '';
+function buildCapacityBadgeHtml(summary) {
   if (summary.isOver) {
-    badge = `<span class="seat-badge seat-badge-over">定員超過</span>`;
-  } else if (summary.isFull) {
-    badge = `<span class="seat-badge seat-badge-full">満席</span>`;
-  } else {
-    badge = `<span class="seat-badge seat-badge-ok">空あり</span>`;
+    return `<span class="seat-badge seat-badge-over">定員${summary.capacity}・超過${Math.abs(summary.remaining)}</span>`;
   }
-  const remainText = summary.isOver
-    ? `残り: 0席（${Math.abs(summary.remaining)}席超過）`
-    : `残り: ${summary.remaining}席`;
-  return `
-    <div class="capacity-display">
-      <div class="capacity-main">定員: ${summary.capacity}名（${remainText}）</div>
-      ${badge}
-    </div>
-  `;
+  if (summary.isFull) {
+    return `<span class="seat-badge seat-badge-full">定員${summary.capacity}・満席</span>`;
+  }
+  return `<span class="seat-badge seat-badge-ok">定員${summary.capacity}・残${summary.remaining}</span>`;
 }
 
 const QUICK_COMPANION_LABELS = ['母', '兄', '姉', '弟', '妹'];
@@ -127,28 +117,24 @@ function renderCars() {
 
     list.innerHTML += `
       <div class="car-card ${inactiveClass}">
-        <div class="car-card-top">
-          <div class="car-card-title-row">
-            <label class="car-name-label">
-              <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
-              <span class="car-name">${car.name}</span>
-            </label>
-            <div class="car-card-tools">
-              <label class="cap-edit">定員<input type="number" class="input-cap" data-action="update-capacity" data-id="${car.id}" value="${car.capacity}" min="0">名</label>
-              <button type="button" class="btn-delete" data-action="delete-car" data-id="${car.id}">✕</button>
-            </div>
+        <div class="car-card-header">
+          <label class="car-name-label">
+            <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
+            <span class="car-name">${car.name}</span>
+          </label>
+          ${buildCapacityBadgeHtml(summary)}
+          <div class="car-card-tools">
+            <label class="cap-edit">定員<input type="number" class="input-cap" data-action="update-capacity" data-id="${car.id}" value="${car.capacity}" min="0"></label>
+            <button type="button" class="btn-delete" data-action="delete-car" data-id="${car.id}">✕</button>
           </div>
-          ${buildCapacityDisplayHtml(summary)}
         </div>
 
         <div class="companion-bar">
           <div class="companion-chips">${buildCompanionChipsHtml(car)}</div>
-          <div class="companion-actions">
-            <div class="companion-quicks">${buildQuickCompanionButtonsHtml(car, !!addDisabled)}</div>
-            <div class="companion-custom">
-              <input type="text" class="companion-input" id="companionInput-${car.id}" placeholder="名前を入力" ${addDisabled} maxlength="20">
-              <button type="button" class="companion-add-btn" data-action="add-companion-custom" data-id="${car.id}" ${addDisabled}>＋追加</button>
-            </div>
+          <div class="companion-add-row">
+            ${buildQuickCompanionButtonsHtml(car, !!addDisabled)}
+            <input type="text" class="companion-input" id="companionInput-${car.id}" placeholder="名前" ${addDisabled} maxlength="20">
+            <button type="button" class="companion-add-btn" data-action="add-companion-custom" data-id="${car.id}" ${addDisabled}>＋</button>
           </div>
         </div>
       </div>
