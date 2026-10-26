@@ -211,19 +211,28 @@ function renderCars() {
     const carChips = buildCompanionChipsHtml(car);
 
     const safeName = String(car.name || '').replace(/"/g, '&quot;');
+    const equipBadge = car.isEquipmentCar ? `<span class="equipment-badge" title="道具車">📦 道具車</span>` : '';
     list.innerHTML += `
-      <div class="car-card ${inactiveClass}">
+      <div class="car-card ${inactiveClass}${car.isEquipmentCar ? ' is-equipment' : ''}">
         <div class="car-card-header">
           <label class="car-name-label">
             <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
             <input type="text" class="car-name-input" data-action="rename-car" data-id="${car.id}"
               value="${safeName}" maxlength="40" title="車両名（変更すると参照も連動更新）" aria-label="車両名">
           </label>
+          ${equipBadge}
           ${buildCapacityBadgeHtml(summary)}
           <div class="car-card-tools">
             <label class="cap-edit">定員<input type="number" class="input-cap" data-action="update-capacity" data-id="${car.id}" value="${car.capacity}" min="0"></label>
             <button type="button" class="btn-delete" data-action="delete-car" data-id="${car.id}">✕</button>
           </div>
+        </div>
+
+        <div class="car-meta-row">
+          <label class="car-equipment-label">
+            <input type="checkbox" class="car-equipment-checkbox" data-action="toggle-equipment" data-id="${car.id}" data-car-id="${car.id}" ${car.isEquipmentCar ? 'checked' : ''}>
+            道具車
+          </label>
         </div>
 
         <div class="companion-bar">
@@ -323,6 +332,15 @@ function toggleCar(id, checked) {
 function updateCapacity(id, val) {
   const c = cars.find(x => x.id === id);
   if (c) c.capacity = parseInt(val) || 0;
+  saveData();
+  renderCars();
+  updateStatusBar();
+}
+
+function toggleEquipmentCar(id, checked) {
+  const c = cars.find(x => String(x.id) === String(id));
+  if (!c) return;
+  c.isEquipmentCar = typeof checked === 'boolean' ? checked : !c.isEquipmentCar;
   saveData();
   renderCars();
   updateStatusBar();
@@ -562,7 +580,7 @@ function addCar() {
   const name = nameInput.value.trim();
   const cap = parseInt(capInput.value) || 3;
   if (name) {
-    cars.push(normalizeCar({ id: Date.now(), name: name, capacity: cap, active: true, companions: [] }));
+    cars.push(normalizeCar({ id: Date.now(), name: name, capacity: cap, active: true, companions: [], isEquipmentCar: false }));
     renderCars();
     saveData();
     updateStatusBar();
@@ -646,6 +664,7 @@ function applyRestore() {
     applySettingsPanelState,
     toggleCar,
     updateCapacity,
+    toggleEquipmentCar,
     commitCarRename,
     setChildAttend,
     setChildFixedCar,

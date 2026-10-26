@@ -1,9 +1,9 @@
 (function (global) {
 function createDefaultCars() {
   return [
-    { id: 1, name: '佐藤号', capacity: 3, active: true, companions: [] },
-    { id: 2, name: '鈴木号', capacity: 3, active: true, companions: [] },
-    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true, companions: [] }
+    { id: 1, name: '佐藤号', capacity: 3, active: true, companions: [], isEquipmentCar: false },
+    { id: 2, name: '鈴木号', capacity: 3, active: true, companions: [], isEquipmentCar: false },
+    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true, companions: [], isEquipmentCar: false }
   ];
 }
 
@@ -38,7 +38,8 @@ function normalizeCar(car) {
     name: typeof car.name === 'string' ? car.name : '',
     capacity: Math.max(0, parseInt(car.capacity, 10) || 0),
     active: !!car.active,
-    companions: companions
+    companions: companions,
+    isEquipmentCar: !!car.isEquipmentCar
   };
 }
 
@@ -322,6 +323,7 @@ function resetTodaySession() {
   cars.forEach(c => {
     c.active = true;
     c.companions = [];
+    c.isEquipmentCar = false; // 道具車は週ごとに変わるため毎回クリア
   });
 
   children.forEach(c => {

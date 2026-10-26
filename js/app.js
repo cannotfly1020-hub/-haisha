@@ -218,6 +218,11 @@ function handleAppChange(event) {
     case 'rename-car':
       commitCarRename(id, target.value);
       break;
+    case 'toggle-equipment': {
+      const carId = Number(target.dataset.carId || target.dataset.id);
+      toggleEquipmentCar(carId, target.checked);
+      break;
+    }
     case 'set-attend':
       setChildAttend(id, target.value);
       break;

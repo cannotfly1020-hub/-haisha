@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261025w` / `haisha-cache-v20261025w` 時点  
+> **準拠実装**: `?v=20261025x` / `haisha-cache-v20261025x` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -92,8 +92,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261025w` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261025w` |
+| `index.html` の CSS/JS `?v=` | `20261025x` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261025x` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -127,7 +127,7 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 | # | 原則 | 破ってはいけない例 |
 |---|------|-------------------|
 | 1 | **ゼロ・ヒューマンエラー** — 定員超過を UI/計算で防ぎ、失敗時は診断で具体策を出す | 定員チェック無しで指定車両を許可する／失敗を alert だけで終わらせる |
-| 2 | **ミニマル LINE 出力** — 属性ラベル・📌・🤢・「同乗」等を付けず **`・名前` のみ** | LINE 文に注記や絵文字を復活させる |
+| 2 | **ミニマル LINE 出力** — 乗員行は属性ラベル・📌・🤢・「同乗」等を付けず **`・名前` のみ**。車両見出しの `【道具車】` のみ例外 | 乗員行に注記や絵文字を付ける／道具車以外の見出し注記を増やす |
 | 3 | **モバイルファースト＆省スペース** — 縦スクロール最小化、同乗の展開式入力、768px+ で 2 カラム | 選手カードに常時フル入力フォームを常設する |
 | 4 | **データの絶対保全** — 週次リセットは一時フラグのみ、マスタ・履歴は保護。退避/復元・改名カスケードで整合性維持 | `resetTodaySession` で `rideHistory` や選手名を消す／改名で参照切れを残す |
 
@@ -176,11 +176,15 @@ interface Car {
   capacity: number;           // 乗車可能席（選手＋同乗を含む母数）
   active: boolean;            // 本日出勤
   companions: Companion[];    // 車両側の事前同乗枠
+  isEquipmentCar: boolean;    // 道具車フラグ（既定 false）。LINE/画面見出しに反映
 }
 // 移行互換: familySeats?: number → companions に「身内」を人数分生成
+// normalizeCar: isEquipmentCar: !!car.isEquipmentCar（永続化・バックアップ対応）
 ```
 
 **独立した `driverName` フィールドは無い** — 運転者名は `name` に含める運用（例: `佐藤号`）。
+
+**道具車 UI**: 車両カードの「道具車」チェック（`data-action="toggle-equipment"`）→ `toggleEquipmentCar` → `saveData`。ON 時はカードに `📦 道具車` バッジ。
 
 ### 2.4 Player（Child）
 
@@ -247,7 +251,7 @@ type LastSessionCommit = {
 
 | クリア | 保護 |
 |--------|------|
-| 出欠→全員乗車、両 `companions`、`fixedCar`、車 `active=全ON`、結果・診断、`lastSessionCommit` | 選手/車両マスタ名、grade/pos、parentCar、motionSick、capacity、rideHistory、lastCar |
+| 出欠→全員乗車、両 `companions`、`fixedCar`、車 `active=全ON`、**`isEquipmentCar=false`（道具車は週替わり運用のため毎回初期化）**、結果・診断、`lastSessionCommit` | 選手/車両マスタ名、grade/pos、parentCar、motionSick、capacity、rideHistory、lastCar |
 
 #### `resetAllData()`
 
@@ -370,7 +374,8 @@ UI 上の used（指定込み）=
 
 ### 4.3 車両カード
 
-- ヘッダー1行: 出勤チェック、**名前インライン編集**（`rename-car` → カスケード）、定員残バッジ、定員、削除  
+- ヘッダー1行: 出勤チェック、**名前インライン編集**（`rename-car` → カスケード）、道具車時は `📦 道具車` バッジ、定員残バッジ、定員、削除  
+- 「道具車」チェック（`toggle-equipment` → `isEquipmentCar` 永続化）。週次リセットで OFF  
 - 同乗チップ + クイック続柄（母/兄/姉/弟/妹）+ 名前 + ＋  
 - 満席・休止時は追加 disabled  
 
@@ -399,19 +404,24 @@ UI 上の used（指定込み）=
 ```
 【連絡】本日の配車です🚗
 ---------------------
-■ 佐藤号 (N名)
+■ 佐藤号 (N名) 【道具車】
 ・ゆうと
 ・母
 ・そうた
 
-【現地集合】
+■ 鈴木号 (N名)
+・れん
 ・はると
+
+【現地集合】
+・大和
 
 ---------------------
 よろしくお願いいたします！
 ```
 
-- 各乗員・同乗は **`・{名前のみ}`**。ラベル・📌・🤢 禁止。
+- **車両見出し**: `■ {車名} ({人数}名)`。`isEquipmentCar` のときのみ末尾に ` 【道具車】` を付与（画面プレビューは ` 【道具車📦】`）。
+- **各乗員・同乗行**: **`・{名前のみ}`**。ラベル・📌・🤢・「同乗」等は禁止（見出しの道具車タグ以外に注記を増やさない）。
 
 ### 5.2 週次運用フロー（推奨）
 

@@ -531,7 +531,8 @@ function generateCarpool() {
         const companionNames = companionsOf(c).map(x => x.label);
         const names = [...riderNames, ...companionNames].join('、');
         const people = carPeopleCount(c, riders);
-        text += `■ ${c.name} (${people}名)\n  乗車: ${names || 'なし'}\n\n`;
+        const equipTag = c.isEquipmentCar ? ' 【道具車📦】' : '';
+        text += `■ ${c.name} (${people}名)${equipTag}\n  乗車: ${names || 'なし'}\n\n`;
       });
     } else {
       text += "本日の乗車配車はありません。\n\n";
@@ -551,7 +552,7 @@ function generateCarpool() {
     return text;
   }
 
-  // LINE用テキスト（名前のみ・箇条書き／注記なし）
+  // LINE用テキスト（名前のみ・箇条書き／注記なし。車両見出しのみ【道具車】可）
   function buildLinePlanText() {
     let text = `【連絡】本日の配車です🚗\n---------------------\n`;
 
@@ -560,7 +561,8 @@ function generateCarpool() {
         const riders = assignments[c.name] || [];
         const bullets = buildNameBullets(c, riders);
         const people = carPeopleCount(c, riders);
-        text += `■ ${c.name} (${people}名)\n`;
+        const equipTag = c.isEquipmentCar ? ' 【道具車】' : '';
+        text += `■ ${c.name} (${people}名)${equipTag}\n`;
         if (!carHasAnyone(c, riders)) {
           text += `・なし\n\n`;
         } else {
