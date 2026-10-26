@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261026c` / `haisha-cache-v20261026c` 時点  
+> **準拠実装**: `?v=20261026d` / `haisha-cache-v20261026d` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -59,6 +59,7 @@ HaishaData.hasSeenTutorial / markTutorialSeen   // cp_tutorial_seen
 HaishaData.renameCar / renameCarCascade
 HaishaData.resetTodaySession / resetAllData
 HaishaData.copyBackupData / restoreBackupData
+HaishaData.shareDispatchText          // クリップボード＋Capacitor Share / Web Share
 HaishaData.seatCost / carSeatSummary / canFitOnCar / normalize*
 
 // HaishaUI
@@ -94,8 +95,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261026c` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261026c` |
+| `index.html` の CSS/JS `?v=` | `20261026d` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261026d` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -481,7 +482,8 @@ UI 上の used（指定込み）=
 
 ### 5.3 クリップボード
 
-共通 `HaishaData.copyTextToClipboard`（Clipboard API → `execCommand` フォールバック）。バックアップ JSON と LINE 文で共用。
+共通 `HaishaData.copyTextToClipboard`（Clipboard API → `execCommand` フォールバック）。バックアップ JSON と LINE 文で共用。  
+配車表の共有は `HaishaData.shareDispatchText`（先にクリップボードへ退避 → `window.Capacitor.Plugins.Share` → `navigator.share` → alert）。`copy-result` は履歴確定後にこれを呼ぶ。
 
 ---
 

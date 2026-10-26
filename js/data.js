@@ -427,6 +427,70 @@ function copyTextFallback(text) {
   if (!ok) throw new Error('clipboard copy failed');
 }
 
+function isShareCanceledError(err) {
+  if (!err) return false;
+  if (err.name === 'AbortError') return true;
+  const msg = String(err.message || err.errorMessage || err);
+  return /cancel/i.test(msg);
+}
+
+/**
+ * 配車表テキスト共有（クリップボード退避 → Capacitor Share → Web Share → alert）
+ * Capacitor ネイティブ: window.Capacitor.Plugins.Share
+ */
+async function shareDispatchText(text) {
+  const payload = text == null ? '' : String(text);
+
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(payload);
+    } else {
+      copyTextFallback(payload);
+    }
+  } catch (e) {
+    try {
+      copyTextFallback(payload);
+    } catch (fallbackErr) {
+      console.error('clipboard copy failed before share:', fallbackErr);
+    }
+  }
+
+  const shareOpts = {
+    title: '配車表',
+    text: payload,
+    dialogTitle: '配車表を共有'
+  };
+
+  const CapShare = (typeof window !== 'undefined' && window.Capacitor && window.Capacitor.Plugins)
+    ? window.Capacitor.Plugins.Share
+    : null;
+
+  if (CapShare && typeof CapShare.share === 'function') {
+    try {
+      await CapShare.share(shareOpts);
+      return;
+    } catch (err) {
+      if (isShareCanceledError(err)) return;
+      console.error('Capacitor Share error:', err);
+    }
+  }
+
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        title: shareOpts.title,
+        text: shareOpts.text
+      });
+      return;
+    } catch (err) {
+      if (isShareCanceledError(err)) return;
+      console.error('navigator.share error:', err);
+    }
+  }
+
+  alert('クリップボードにコピーしました');
+}
+
 function copyBackupData() {
   const payload = JSON.stringify(buildBackupPayload(), null, 2);
   copyTextToClipboard(payload).then(() => {
@@ -526,6 +590,7 @@ function promoteAllGrades() {
     clearAllChecks,
     resetAllData,
     copyBackupData,
+    shareDispatchText,
     restoreBackupData,
     promoteAllGrades,
     copyTextToClipboard,
@@ -579,6 +644,7 @@ function promoteAllGrades() {
   global.clearAllChecks = clearAllChecks;
   global.resetAllData = resetAllData;
   global.copyBackupData = copyBackupData;
+  global.shareDispatchText = shareDispatchText;
   global.restoreBackupData = restoreBackupData;
   global.promoteAllGrades = promoteAllGrades;
   global.copyTextToClipboard = copyTextToClipboard;

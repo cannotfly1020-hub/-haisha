@@ -598,10 +598,9 @@ function copyResult() {
     updateStatusBar();
   }
 
-  copyTextToClipboard(lastGeneratedPlan).then(() => {
-    alert("📋 LINE用テキストをコピーしました！\n今回の乗車履歴も正常に確定保存されました。");
-  }).catch(() => {
-    alert("コピーに失敗しました。ブラウザの権限を確認してもう一度お試しください。");
+  // 履歴確定後にクリップボード＋iOS共有シート（Capacitor Share）
+  shareDispatchText(lastGeneratedPlan || '').catch((err) => {
+    console.error('shareDispatchText failed:', err);
   });
 }
 
