@@ -504,18 +504,19 @@ function generateCarpool() {
     return (riders && riders.length > 0) || companionSeatsOf(car) > 0;
   }
 
-  function buildNameBullets(car, riders) {
-    const lines = [];
+  /** LINE用: 選手・選手同乗・車両同乗の名前を順にフラット化（注記なし） */
+  function buildLineNameList(car, riders) {
+    const names = [];
     (riders || []).forEach(k => {
-      lines.push(`・${k.name}`);
+      names.push(k.name);
       childCompanionsOf(k).forEach(c => {
-        lines.push(`・${c.label}`);
+        names.push(c.label);
       });
     });
     companionsOf(car).forEach(c => {
-      lines.push(`・${c.label}`);
+      names.push(c.label);
     });
-    return lines;
+    return names;
   }
 
   // 画面用テキスト（📌あり／同乗は名前列挙）
@@ -552,29 +553,25 @@ function generateCarpool() {
     return text;
   }
 
-  // LINE用テキスト（名前のみ・箇条書き／注記なし。車両見出しのみ【道具車】可）
+  // LINE用テキスト（1台1行の横並び・注記なし。車両見出しのみ【道具車】可）
   function buildLinePlanText() {
     let text = `【連絡】本日の配車です🚗\n---------------------\n`;
 
     if (ridingKids.length > 0 || activeCars.some(c => companionSeatsOf(c) > 0)) {
       activeCars.forEach(c => {
         const riders = assignments[c.name] || [];
-        const bullets = buildNameBullets(c, riders);
+        const names = buildLineNameList(c, riders);
         const people = carPeopleCount(c, riders);
         const equipTag = c.isEquipmentCar ? ' 【道具車】' : '';
         text += `■ ${c.name} (${people}名)${equipTag}\n`;
-        if (!carHasAnyone(c, riders)) {
-          text += `・なし\n\n`;
-        } else {
-          text += `${bullets.join('\n')}\n\n`;
-        }
+        text += `${names.length > 0 ? names.join('、') : 'なし'}\n\n`;
       });
     } else {
       text += "本日の乗車配車はありません。\n\n";
     }
 
     if (onSiteKids.length > 0) {
-      text += `【現地集合】\n${onSiteKids.map(k => `・${k.name}`).join('\n')}\n\n`;
+      text += `【現地集合】\n${onSiteKids.map(k => k.name).join('、')}\n\n`;
     }
 
     text += "---------------------\nよろしくお願いいたします！";
