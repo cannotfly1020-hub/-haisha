@@ -781,6 +781,82 @@ function applyRestore() {
   }
 }
 
+/** 初回ガイド（オンボーディング） */
+let tutorialSlideIndex = 0;
+const TUTORIAL_SLIDE_COUNT = 3;
+
+function syncTutorialSlideUI() {
+  const modal = document.getElementById('tutorialModal');
+  if (!modal) return;
+
+  const slides = modal.querySelectorAll('.tutorial-slide');
+  slides.forEach((slide, idx) => {
+    const active = idx === tutorialSlideIndex;
+    slide.classList.toggle('is-active', active);
+    if (active) slide.removeAttribute('hidden');
+    else slide.setAttribute('hidden', '');
+  });
+
+  const dots = modal.querySelectorAll('.tutorial-dot');
+  dots.forEach((dot, idx) => {
+    dot.classList.toggle('is-active', idx === tutorialSlideIndex);
+  });
+
+  const prevBtn = document.getElementById('tutorialPrevBtn');
+  const nextBtn = document.getElementById('tutorialNextBtn');
+  const startBtn = document.getElementById('tutorialStartBtn');
+  const isLast = tutorialSlideIndex >= TUTORIAL_SLIDE_COUNT - 1;
+
+  if (prevBtn) prevBtn.disabled = tutorialSlideIndex <= 0;
+  if (nextBtn) nextBtn.hidden = isLast;
+  if (startBtn) startBtn.hidden = !isLast;
+}
+
+function openTutorialModal(options) {
+  const reset = !options || options.reset !== false;
+  if (reset) tutorialSlideIndex = 0;
+  const modal = document.getElementById('tutorialModal');
+  if (!modal) return;
+  syncTutorialSlideUI();
+  modal.classList.add('is-open');
+  modal.style.display = '';
+}
+
+function closeTutorialModal() {
+  markTutorialSeen();
+  const modal = document.getElementById('tutorialModal');
+  if (!modal) return;
+  modal.classList.remove('is-open');
+  modal.style.display = '';
+}
+
+function tutorialNext() {
+  if (tutorialSlideIndex < TUTORIAL_SLIDE_COUNT - 1) {
+    tutorialSlideIndex += 1;
+    syncTutorialSlideUI();
+  }
+}
+
+function tutorialPrev() {
+  if (tutorialSlideIndex > 0) {
+    tutorialSlideIndex -= 1;
+    syncTutorialSlideUI();
+  }
+}
+
+function tutorialGoto(slideIndex) {
+  const idx = parseInt(slideIndex, 10);
+  if (Number.isNaN(idx) || idx < 0 || idx >= TUTORIAL_SLIDE_COUNT) return;
+  tutorialSlideIndex = idx;
+  syncTutorialSlideUI();
+}
+
+function maybeShowTutorialOnLaunch() {
+  if (!hasSeenTutorial()) {
+    openTutorialModal({ reset: true });
+  }
+}
+
 
   const HaishaUI = {
     renderCars,
@@ -825,6 +901,12 @@ function applyRestore() {
     openRestoreModal,
     closeRestoreModal,
     applyRestore,
+    openTutorialModal,
+    closeTutorialModal,
+    tutorialNext,
+    tutorialPrev,
+    tutorialGoto,
+    maybeShowTutorialOnLaunch,
     updateCarSelectOptions,
     get openChildCompanionEditors() { return openChildCompanionEditors; }
   };

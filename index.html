@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261026a">
+<link rel="stylesheet" href="css/style.css?v=20261026b">
 </head>
 <body>
 
@@ -40,6 +40,7 @@
 
 <!-- クイック操作バー -->
 <div class="control-bar">
+  <button type="button" class="control-btn control-btn-help" data-action="open-tutorial" title="使い方ガイドを開く">❓ 使い方</button>
   <button type="button" class="control-btn control-btn-reset" data-action="reset-today" title="出欠・同乗・指定のみ初期化（マスタは保持）">🔄 本日の配車をリセット</button>
   <button type="button" class="control-btn" data-action="manual-save">💾 今の状態を保存</button>
 </div>
@@ -162,6 +163,51 @@
   </div>
 </section>
 
+<!-- 初回ガイド（オンボーディング） -->
+<div class="modal-overlay tutorial-overlay" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
+  <div class="modal-box tutorial-box">
+    <button type="button" class="tutorial-close" data-action="close-tutorial" aria-label="閉じる">✕</button>
+    <h3 id="tutorialTitle" class="tutorial-heading">使い方ガイド</h3>
+
+    <div class="tutorial-slides">
+      <div class="tutorial-slide is-active" data-slide="0">
+        <p class="tutorial-slide-title">毎回の基本の3ステップ</p>
+        <ul class="tutorial-list">
+          <li>🚗 <strong>1.</strong> 本日出す車を「出勤」にする</li>
+          <li>⚾ <strong>2.</strong> 休みの子を「欠席」、直行の子を「現地」にする</li>
+          <li>⚡ <strong>3.</strong> 「配車を組む」を押してLINEに貼り付けるだけ！</li>
+        </ul>
+      </div>
+      <div class="tutorial-slide" data-slide="1" hidden>
+        <p class="tutorial-slide-title">現場の便利機能</p>
+        <ul class="tutorial-list">
+          <li>💡 <strong>お母さんや兄弟が乗るとき:</strong> 車の「[母]」や選手の「＋同乗」をタップ（席数も自動計算）</li>
+          <li>📦 <strong>チーム荷物を積む車:</strong> 「道具車」にチェックを入れるとLINE見出しに反映</li>
+        </ul>
+      </div>
+      <div class="tutorial-slide" data-slide="2" hidden>
+        <p class="tutorial-slide-title">安心のデータ管理</p>
+        <ul class="tutorial-list">
+          <li>🔄 <strong>翌週の配車を始めるとき:</strong> 「本日の配車をリセット」で出欠だけ初期化（名簿は保護）</li>
+          <li>💾 <strong>月に1回</strong>「データをLINEへ退避」を押して、自分用のトークに貼っておくと安心！</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="tutorial-dots" id="tutorialDots" aria-hidden="true">
+      <button type="button" class="tutorial-dot is-active" data-action="tutorial-goto" data-slide="0" aria-label="スライド1"></button>
+      <button type="button" class="tutorial-dot" data-action="tutorial-goto" data-slide="1" aria-label="スライド2"></button>
+      <button type="button" class="tutorial-dot" data-action="tutorial-goto" data-slide="2" aria-label="スライド3"></button>
+    </div>
+
+    <div class="tutorial-nav">
+      <button type="button" class="btn btn-secondary tutorial-btn" id="tutorialPrevBtn" data-action="tutorial-prev" disabled>前へ</button>
+      <button type="button" class="btn btn-primary tutorial-btn" id="tutorialNextBtn" data-action="tutorial-next">次へ</button>
+      <button type="button" class="btn btn-primary tutorial-btn" id="tutorialStartBtn" data-action="close-tutorial" hidden>配車をはじめる！</button>
+    </div>
+  </div>
+</div>
+
 <!-- バックアップ復元モーダル -->
 <div class="modal-overlay" id="restoreModal">
   <div class="modal-box">
@@ -233,10 +279,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261026a"></script>
-<script src="js/ui.js?v=20261026a"></script>
-<script src="js/carpool.js?v=20261026a"></script>
-<script src="js/app.js?v=20261026a"></script>
+<script src="js/data.js?v=20261026b"></script>
+<script src="js/ui.js?v=20261026b"></script>
+<script src="js/carpool.js?v=20261026b"></script>
+<script src="js/app.js?v=20261026b"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

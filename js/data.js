@@ -306,6 +306,22 @@ function saveData() {
   }
 }
 
+const TUTORIAL_SEEN_KEY = 'cp_tutorial_seen';
+
+function hasSeenTutorial() {
+  try {
+    return localStorage.getItem(TUTORIAL_SEEN_KEY) === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+function markTutorialSeen() {
+  try {
+    localStorage.setItem(TUTORIAL_SEEN_KEY, '1');
+  } catch (e) { /* ignore */ }
+}
+
 function manualSave() {
   saveData();
   alert("💾 現在の登録内容とチェック状態を保存しました！");
@@ -502,6 +518,8 @@ function promoteAllGrades() {
     loadData,
     saveData,
     manualSave,
+    hasSeenTutorial,
+    markTutorialSeen,
     renameCar,
     renameCarCascade,
     resetTodaySession,
@@ -553,6 +571,8 @@ function promoteAllGrades() {
   global.loadData = loadData;
   global.saveData = saveData;
   global.manualSave = manualSave;
+  global.hasSeenTutorial = hasSeenTutorial;
+  global.markTutorialSeen = markTutorialSeen;
   global.renameCar = renameCar;
   global.renameCarCascade = renameCarCascade;
   global.resetTodaySession = resetTodaySession;

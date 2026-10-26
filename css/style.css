@@ -70,6 +70,13 @@ h1 {
   font-weight: 600;
 }
 .control-btn-reset:active { background: #f1f5f9; color: #475569; }
+.control-btn-help {
+  flex: 0 0 auto;
+  min-width: 72px;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
 
 /* ===== メイン2パネル（アコーディオン + レスポンシブ） ===== */
 .main-grid {
@@ -738,3 +745,94 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
 .modal-actions { display: flex; gap: 8px; margin-top: 15px; }
 .modal-actions .btn { flex: 1; }
 .modal-actions .btn-primary { margin-top: 0; }
+
+/* 初回ガイド（オンボーディング） */
+.tutorial-overlay { z-index: 120; padding: 16px; }
+.tutorial-box {
+  position: relative;
+  max-width: 360px;
+  padding: 18px 16px 14px;
+}
+.tutorial-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(30, 58, 138, 0.15);
+  pointer-events: auto;
+}
+.tutorial-heading {
+  margin: 0 36px 10px 0;
+  font-size: 17px;
+  color: #1e3a8a;
+}
+.tutorial-slide-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.tutorial-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tutorial-list li {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.tutorial-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+.tutorial-dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  background: #cbd5e1;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-width: 28px;
+  min-height: 28px;
+  background-clip: content-box;
+  border: 9px solid transparent;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+.tutorial-dot.is-active { background: #2563eb; background-clip: content-box; }
+.tutorial-nav {
+  display: flex;
+  gap: 8px;
+}
+.tutorial-btn {
+  flex: 1;
+  margin-top: 0 !important;
+  min-height: 44px;
+  font-size: 14px;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.tutorial-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

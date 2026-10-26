@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261026a` / `haisha-cache-v20261026a` 時点  
+> **準拠実装**: `?v=20261026b` / `haisha-cache-v20261026b` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -55,6 +55,7 @@
 // HaishaData
 HaishaData.cars / .children          // getter/setter（同一配列参照）
 HaishaData.loadData / saveData / manualSave
+HaishaData.hasSeenTutorial / markTutorialSeen   // cp_tutorial_seen
 HaishaData.renameCar / renameCarCascade
 HaishaData.resetTodaySession / resetAllData
 HaishaData.copyBackupData / restoreBackupData
@@ -64,6 +65,7 @@ HaishaData.seatCost / carSeatSummary / canFitOnCar / normalize*
 HaishaUI.renderCars / renderChildren / refreshLists / updateStatusBar
 HaishaUI.openCompanionEditor          // = openChildCompanionEditor
 HaishaUI.toggleSection / toggleSettingsPanel
+HaishaUI.openTutorialModal / closeTutorialModal / tutorialNext|Prev|Goto / maybeShowTutorialOnLaunch
 HaishaUI.addCompanion* / addChildCompanion* / commitCarRename / …
 
 // HaishaCarpool
@@ -92,8 +94,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261026a` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261026a` |
+| `index.html` の CSS/JS `?v=` | `20261026b` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261026b` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -147,6 +149,7 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 |--------|------|------|
 | localStorage | `cp_cars` | 車両配列 JSON |
 | localStorage | `cp_children` | 選手配列 JSON |
+| localStorage | `cp_tutorial_seen` | 初回ガイド既読: `"1"` で自動表示しない |
 | sessionStorage | `cp_section_cars` | `"1"`/`"0"` 本日の車パネル開閉 |
 | sessionStorage | `cp_section_children` | 参加選手パネル開閉 |
 | sessionStorage | `cp_section_settings` | 設定パネル開閉（既定閉じ） |
@@ -361,13 +364,13 @@ UI 上の used（指定込み）=
 
 1. タイトル  
 2. sticky 状況バー（参加／現地／定員／過不足）  
-3. 操作バー（本日リセット／今の状態を保存）  
+3. 操作バー（❓使い方／本日リセット／今の状態を保存）  
 4. **main-grid**: 本日の車 ｜ 参加選手  
 5. 配車ルール＋実行  
 6. **診断カード**（失敗時のみ）  
 7. 配車結果（成功時）  
 8. 設定・バックアップ（折りたたみ・既定閉じ）  
-9. 復元モーダル／選手編集モーダル  
+9. 復元モーダル／選手編集モーダル／**初回ガイドモーダル** 
 
 ### 4.2 レスポンシブ
 
@@ -409,7 +412,27 @@ UI 上の used（指定込み）=
 
 ポジションスコアは `POS_ORDER`（投手/ピッチャー=1 … 未定=9）の完全一致、なければ部分一致。
 
-### 4.5 iOS / PWA タッチ（HaishaApp）
+### 4.5 初回ガイド（オンボーディング）
+
+初回アクセス向けの3枚スライドモーダル。いつでも操作バーの「❓ 使い方」から再表示できる。
+
+| 項目 | 仕様 |
+|------|------|
+| フラグ | `localStorage` キー `cp_tutorial_seen`。`"1"` なら自動表示しない |
+| 自動表示 | `initApp` → `HaishaUI.maybeShowTutorialOnLaunch()`。未既読時のみ `openTutorialModal` |
+| 既読化 | 「配車をはじめる！」「✕」など `close-tutorial` で `HaishaData.markTutorialSeen()` |
+| 再表示 | `data-action="open-tutorial"`（操作バー）。スライドは先頭から |
+| ナビ | `tutorial-prev` / `tutorial-next` / `tutorial-goto`（ドット）。最終スライドは「配車をはじめる！」 |
+| 描画 | `HaishaUI` のみ（`openTutorialModal` / `closeTutorialModal` / `tutorialNext` / `tutorialPrev` / `tutorialGoto`） |
+| UI | `fixed` オーバーレイ、`z-index:120`、閉じるボタン・ナビは min 44px タップ領域 |
+
+スライド内容:
+
+1. **毎回の基本の3ステップ** — 出勤／欠席・現地／配車を組む→LINE  
+2. **現場の便利機能** — 「[母]」・「＋同乗」／道具車チェック  
+3. **安心のデータ管理** — 本日リセット（名簿保護）／月1回のLINE退避  
+
+### 4.6 iOS / PWA タッチ（HaishaApp）
 
 - `document` 委任: click / change / touchstart(passive) / touchend(passive:false) / keydown(Enterで同乗追加)  
 - ボタン系は `CLICK_ACTIONS` + touchend。`suppressNextClick` で合成 click の二重実行防止  

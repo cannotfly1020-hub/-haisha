@@ -30,7 +30,12 @@ const CLICK_ACTIONS = new Set([
   'add-child-companion',
   'remove-child-companion',
   'toggle-section',
-  'open-child-companion'
+  'open-child-companion',
+  'open-tutorial',
+  'close-tutorial',
+  'tutorial-next',
+  'tutorial-prev',
+  'tutorial-goto'
 ]);
 
 /** touchend 直後の合成 click を無視するためのフラグ */
@@ -151,6 +156,21 @@ function runClickAction(target) {
       break;
     case 'open-child-companion':
       openChildCompanionEditor(id);
+      break;
+    case 'open-tutorial':
+      openTutorialModal({ reset: true });
+      break;
+    case 'close-tutorial':
+      closeTutorialModal();
+      break;
+    case 'tutorial-next':
+      tutorialNext();
+      break;
+    case 'tutorial-prev':
+      tutorialPrev();
+      break;
+    case 'tutorial-goto':
+      tutorialGoto(target.dataset.slide);
       break;
     default:
       break;
@@ -278,6 +298,7 @@ function initApp() {
   renderCars();
   renderChildren();
   updateStatusBar();
+  maybeShowTutorialOnLaunch();
 }
 
 
