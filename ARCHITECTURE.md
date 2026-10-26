@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261025z` / `haisha-cache-v20261025z` 時点  
+> **準拠実装**: `?v=20261026a` / `haisha-cache-v20261026a` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -92,8 +92,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261025z` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261025z` |
+| `index.html` の CSS/JS `?v=` | `20261026a` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261026a` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -150,6 +150,7 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 | sessionStorage | `cp_section_cars` | `"1"`/`"0"` 本日の車パネル開閉 |
 | sessionStorage | `cp_section_children` | 参加選手パネル開閉 |
 | sessionStorage | `cp_section_settings` | 設定パネル開閉（既定閉じ） |
+| sessionStorage | `cp_car_sort` | 車両一覧ソート: `default`\|`kana` |
 | sessionStorage | `cp_child_sort` | 選手一覧ソート: `default`\|`kana`\|`grade`\|`position` |
 | sessionStorage | `cp_lastSessionCommit` | 直前 LINE 確定のロールバック用マップ |
 
@@ -379,6 +380,14 @@ UI 上の used（指定込み）=
 - 「道具車」チェック（`toggle-equipment` → `isEquipmentCar` 永続化）。週次リセットで OFF  
 - 同乗チップ + クイック続柄（母/兄/姉/弟/妹）+ 名前 + ＋  
 - 満席・休止時は追加 disabled  
+
+#### 車両の50音順ソートトグル
+
+- ツールバーボタン `data-action="toggle-car-sort"`（表示: 無効時「🔤 50音順」／有効時「📋 登録順」）
+- 状態 `carSortMode`: `default` | `kana`（`sessionStorage` キー `cp_car_sort`）
+- **`HaishaData.cars` 本体は並べ替えない** — `getSortedCarsForRender()` が `[...cars].sort(...)` で描画
+  - `kana`: `name.localeCompare(..., 'ja')`
+  - `default`: `id` 昇順（登録順）
 
 ### 4.4 選手カード（省スペース）
 

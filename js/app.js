@@ -5,6 +5,7 @@ const CLICK_ACTIONS = new Set([
   'reset-today',
   'manual-save',
   'sort-cars',
+  'toggle-car-sort',
   'sort-grade',
   'sort-name',
   'promote',
@@ -65,7 +66,10 @@ function runClickAction(target) {
       manualSave();
       break;
     case 'sort-cars':
-      sortCarsByName();
+      toggleCarSortMode();
+      break;
+    case 'toggle-car-sort':
+      toggleCarSortMode();
       break;
     case 'sort-grade':
       setChildSortMode('grade');
@@ -269,6 +273,7 @@ function initApp() {
 
   applySectionOpenState();
   applySettingsPanelState();
+  writeCarSortMode(readCarSortMode());
   writeChildSortMode(readChildSortMode());
   renderCars();
   renderChildren();

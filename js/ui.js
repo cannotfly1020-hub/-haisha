@@ -80,6 +80,63 @@ function setChildSortMode(mode) {
   renderChildren();
 }
 
+const CAR_SORT_KEY = 'cp_car_sort';
+const CAR_SORT_MODES = new Set(['default', 'kana']);
+
+/** 車両一覧の表示ソート（配列本体は破壊しない） */
+let carSortMode = 'default';
+
+function readCarSortMode() {
+  try {
+    const raw = sessionStorage.getItem(CAR_SORT_KEY);
+    if (CAR_SORT_MODES.has(raw)) return raw;
+  } catch (e) { /* ignore */ }
+  return 'default';
+}
+
+function writeCarSortMode(mode) {
+  const next = CAR_SORT_MODES.has(mode) ? mode : 'default';
+  carSortMode = next;
+  try {
+    sessionStorage.setItem(CAR_SORT_KEY, next);
+  } catch (e) { /* ignore */ }
+  updateCarSortToggleButton();
+}
+
+function updateCarSortToggleButton() {
+  const btn = document.getElementById('carSortToggleBtn');
+  if (!btn) return;
+  if (carSortMode === 'kana') {
+    btn.textContent = '📋 登録順';
+    btn.title = '登録順に切り替える';
+    btn.setAttribute('aria-pressed', 'true');
+  } else {
+    btn.textContent = '🔤 50音順';
+    btn.title = 'あいうえお順に切り替える';
+    btn.setAttribute('aria-pressed', 'false');
+  }
+}
+
+function getSortedCarsForRender() {
+  const mode = CAR_SORT_MODES.has(carSortMode) ? carSortMode : 'default';
+  const list = [...cars];
+  if (mode === 'kana') {
+    list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  } else {
+    list.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+  }
+  return list;
+}
+
+function setCarSortMode(mode) {
+  writeCarSortMode(mode);
+  renderCars();
+}
+
+function toggleCarSortMode() {
+  setCarSortMode(carSortMode === 'kana' ? 'default' : 'kana');
+}
+
 function readSectionOpenState(key, fallback) {
   try {
     const raw = sessionStorage.getItem(`cp_section_${key}`);
@@ -281,7 +338,8 @@ function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
   list.innerHTML = '';
-  cars.forEach((car) => {
+  updateCarSortToggleButton();
+  getSortedCarsForRender().forEach((car) => {
     const summary = carSeatSummary(car);
     const inactiveClass = car.active ? '' : 'is-inactive';
     const fullBlock = summary.isFull || summary.isOver;
@@ -632,10 +690,9 @@ function saveEditChild() {
 }
 
 /* 並び替えソート機能 */
+/** @deprecated 互換: 車両50音表示トグルへ（配列は破壊しない） */
 function sortCarsByName() {
-  cars.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-  saveData();
-  renderCars();
+  toggleCarSortMode();
 }
 
 /** @deprecated 互換: セレクトの学年順へ */
@@ -760,7 +817,11 @@ function applyRestore() {
     sortChildrenByName,
     setChildSortMode,
     getSortedChildrenForRender,
+    setCarSortMode,
+    toggleCarSortMode,
+    getSortedCarsForRender,
     get childSortMode() { return childSortMode; },
+    get carSortMode() { return carSortMode; },
     openRestoreModal,
     closeRestoreModal,
     applyRestore,

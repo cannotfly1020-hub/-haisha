@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261025z">
+<link rel="stylesheet" href="css/style.css?v=20261026a">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
     </button>
     <div class="panel-body">
       <div class="panel-toolbar">
-        <button type="button" class="btn-mini" data-action="sort-cars">🔤 名前順</button>
+        <button type="button" class="btn-mini btn-sort-toggle" id="carSortToggleBtn" data-action="toggle-car-sort" aria-pressed="false" title="あいうえお順に切り替える">🔤 50音順</button>
       </div>
       <div id="carList"></div>
       <div class="add-form">
@@ -233,10 +233,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261025z"></script>
-<script src="js/ui.js?v=20261025z"></script>
-<script src="js/carpool.js?v=20261025z"></script>
-<script src="js/app.js?v=20261025z"></script>
+<script src="js/data.js?v=20261026a"></script>
+<script src="js/ui.js?v=20261026a"></script>
+<script src="js/carpool.js?v=20261026a"></script>
+<script src="js/app.js?v=20261026a"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
