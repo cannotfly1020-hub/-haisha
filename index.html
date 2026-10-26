@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261026b">
+<link rel="stylesheet" href="css/style.css?v=20261026c">
 </head>
 <body>
 
@@ -52,7 +52,7 @@
     <button type="button" class="panel-toggle" data-action="toggle-section" data-section="cars" aria-expanded="true">
       <div class="panel-toggle-main">
         <span class="panel-title">本日の車</span>
-        <span class="panel-summary" id="carsSummary">車: 0台稼働</span>
+        <span class="panel-summary" id="carsSummary">出勤 —</span>
       </div>
       <span class="panel-chevron" aria-hidden="true"></span>
     </button>
@@ -73,7 +73,7 @@
     <button type="button" class="panel-toggle" data-action="toggle-section" data-section="children" aria-expanded="true">
       <div class="panel-toggle-main">
         <span class="panel-title">参加選手</span>
-        <span class="panel-summary" id="childrenSummary">選手: 0名出席</span>
+        <span class="panel-summary" id="childrenSummary">参加 —</span>
       </div>
       <span class="panel-chevron" aria-hidden="true"></span>
     </button>
@@ -279,10 +279,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261026b"></script>
-<script src="js/ui.js?v=20261026b"></script>
-<script src="js/carpool.js?v=20261026b"></script>
-<script src="js/app.js?v=20261026b"></script>
+<script src="js/data.js?v=20261026c"></script>
+<script src="js/ui.js?v=20261026c"></script>
+<script src="js/carpool.js?v=20261026c"></script>
+<script src="js/app.js?v=20261026c"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

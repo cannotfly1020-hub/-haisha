@@ -293,8 +293,9 @@ function initApp() {
 
   applySectionOpenState();
   applySettingsPanelState();
-  writeCarSortMode(readCarSortMode());
-  writeChildSortMode(readChildSortMode());
+  // ソート状態を sessionStorage から復元（未エクスポート関数参照で init が落ちないよう HaishaUI 経由）
+  HaishaUI.writeCarSortMode(HaishaUI.readCarSortMode());
+  HaishaUI.writeChildSortMode(HaishaUI.readChildSortMode());
   renderCars();
   renderChildren();
   updateStatusBar();

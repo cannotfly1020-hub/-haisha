@@ -169,6 +169,8 @@ function toggleSection(sectionKey) {
 
   const panel = document.getElementById(sectionKey === 'cars' ? 'carsPanel' : 'childrenPanel');
   if (!panel) return;
+  // 開閉は .is-open / aria-expanded / sessionStorage のみ。要約バッジのテキストは触らない
+  // （sessionStorage の "0"/"1" を textContent へ流し込まない）
   const nextOpen = !panel.classList.contains('is-open');
   panel.classList.toggle('is-open', nextOpen);
   writeSectionOpenState(sectionKey, nextOpen);
@@ -213,17 +215,23 @@ function openChildCompanionEditor(childId) {
 function updatePanelSummaries(activeCarsList, activeSeats, seatDemand, activeKids) {
   const carsSummary = document.getElementById('carsSummary');
   const childrenSummary = document.getElementById('childrenSummary');
-  const remaining = activeSeats - seatDemand;
+  const carCount = Array.isArray(activeCarsList) ? activeCarsList.length : 0;
+  const seatCount = Number(activeSeats) || 0;
+  const kidCount = Number(activeKids) || 0;
+  const remaining = seatCount - (Number(seatDemand) || 0);
+
   if (carsSummary) {
-    const n = activeCarsList.length;
+    // 常に文言付きテンプレート（単独の "0" を出さない）
     if (remaining < 0) {
-      carsSummary.textContent = `車: ${n}台稼働（${Math.abs(remaining)}席不足）`;
+      carsSummary.textContent = `出勤 ${carCount}台 / ${seatCount}席（${Math.abs(remaining)}席不足）`;
     } else {
-      carsSummary.textContent = `車: ${n}台稼働（残り${remaining}席）`;
+      carsSummary.textContent = `出勤 ${carCount}台 / ${seatCount}席`;
     }
+    carsSummary.hidden = false;
   }
   if (childrenSummary) {
-    childrenSummary.textContent = `選手: ${activeKids}名出席`;
+    childrenSummary.textContent = `参加 ${kidCount}名`;
+    childrenSummary.hidden = false;
   }
 }
 
@@ -892,8 +900,12 @@ function maybeShowTutorialOnLaunch() {
     sortChildrenByGrade,
     sortChildrenByName,
     setChildSortMode,
+    readChildSortMode,
+    writeChildSortMode,
     getSortedChildrenForRender,
     setCarSortMode,
+    readCarSortMode,
+    writeCarSortMode,
     toggleCarSortMode,
     getSortedCarsForRender,
     get childSortMode() { return childSortMode; },
