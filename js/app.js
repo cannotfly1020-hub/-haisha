@@ -68,10 +68,10 @@ function runClickAction(target) {
       sortCarsByName();
       break;
     case 'sort-grade':
-      sortChildrenByGrade();
+      setChildSortMode('grade');
       break;
     case 'sort-name':
-      sortChildrenByName();
+      setChildSortMode('kana');
       break;
     case 'promote':
       promoteAllGrades();
@@ -223,6 +223,9 @@ function handleAppChange(event) {
       toggleEquipmentCar(carId, target.checked);
       break;
     }
+    case 'change-child-sort':
+      setChildSortMode(target.value);
+      break;
     case 'set-attend':
       setChildAttend(id, target.value);
       break;
@@ -266,6 +269,7 @@ function initApp() {
 
   applySectionOpenState();
   applySettingsPanelState();
+  writeChildSortMode(readChildSortMode());
   renderCars();
   renderChildren();
   updateStatusBar();

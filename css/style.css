@@ -151,6 +151,23 @@ h1 {
   flex-wrap: wrap;
   gap: 4px;
   padding: 8px 0 6px;
+  align-items: center;
+}
+.select-sort-mode {
+  flex: 1 1 160px;
+  min-width: 140px;
+  max-width: 220px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  min-height: 32px;
+  cursor: pointer;
+  touch-action: manipulation;
+  pointer-events: auto;
 }
 
 @media (min-width: 768px) {
@@ -164,7 +181,8 @@ h1 {
   .main-grid .panel .panel-body { display: block; }
   .main-grid .panel .panel-chevron { display: none; }
   .main-grid .panel .panel-toggle { cursor: default; pointer-events: none; }
-  .main-grid .panel-toolbar button {
+  .main-grid .panel-toolbar button,
+  .main-grid .panel-toolbar select {
     pointer-events: auto;
     cursor: pointer;
   }

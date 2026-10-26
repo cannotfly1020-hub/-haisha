@@ -2,6 +2,84 @@
 /** 選手カードの同乗入力を開いている ID（再描画でも維持） */
 const openChildCompanionEditors = new Set();
 
+const CHILD_SORT_KEY = 'cp_child_sort';
+const CHILD_SORT_MODES = new Set(['default', 'kana', 'grade', 'position']);
+const POS_ORDER = {
+  '投手': 1, 'ピッチャー': 1,
+  '捕手': 2, 'キャッチャー': 2,
+  '内野': 3, '内野手': 3,
+  '外野': 4, '外野手': 4,
+  '未定': 9, '': 9
+};
+
+/** 選手一覧の表示ソート（配列本体は破壊しない） */
+let childSortMode = 'default';
+
+function readChildSortMode() {
+  try {
+    const raw = sessionStorage.getItem(CHILD_SORT_KEY);
+    if (CHILD_SORT_MODES.has(raw)) return raw;
+  } catch (e) { /* ignore */ }
+  return 'default';
+}
+
+function writeChildSortMode(mode) {
+  const next = CHILD_SORT_MODES.has(mode) ? mode : 'default';
+  childSortMode = next;
+  try {
+    sessionStorage.setItem(CHILD_SORT_KEY, next);
+  } catch (e) { /* ignore */ }
+  const select = document.getElementById('childSortModeSelect');
+  if (select && select.value !== next) select.value = next;
+}
+
+function positionSortScore(pos) {
+  const raw = typeof pos === 'string' ? pos.trim() : '';
+  if (Object.prototype.hasOwnProperty.call(POS_ORDER, raw)) return POS_ORDER[raw];
+  const keys = Object.keys(POS_ORDER).filter((k) => k);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if (raw.includes(key) || key.includes(raw)) return POS_ORDER[key];
+  }
+  return 9;
+}
+
+function compareChildrenForSort(a, b, mode) {
+  if (mode === 'kana') {
+    return a.name.localeCompare(b.name, 'ja');
+  }
+  if (mode === 'grade') {
+    const ga = parseInt(a.grade, 10) || 0;
+    const gb = parseInt(b.grade, 10) || 0;
+    if (gb !== ga) return gb - ga;
+    return a.name.localeCompare(b.name, 'ja');
+  }
+  if (mode === 'position') {
+    const pa = positionSortScore(a.pos);
+    const pb = positionSortScore(b.pos);
+    if (pa !== pb) return pa - pb;
+    const ga = parseInt(a.grade, 10) || 0;
+    const gb = parseInt(b.grade, 10) || 0;
+    if (gb !== ga) return gb - ga;
+    return a.name.localeCompare(b.name, 'ja');
+  }
+  // default: 登録順（id 昇順、同値なら配列安定のため 0）
+  const ia = Number(a.id) || 0;
+  const ib = Number(b.id) || 0;
+  if (ia !== ib) return ia - ib;
+  return 0;
+}
+
+function getSortedChildrenForRender() {
+  const mode = CHILD_SORT_MODES.has(childSortMode) ? childSortMode : 'default';
+  return [...children].sort((a, b) => compareChildrenForSort(a, b, mode));
+}
+
+function setChildSortMode(mode) {
+  writeChildSortMode(mode);
+  renderChildren();
+}
+
 function readSectionOpenState(key, fallback) {
   try {
     const raw = sessionStorage.getItem(`cp_section_${key}`);
@@ -264,7 +342,10 @@ function renderChildren() {
   const list = document.getElementById('childList');
   if (!list) return;
   list.innerHTML = '';
-  children.forEach((c) => {
+  const select = document.getElementById('childSortModeSelect');
+  if (select && select.value !== childSortMode) select.value = childSortMode;
+
+  getSortedChildrenForRender().forEach((c) => {
     const mode = getAttendMode(c);
     const fixedDisabled = mode !== 'ride' ? 'disabled' : '';
     const companionDisabled = mode !== 'ride' ? 'disabled' : '';
@@ -557,21 +638,14 @@ function sortCarsByName() {
   renderCars();
 }
 
+/** @deprecated 互換: セレクトの学年順へ */
 function sortChildrenByGrade() {
-  // 学年順（6年→1年）、同級生内は五十音順
-  children.sort((a, b) => {
-    if (b.grade !== a.grade) return b.grade - a.grade;
-    return a.name.localeCompare(b.name, 'ja');
-  });
-  saveData();
-  renderChildren();
+  setChildSortMode('grade');
 }
 
+/** @deprecated 互換: セレクトの50音順へ */
 function sortChildrenByName() {
-  // 純粋な名前順（五十音順）
-  children.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-  saveData();
-  renderChildren();
+  setChildSortMode('kana');
 }
 
 function addCar() {
@@ -684,6 +758,9 @@ function applyRestore() {
     sortCarsByName,
     sortChildrenByGrade,
     sortChildrenByName,
+    setChildSortMode,
+    getSortedChildrenForRender,
+    get childSortMode() { return childSortMode; },
     openRestoreModal,
     closeRestoreModal,
     applyRestore,

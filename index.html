@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261025y">
+<link rel="stylesheet" href="css/style.css?v=20261025z">
 </head>
 <body>
 
@@ -78,8 +78,12 @@
     </button>
     <div class="panel-body">
       <div class="panel-toolbar">
-        <button type="button" class="btn-mini" data-action="sort-grade">🎒 学年順</button>
-        <button type="button" class="btn-mini" data-action="sort-name">🔤 五十音順</button>
+        <select class="select-sort-mode" id="childSortModeSelect" data-action="change-child-sort" aria-label="選手の並び順" title="選手の並び順">
+          <option value="default">並び順: 登録順</option>
+          <option value="grade">並び順: 学年順</option>
+          <option value="position">並び順: 守備位置順</option>
+          <option value="kana">並び順: 50音順</option>
+        </select>
         <button type="button" class="btn-mini" data-action="promote">🎓 進級</button>
       </div>
       <div id="childList"></div>
@@ -229,10 +233,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261025y"></script>
-<script src="js/ui.js?v=20261025y"></script>
-<script src="js/carpool.js?v=20261025y"></script>
-<script src="js/app.js?v=20261025y"></script>
+<script src="js/data.js?v=20261025z"></script>
+<script src="js/ui.js?v=20261025z"></script>
+<script src="js/carpool.js?v=20261025z"></script>
+<script src="js/app.js?v=20261025z"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
