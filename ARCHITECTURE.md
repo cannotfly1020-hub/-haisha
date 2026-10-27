@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261026d` / `haisha-cache-v20261026d` 時点  
+> **準拠実装**: `?v=20261026e` / `haisha-cache-v20261026e` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -95,8 +95,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261026d` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261026d` |
+| `index.html` の CSS/JS `?v=` | `20261026e` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261026e` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -436,10 +436,11 @@ UI 上の used（指定込み）=
 
 ### 4.6 iOS / PWA タッチ（HaishaApp）
 
-- `document` 委任: click / change / touchstart(passive) / touchend(passive:false) / keydown(Enterで同乗追加)  
-- ボタン系は `CLICK_ACTIONS` + touchend。`suppressNextClick` で合成 click の二重実行防止  
+- `document` 委任: click / change / keydown(Enterで同乗追加)  
+- **iOS のみ** touchstart(passive) / touchmove(passive) / touchend(passive:false)。Android では touchend+`preventDefault` が縦スクロールを阻害するため登録しない  
+- ボタン系は `CLICK_ACTIONS` +（iOS）touchend。`suppressNextClick` で合成 click の二重実行防止  
 - input/select/textarea/label は touchend アクション対象外  
-- CSS: `cursor:pointer`, `touch-action:manipulation`, 最小タップ≈32–44px, モーダル非表示時 `pointer-events:none`  
+- CSS: `html/body` に `touch-action:pan-y`・`overscroll-behavior-y:none`、ボタンは `manipulation`、モーダル非表示時 `pointer-events:none`  
 - **新ボタンは必ず `data-action` + `CLICK_ACTIONS` + `runClickAction` に登録**
 
 ---

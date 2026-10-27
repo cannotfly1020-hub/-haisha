@@ -1,4 +1,11 @@
 * { box-sizing: border-box; }
+
+/* Android WebView: ページ全体の縦スクロールを明示（height:100vh + overflow:hidden は使わない） */
+html {
+  height: 100%;
+  touch-action: pan-y;
+  overscroll-behavior-y: none;
+}
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: #f1f5f9;
@@ -8,6 +15,12 @@ body {
   max-width: 1100px;
   margin-left: auto;
   margin-right: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
 }
 h1 {
   font-size: 18px;
@@ -90,7 +103,11 @@ h1 {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-  overflow: hidden;
+  /* overflow:hidden は Android で祖先スクロールを阻害することがあるため clip を優先 */
+  overflow: clip;
+}
+@supports not (overflow: clip) {
+  .panel { overflow: hidden; }
 }
 .panel-toggle {
   width: 100%;
@@ -196,6 +213,9 @@ h1 {
   .main-grid .panel-body {
     max-height: calc(100vh - 220px);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
   }
 }
 

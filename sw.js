@@ -1,5 +1,5 @@
 /* 少年野球 配車ヘルパー — Cache First Service Worker */
-const CACHE_NAME = 'haisha-cache-v20261026d';
+const CACHE_NAME = 'haisha-cache-v20261026e';
 
 const PRECACHE_URLS = [
   './',
@@ -13,11 +13,11 @@ const PRECACHE_URLS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   // index.html が参照するキャッシュバスター付き URL も事前格納
-  './css/style.css?v=20261026d',
-  './js/data.js?v=20261026d',
-  './js/ui.js?v=20261026d',
-  './js/carpool.js?v=20261026d',
-  './js/app.js?v=20261026d'
+  './css/style.css?v=20261026e',
+  './js/data.js?v=20261026e',
+  './js/ui.js?v=20261026e',
+  './js/carpool.js?v=20261026e',
+  './js/app.js?v=20261026e'
 ];
 
 self.addEventListener('install', (event) => {

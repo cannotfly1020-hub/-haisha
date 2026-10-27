@@ -193,10 +193,21 @@ function handleAppClick(event) {
   runClickAction(target);
 }
 
+/** iOS のみ touchend 合成クリックが必要。Android WebView では preventDefault が縦スクロールを阻害する */
+function needsIosTouchClickFallback() {
+  const ua = navigator.userAgent || '';
+  if (/Android/i.test(ua)) return false;
+  if (/iP(hone|od|ad)/i.test(ua)) return true;
+  // iPadOS 13+（Mac 表記だがタッチ端末）
+  if (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return true;
+  return false;
+}
+
 /**
  * iOS Safari / ホーム画面PWA 向け:
  * 一部環境で click が欠落するため、ボタン系は touchend でも発火させる。
  * preventDefault で後続の合成 click を抑止し二重実行を防ぐ。
+ * ※ Android では登録しない（縦スクロール阻害防止）。
  */
 function handleAppTouchEnd(event) {
   if (event.touches && event.touches.length > 0) return; // マルチタッチ中は無視
@@ -214,6 +225,7 @@ function handleAppTouchEnd(event) {
     const dy = Math.abs(touch.clientY - target._touchStartY);
     if (dy > 12) return;
   }
+  if (target._touchMoved) return;
 
   suppressNextClick = true;
   event.preventDefault();
@@ -224,6 +236,15 @@ function handleAppTouchStart(event) {
   const target = findActionEl(event.target);
   if (!target || !event.touches || !event.touches[0]) return;
   target._touchStartY = event.touches[0].clientY;
+  target._touchMoved = false;
+}
+
+function handleAppTouchMove(event) {
+  if (!event.touches || !event.touches[0]) return;
+  const target = findActionEl(event.target);
+  if (!target || target._touchStartY == null) return;
+  const dy = Math.abs(event.touches[0].clientY - target._touchStartY);
+  if (dy > 12) target._touchMoved = true;
 }
 
 function handleAppChange(event) {
@@ -265,8 +286,12 @@ function initApp() {
   // document へ委任（再描画後も確実に拾う）
   document.addEventListener('click', handleAppClick);
   document.addEventListener('change', handleAppChange);
-  document.addEventListener('touchstart', handleAppTouchStart, { passive: true });
-  document.addEventListener('touchend', handleAppTouchEnd, { passive: false });
+  // touchend + preventDefault は iOS のみ（Android WebView の縦スクロールを壊さない）
+  if (needsIosTouchClickFallback()) {
+    document.addEventListener('touchstart', handleAppTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleAppTouchMove, { passive: true });
+    document.addEventListener('touchend', handleAppTouchEnd, { passive: false });
+  }
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
