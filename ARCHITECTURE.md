@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261028b` / `haisha-cache-v20261028b` 時点  
+> **準拠実装**: `?v=20261028c` / `haisha-cache-v20261028c` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -95,8 +95,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261028b` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261028b` |
+| `index.html` の CSS/JS `?v=` | `20261028c` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261028c` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -330,13 +330,16 @@ UI 上の used（指定込み）=
 
 ### 3.3 履歴確定とロールバック（`copyResult`）
 
-- 配車計算だけでは `rideHistory` / `lastCar` を更新**しない**。  
+- 配車計算だけでは `rideHistory` / `lastCar` / `dispatchHistory` を更新**しない**。  
 - **LINE コピー時**のみ確定処理:
 
   1. `lastSessionCommit` があれば各選手の `rideHistory[直前車両]` を **-1**（≤0 はキー削除）＝ロールバック  
-  2. 今回の `currentAssignments` で +1 と `lastCar` 更新  
-  3. 新しい `{ childId: carName }` を `lastSessionCommit` に保存（メモリ＋ sessionStorage）  
-  4. `saveData()`
+  2. `cp_lastDispatchCommit` があれば、その確定で足した各車の `dispatchHistory` 日付を1件戻す  
+  3. 今回の `currentAssignments` で +1 と `lastCar` 更新。計画に含まれる各車の `dispatchHistory` に当日 `YYYY-MM-DD` を1件追加  
+  4. 新しい `{ childId: carName }` を `lastSessionCommit` に保存（メモリ＋ sessionStorage）  
+  5. `saveData()`
+
+出動回数の表示期間は `localStorage` の `cp_dispatch_period`（`30` / `90` / `180`、既定 90）。`getCarDispatchCount(car, days)` は当日を含む `days` 日以内の件数。履歴が無い車は 0。週次リセットは履歴を消さず、ロールバック用マーカーだけ外す。
 
 → **同セッション内の複数回コピーによる二重加算を防止**（直前確定の置き換え）。  
 → `resetTodaySession` / `resetAllData` で `lastSessionCommit` をクリアし、翌週は新規1回分として加算。
@@ -383,7 +386,7 @@ UI 上の used（指定込み）=
 
 ### 4.3 車両カード
 
-- ヘッダー1行: 出勤チェック、**名前インライン編集**（`rename-car` → カスケード）、道具車時は `📦 道具車` バッジ、定員残バッジ、並び替え（≡ / ▲ / ▼）、定員、削除  
+- ヘッダー1行: 出勤チェック、**名前インライン編集**（`rename-car` → カスケード）、道具車時は `📦 道具車` バッジ、定員残バッジ、**出動回数**（`.badge-dispatch`）、並び替え（≡ / ▲ / ▼）、定員、削除  
 - 「道具車」チェック（`toggle-equipment` → `isEquipmentCar` 永続化）。週次リセットで OFF  
 - 同乗チップ + クイック続柄（母/兄/姉/弟/妹）+ 名前 + ＋  
 - 満席・休止時は追加 disabled  

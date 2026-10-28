@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261028b">
+<link rel="stylesheet" href="css/style.css?v=20261028c">
 </head>
 <body>
 
@@ -155,6 +155,14 @@
   </button>
   <div class="panel-body">
     <p class="settings-hint">iOSでデータが消えたときや機種変更用に、全データをテキストで退避・復元できます。</p>
+    <label class="setting-item">
+      <span>出動回数の集計期間:</span>
+      <select id="dispatchPeriodSelect" data-action="set-dispatch-period">
+        <option value="30">直近1ヶ月 (30日)</option>
+        <option value="90" selected>直近3ヶ月 (90日)</option>
+        <option value="180">直近半年 (180日)</option>
+      </select>
+    </label>
     <button type="button" class="btn btn-outline btn-compact" data-action="copy-backup">💾 データをLINE/メモへ退避（コピー）</button>
     <button type="button" class="btn btn-restore btn-compact" data-action="open-restore">📥 退避テキストから復元</button>
     <div class="reset-link reset-link-inline">
@@ -279,10 +287,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261028b"></script>
-<script src="js/ui.js?v=20261028b"></script>
-<script src="js/carpool.js?v=20261028b"></script>
-<script src="js/app.js?v=20261028b"></script>
+<script src="js/data.js?v=20261028c"></script>
+<script src="js/ui.js?v=20261028c"></script>
+<script src="js/carpool.js?v=20261028c"></script>
+<script src="js/app.js?v=20261028c"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

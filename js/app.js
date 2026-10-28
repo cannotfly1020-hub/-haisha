@@ -285,6 +285,10 @@ function handleAppChange(event) {
     case 'set-fixed-car':
       setChildFixedCar(id, target.value);
       break;
+    case 'set-dispatch-period':
+      setDispatchPeriod(target.value);
+      renderCars();
+      break;
     default:
       break;
   }

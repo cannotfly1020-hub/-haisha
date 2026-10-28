@@ -39,8 +39,95 @@ function normalizeCar(car) {
     capacity: Math.max(0, parseInt(car.capacity, 10) || 0),
     active: !!car.active,
     companions: companions,
-    isEquipmentCar: !!car.isEquipmentCar
+    isEquipmentCar: !!car.isEquipmentCar,
+    dispatchHistory: normalizeDispatchHistory(car.dispatchHistory)
   };
+}
+
+const DISPATCH_PERIOD_KEY = 'cp_dispatch_period';
+const DISPATCH_PERIODS = new Set([30, 90, 180]);
+
+function localDateString(date) {
+  const d = date instanceof Date ? date : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function normalizeDispatchDate(entry) {
+  if (typeof entry === 'number' && Number.isFinite(entry)) {
+    const date = new Date(entry);
+    if (Number.isNaN(date.getTime())) return null;
+    return localDateString(date);
+  }
+  if (typeof entry === 'string') {
+    const match = entry.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null;
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    const dt = new Date(y, m - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  if (entry && typeof entry === 'object') {
+    if (entry.date != null) return normalizeDispatchDate(entry.date);
+    if (entry.ts != null) return normalizeDispatchDate(entry.ts);
+  }
+  return null;
+}
+
+function normalizeDispatchHistory(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  list.forEach((entry) => {
+    const ymd = normalizeDispatchDate(entry);
+    if (ymd) out.push(ymd);
+  });
+  return out;
+}
+
+function getDispatchPeriod() {
+  try {
+    const n = Number(localStorage.getItem(DISPATCH_PERIOD_KEY));
+    if (DISPATCH_PERIODS.has(n)) return n;
+  } catch (e) { /* ignore */ }
+  return 90;
+}
+
+function setDispatchPeriod(days) {
+  const n = Number(days);
+  const next = DISPATCH_PERIODS.has(n) ? n : 90;
+  try {
+    localStorage.setItem(DISPATCH_PERIOD_KEY, String(next));
+  } catch (e) { /* ignore */ }
+  return next;
+}
+
+function dispatchAgeDays(ymd, todayYmd) {
+  const [y1, m1, d1] = ymd.split('-').map(Number);
+  const [y2, m2, d2] = todayYmd.split('-').map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000);
+}
+
+function getCarDispatchCount(car, days) {
+  try {
+    const period = Number(days);
+    if (!car || !Number.isFinite(period) || period <= 0) return 0;
+    const history = Array.isArray(car.dispatchHistory) ? car.dispatchHistory : [];
+    const today = localDateString();
+    let count = 0;
+    history.forEach((entry) => {
+      const ymd = normalizeDispatchDate(entry);
+      if (!ymd) return;
+      const age = dispatchAgeDays(ymd, today);
+      if (age >= 0 && age < period) count += 1;
+    });
+    return count;
+  } catch (e) {
+    return 0;
+  }
 }
 
 function companionsOf(car) {
@@ -595,6 +682,10 @@ function promoteAllGrades() {
     promoteAllGrades,
     copyTextToClipboard,
     normalizeCar,
+    getDispatchPeriod,
+    setDispatchPeriod,
+    getCarDispatchCount,
+    localDateString,
     normalizeChild,
     normalizeCompanion,
     companionsOf,
@@ -650,6 +741,10 @@ function promoteAllGrades() {
   global.copyTextToClipboard = copyTextToClipboard;
   global.copyTextFallback = copyTextFallback;
   global.normalizeCar = normalizeCar;
+  global.getDispatchPeriod = getDispatchPeriod;
+  global.setDispatchPeriod = setDispatchPeriod;
+  global.getCarDispatchCount = getCarDispatchCount;
+  global.localDateString = localDateString;
   global.normalizeChild = normalizeChild;
   global.normalizeCompanion = normalizeCompanion;
   global.normalizeChildCompanions = normalizeChildCompanions;

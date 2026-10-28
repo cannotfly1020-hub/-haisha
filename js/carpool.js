@@ -33,6 +33,63 @@ function writeLastSessionCommit(map) {
 
 function clearLastSessionCommit() {
   writeLastSessionCommit(null);
+  writeLastDispatchCommit(null);
+}
+
+const LAST_DISPATCH_COMMIT_KEY = 'cp_lastDispatchCommit';
+let lastDispatchCommit = null;
+
+function readLastDispatchCommit() {
+  if (lastDispatchCommit && typeof lastDispatchCommit === 'object') return lastDispatchCommit;
+  try {
+    const raw = sessionStorage.getItem(LAST_DISPATCH_COMMIT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.carIds)) return null;
+    lastDispatchCommit = parsed;
+    return lastDispatchCommit;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeLastDispatchCommit(entry) {
+  lastDispatchCommit = entry && typeof entry === 'object' ? entry : null;
+  try {
+    if (lastDispatchCommit) {
+      sessionStorage.setItem(LAST_DISPATCH_COMMIT_KEY, JSON.stringify(lastDispatchCommit));
+    } else {
+      sessionStorage.removeItem(LAST_DISPATCH_COMMIT_KEY);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function rollbackLastDispatchCommit() {
+  const prev = readLastDispatchCommit();
+  if (!prev || typeof prev.date !== 'string') return;
+  (prev.carIds || []).forEach((id) => {
+    const car = cars.find((c) => String(c.id) === String(id));
+    if (!car || !Array.isArray(car.dispatchHistory)) return;
+    for (let i = car.dispatchHistory.length - 1; i >= 0; i--) {
+      if (car.dispatchHistory[i] === prev.date) {
+        car.dispatchHistory.splice(i, 1);
+        break;
+      }
+    }
+  });
+}
+
+function recordConfirmedDispatches(assignments) {
+  const date = localDateString();
+  const carIds = [];
+  Object.keys(assignments || {}).forEach((carName) => {
+    const car = cars.find((c) => c.name === carName);
+    if (!car) return;
+    if (!Array.isArray(car.dispatchHistory)) car.dispatchHistory = [];
+    car.dispatchHistory.push(date);
+    carIds.push(car.id);
+  });
+  writeLastDispatchCommit({ date, carIds });
 }
 
 /** 直前セッション確定分の rideHistory を -1（0以下のキーは削除） */
@@ -592,10 +649,13 @@ function copyResult() {
   if (currentAssignments) {
     // 同セッション内の再コピー: 直前確定分を差し戻してから今回分を加算
     rollbackLastSessionCommit();
+    rollbackLastDispatchCommit();
     const commitMap = applyAssignmentHistoryCommit(currentAssignments);
+    recordConfirmedDispatches(currentAssignments);
     writeLastSessionCommit(commitMap);
     saveData();
     renderChildren();
+    renderCars();
     updateStatusBar();
   }
 

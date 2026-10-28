@@ -508,9 +508,16 @@ function buildQuickCompanionButtonsHtml(car, disabled) {
   `).join('');
 }
 
+function syncDispatchPeriodSelect() {
+  const el = document.getElementById('dispatchPeriodSelect');
+  if (!el) return;
+  el.value = String(getDispatchPeriod());
+}
+
 function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
+  syncDispatchPeriodSelect();
   list.innerHTML = '';
   updateCarSortToggleButton();
   getSortedCarsForRender().forEach((car) => {
@@ -525,6 +532,10 @@ function renderCars() {
 
     const safeName = String(car.name || '').replace(/"/g, '&quot;');
     const equipBadge = car.isEquipmentCar ? `<span class="equipment-badge" title="道具車">📦 道具車</span>` : '';
+    const periodDays = getDispatchPeriod();
+    const periodLabel = periodDays === 30 ? '1ヶ月' : periodDays === 90 ? '3ヶ月' : periodDays === 180 ? '半年' : `${periodDays}日`;
+    const dispatchCount = getCarDispatchCount(car, periodDays);
+    const dispatchBadge = `<span class="badge-dispatch" title="過去${periodDays}日間の出動回数">直近${periodLabel}: ${dispatchCount}回</span>`;
     list.innerHTML += `
       <div class="car-card ${inactiveClass}${car.isEquipmentCar ? ' is-equipment' : ''}" data-car-id="${car.id}">
         <div class="car-card-header">
@@ -535,6 +546,7 @@ function renderCars() {
           </label>
           ${equipBadge}
           ${buildCapacityBadgeHtml(summary)}
+          ${dispatchBadge}
           <div class="car-reorder">
             <span class="car-drag-handle" draggable="true" data-id="${car.id}" title="ドラッグして並び替え" aria-label="並び替え">≡</span>
             <button type="button" class="btn-move-car btn-move-up" data-action="move-car-up" data-id="${car.id}" ${isFirst ? 'disabled' : ''} aria-label="上へ">▲</button>
@@ -1086,6 +1098,7 @@ bindCarReorderGestures();
     getSortedCarsForRender,
     moveCar,
     reorderCar,
+    syncDispatchPeriodSelect,
     get childSortMode() { return childSortMode; },
     get carSortMode() { return carSortMode; },
     openRestoreModal,
