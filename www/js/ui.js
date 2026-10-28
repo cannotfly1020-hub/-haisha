@@ -490,14 +490,38 @@ function buildCapacityBadgeHtml(summary) {
 }
 
 const QUICK_COMPANION_LABELS = ['母', '兄', '姉', '弟', '妹'];
+const DRIVER_ROLE_OPTIONS = ['父', '母', '祖父', '祖母', 'その他'];
 
-/** 配車見出し用。車両の同乗者名を「（母、弟）」にする。いないときは空文字。 */
+/**
+ * 配車見出しの括弧。運転者を先頭にし、同じ名前の同乗者は重ねない。
+ * 運転者が空で同乗者もいなければ空文字（「佐藤号」のまま）。
+ */
 function formatCarCompanionHeader(car) {
-  const labels = companionsOf(car)
+  const role = car && typeof car.driverRole === 'string' ? car.driverRole.trim() : '';
+  const driver = DRIVER_ROLE_OPTIONS.includes(role) ? role : '';
+  const companions = companionsOf(car)
     .map((item) => (item && item.label ? String(item.label).trim() : ''))
-    .filter(Boolean);
-  if (!labels.length) return '';
-  return `（${labels.join('、')}）`;
+    .filter((label) => label && label !== driver);
+  const parts = driver ? [driver, ...companions] : companions;
+  if (!parts.length) return '';
+  return `（${parts.join('、')}）`;
+}
+
+function buildDriverSelectHtml(car) {
+  const current = DRIVER_ROLE_OPTIONS.includes(car.driverRole) ? car.driverRole : '父';
+  const options = DRIVER_ROLE_OPTIONS.map((role) =>
+    `<option value="${role}" ${current === role ? 'selected' : ''}>${role}</option>`
+  ).join('');
+  return `<label class="driver-select-label"><span>運転:</span><select class="car-driver-select" data-action="set-car-driver" data-id="${car.id}" data-car-id="${car.id}" aria-label="本日の運転者">${options}</select></label>`;
+}
+
+function setCarDriverRole(id, role) {
+  const car = cars.find((item) => String(item.id) === String(id));
+  if (!car) return;
+  const next = DRIVER_ROLE_OPTIONS.includes(role) ? role : '父';
+  if (car.driverRole === next) return;
+  car.driverRole = next;
+  saveData();
 }
 
 function buildCompanionChipsHtml(car) {
@@ -577,6 +601,7 @@ function renderCars() {
         <div class="companion-bar">
           ${carChips ? `<div class="companion-chips">${carChips}</div>` : ''}
           <div class="companion-add-row">
+            ${buildDriverSelectHtml(car)}
             ${buildQuickCompanionButtonsHtml(car, !!addDisabled)}
             <input type="text" class="companion-input" id="companionInput-${car.id}" placeholder="名前" ${addDisabled} maxlength="20">
             <button type="button" class="companion-add-btn" data-action="add-companion-custom" data-id="${car.id}" ${addDisabled}>＋</button>
@@ -1108,6 +1133,7 @@ bindCarReorderGestures();
     moveCar,
     reorderCar,
     formatCarCompanionHeader,
+    setCarDriverRole,
     syncDispatchPeriodSelect,
     get childSortMode() { return childSortMode; },
     get carSortMode() { return carSortMode; },

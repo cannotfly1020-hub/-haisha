@@ -17,6 +17,14 @@ function normalizeCompanion(item, fallbackId) {
   };
 }
 
+const DRIVER_ROLES = ['父', '母', '祖父', '祖母', 'その他'];
+
+function normalizeDriverRole(value) {
+  const role = typeof value === 'string' ? value.trim() : '';
+  if (DRIVER_ROLES.includes(role)) return role;
+  return '父';
+}
+
 function normalizeCar(car) {
   let companions = [];
   if (Array.isArray(car.companions)) {
@@ -40,6 +48,7 @@ function normalizeCar(car) {
     active: !!car.active,
     companions: companions,
     isEquipmentCar: !!car.isEquipmentCar,
+    driverRole: normalizeDriverRole(car.driverRole),
     dispatchHistory: normalizeDispatchHistory(car.dispatchHistory)
   };
 }

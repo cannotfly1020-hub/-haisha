@@ -633,6 +633,28 @@ h1 {
 }
 .companion-remove:hover,
 .companion-remove:active { background: #93c5fd; opacity: 1; }
+.driver-select-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  line-height: 1;
+}
+.car-driver-select {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 2px 4px;
+  min-height: 32px;
+  max-width: 4.6em;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+}
 .companion-add-row {
   display: flex;
   flex-wrap: wrap;

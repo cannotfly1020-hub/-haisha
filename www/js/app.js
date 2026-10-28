@@ -289,6 +289,9 @@ function handleAppChange(event) {
       setDispatchPeriod(target.value);
       renderCars();
       break;
+    case 'set-car-driver':
+      setCarDriverRole(target.dataset.carId || target.dataset.id, target.value);
+      break;
     default:
       break;
   }
