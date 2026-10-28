@@ -491,6 +491,15 @@ function buildCapacityBadgeHtml(summary) {
 
 const QUICK_COMPANION_LABELS = ['母', '兄', '姉', '弟', '妹'];
 
+/** 配車見出し用。車両の同乗者名を「（母、弟）」にする。いないときは空文字。 */
+function formatCarCompanionHeader(car) {
+  const labels = companionsOf(car)
+    .map((item) => (item && item.label ? String(item.label).trim() : ''))
+    .filter(Boolean);
+  if (!labels.length) return '';
+  return `（${labels.join('、')}）`;
+}
+
 function buildCompanionChipsHtml(car) {
   const list = companionsOf(car);
   if (list.length === 0) return '';
@@ -1098,6 +1107,7 @@ bindCarReorderGestures();
     getSortedCarsForRender,
     moveCar,
     reorderCar,
+    formatCarCompanionHeader,
     syncDispatchPeriodSelect,
     get childSortMode() { return childSortMode; },
     get carSortMode() { return carSortMode; },

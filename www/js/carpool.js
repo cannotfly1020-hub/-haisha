@@ -745,9 +745,8 @@ function generateCarpool() {
         const riderNames = riders.map(k => formatRiderLabel(k, c.name, { showPin: true }));
         const companionNames = companionsOf(c).map(x => x.label);
         const names = [...riderNames, ...companionNames].join('、');
-        const people = carPeopleCount(c, riders);
         const equipTag = c.isEquipmentCar ? ' 【道具車📦】' : '';
-        text += `■ ${c.name} (${people}名)${equipTag}\n  乗車: ${names || 'なし'}\n\n`;
+        text += `■ ${c.name}${formatCarCompanionHeader(c)}${equipTag}\n  乗車: ${names || 'なし'}\n\n`;
       });
     } else {
       text += "本日の乗車配車はありません。\n\n";
@@ -775,9 +774,8 @@ function generateCarpool() {
       activeCars.forEach(c => {
         const riders = assignments[c.name] || [];
         const names = buildLineNameList(c, riders);
-        const people = carPeopleCount(c, riders);
         const equipTag = c.isEquipmentCar ? ' 【道具車】' : '';
-        text += `■ ${c.name} (${people}名)${equipTag}\n`;
+        text += `■ ${c.name}${formatCarCompanionHeader(c)}${equipTag}\n`;
         text += `${names.length > 0 ? names.join('、') : 'なし'}\n\n`;
       });
     } else {
