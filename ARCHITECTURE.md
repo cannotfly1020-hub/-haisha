@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261028a` / `haisha-cache-v20261028a` 時点  
+> **準拠実装**: `?v=20261028b` / `haisha-cache-v20261028b` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -95,8 +95,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261028a` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261028a` |
+| `index.html` の CSS/JS `?v=` | `20261028b` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261028b` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -383,18 +383,21 @@ UI 上の used（指定込み）=
 
 ### 4.3 車両カード
 
-- ヘッダー1行: 出勤チェック、**名前インライン編集**（`rename-car` → カスケード）、道具車時は `📦 道具車` バッジ、定員残バッジ、定員、削除  
+- ヘッダー1行: 出勤チェック、**名前インライン編集**（`rename-car` → カスケード）、道具車時は `📦 道具車` バッジ、定員残バッジ、並び替え（≡ / ▲ / ▼）、定員、削除  
 - 「道具車」チェック（`toggle-equipment` → `isEquipmentCar` 永続化）。週次リセットで OFF  
 - 同乗チップ + クイック続柄（母/兄/姉/弟/妹）+ 名前 + ＋  
 - 満席・休止時は追加 disabled  
 
-#### 車両の50音順ソートトグル
+#### 車両の並び順
 
 - ツールバーボタン `data-action="toggle-car-sort"`（表示: 無効時「🔤 50音順」／有効時「📋 登録順」）
 - 状態 `carSortMode`: `default` | `kana`（`sessionStorage` キー `cp_car_sort`）
-- **`HaishaData.cars` 本体は並べ替えない** — `getSortedCarsForRender()` が `[...cars].sort(...)` で描画
-  - `kana`: `name.localeCompare(..., 'ja')`
-  - `default`: `id` 昇順（登録順）
+- `getSortedCarsForRender()`
+  - `default`: `cars` のインデックス順（手動順を保持。id 順では並べ直さない）
+  - `kana`: コピーを `name.localeCompare(..., 'ja')`。配列本体は変えない
+- 手動並び替え（`moveCar` の ▲▼、`reorderCar` のドラッグ／タッチ）は `cars` の要素順を直接入れ替え、`carSortMode` を `default` にして `saveData()` と `renderCars()`  
+  - ▲▼は配列の隣とスワップ。先頭は上、末尾は下が disabled  
+  - ドロップ先の車両の位置へ挿入。ハンドルは `.car-drag-handle`
 
 ### 4.4 選手カード（省スペース）
 

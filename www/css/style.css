@@ -493,6 +493,50 @@ h1 {
   padding: 5px 7px;
   margin-left: 2px;
 }
+.car-reorder {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.car-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  min-height: 32px;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.btn-move-car {
+  min-width: 28px;
+  min-height: 32px;
+  padding: 0 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.btn-move-car:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.car-card.is-dragging {
+  opacity: 0.55;
+}
+.car-card.is-drag-over {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
 .cap-edit { display: flex; align-items: center; gap: 2px; font-size: 10px; color: #64748b; pointer-events: auto; }
 .cap-edit .input-cap {
   width: 34px;

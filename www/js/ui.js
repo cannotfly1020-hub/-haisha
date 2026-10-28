@@ -83,7 +83,7 @@ function setChildSortMode(mode) {
 const CAR_SORT_KEY = 'cp_car_sort';
 const CAR_SORT_MODES = new Set(['default', 'kana']);
 
-/** 車両一覧の表示ソート（配列本体は破壊しない） */
+/** 車両一覧の表示ソート。default は配列順、kana だけコピーを並べる */
 let carSortMode = 'default';
 
 function readCarSortMode() {
@@ -122,10 +122,176 @@ function getSortedCarsForRender() {
   const list = [...cars];
   if (mode === 'kana') {
     list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-  } else {
-    list.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
   }
   return list;
+}
+
+function commitCarOrder(nextCars) {
+  cars.splice(0, cars.length, ...nextCars);
+  writeCarSortMode('default');
+  saveData();
+  renderCars();
+}
+
+function moveCar(id, direction) {
+  if (direction !== 'up' && direction !== 'down') return;
+  const index = cars.findIndex((c) => String(c.id) === String(id));
+  if (index < 0) return;
+  const target = direction === 'up' ? index - 1 : index + 1;
+  if (target < 0 || target >= cars.length) return;
+  const next = cars.slice();
+  const current = next[index];
+  next[index] = next[target];
+  next[target] = current;
+  commitCarOrder(next);
+}
+
+function reorderCar(fromId, toId) {
+  const fromKey = String(fromId);
+  const toKey = String(toId);
+  if (!fromKey || !toKey || fromKey === toKey) return;
+  const ids = cars.map((c) => String(c.id));
+  const from = ids.indexOf(fromKey);
+  const to = ids.indexOf(toKey);
+  if (from < 0 || to < 0) return;
+  const [moved] = ids.splice(from, 1);
+  ids.splice(to, 0, moved);
+  const byId = new Map(cars.map((c) => [String(c.id), c]));
+  commitCarOrder(ids.map((carId) => byId.get(carId)).filter(Boolean));
+}
+
+let carDragSourceId = null;
+let carTouchDrag = null;
+let carReorderLockedUntil = 0;
+
+function clearCarDragVisuals() {
+  document.querySelectorAll('#carList .car-card.is-dragging, #carList .car-card.is-drag-over').forEach((el) => {
+    el.classList.remove('is-dragging', 'is-drag-over');
+  });
+}
+
+function carCardFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el || typeof el.closest !== 'function') return null;
+  const card = el.closest('.car-card');
+  if (!card || !card.closest('#carList')) return null;
+  return card;
+}
+
+function markCarDropTarget(card, sourceId) {
+  document.querySelectorAll('#carList .car-card.is-drag-over').forEach((el) => {
+    if (el !== card) el.classList.remove('is-drag-over');
+  });
+  if (card && card.dataset.carId !== String(sourceId)) card.classList.add('is-drag-over');
+}
+
+function eventElement(target) {
+  if (!target) return null;
+  if (target.nodeType === 1) return target;
+  return target.parentElement || null;
+}
+
+function onCarDragStart(event) {
+  const source = eventElement(event.target);
+  const handle = source && source.closest('.car-drag-handle');
+  if (!handle) return;
+  carDragSourceId = String(handle.dataset.id || '');
+  if (!carDragSourceId) return;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    try { event.dataTransfer.setData('text/plain', carDragSourceId); } catch (e) { /* ignore */ }
+  }
+  const card = handle.closest('.car-card');
+  if (card) card.classList.add('is-dragging');
+}
+
+function onCarDragOver(event) {
+  if (!carDragSourceId) return;
+  const source = eventElement(event.target);
+  const card = source && source.closest('#carList .car-card');
+  if (!card) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  markCarDropTarget(card, carDragSourceId);
+}
+
+function onCarDrop(event) {
+  const source = eventElement(event.target);
+  const card = source && source.closest('#carList .car-card');
+  const fromId = carDragSourceId;
+  if (!card || !fromId) return;
+  if (Date.now() < carReorderLockedUntil) return;
+  event.preventDefault();
+  carDragSourceId = null;
+  clearCarDragVisuals();
+  reorderCar(fromId, card.dataset.carId);
+}
+
+function onCarDragEnd() {
+  carDragSourceId = null;
+  clearCarDragVisuals();
+}
+
+function onCarTouchStart(event) {
+  if (carTouchDrag) return;
+  const source = eventElement(event.target);
+  const handle = source && source.closest('.car-drag-handle');
+  if (!handle || !event.touches || event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  carTouchDrag = {
+    id: String(handle.dataset.id || ''),
+    x: touch.clientX,
+    y: touch.clientY,
+    moved: false
+  };
+  const card = handle.closest('.car-card');
+  if (card) card.classList.add('is-dragging');
+  document.addEventListener('touchmove', onCarTouchMove, { passive: false });
+  document.addEventListener('touchend', onCarTouchEnd);
+  document.addEventListener('touchcancel', onCarTouchCancel);
+}
+
+function onCarTouchMove(event) {
+  if (!carTouchDrag || !event.touches || event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  const dx = Math.abs(touch.clientX - carTouchDrag.x);
+  const dy = Math.abs(touch.clientY - carTouchDrag.y);
+  if (!carTouchDrag.moved && dx < 8 && dy < 8) return;
+  carTouchDrag.moved = true;
+  event.preventDefault();
+  const card = carCardFromPoint(touch.clientX, touch.clientY);
+  carTouchDrag.overId = card ? card.dataset.carId : null;
+  markCarDropTarget(card, carTouchDrag.id);
+}
+
+function finishCarTouch(commit) {
+  document.removeEventListener('touchmove', onCarTouchMove);
+  document.removeEventListener('touchend', onCarTouchEnd);
+  document.removeEventListener('touchcancel', onCarTouchCancel);
+  const drag = carTouchDrag;
+  carTouchDrag = null;
+  clearCarDragVisuals();
+  if (!commit || !drag || !drag.moved || !drag.overId || drag.overId === drag.id) return;
+  carReorderLockedUntil = Date.now() + 400;
+  reorderCar(drag.id, drag.overId);
+}
+
+function onCarTouchEnd() {
+  finishCarTouch(true);
+}
+
+function onCarTouchCancel() {
+  finishCarTouch(false);
+}
+
+function bindCarReorderGestures() {
+  if (bindCarReorderGestures.bound || typeof document === 'undefined') return;
+  bindCarReorderGestures.bound = true;
+  document.addEventListener('dragstart', onCarDragStart);
+  document.addEventListener('dragover', onCarDragOver);
+  document.addEventListener('drop', onCarDrop);
+  document.addEventListener('dragend', onCarDragEnd);
+  document.addEventListener('touchstart', onCarTouchStart, { passive: true });
 }
 
 function setCarSortMode(mode) {
@@ -353,11 +519,14 @@ function renderCars() {
     const fullBlock = summary.isFull || summary.isOver;
     const addDisabled = !car.active || fullBlock ? 'disabled' : '';
     const carChips = buildCompanionChipsHtml(car);
+    const orderIndex = cars.findIndex((c) => String(c.id) === String(car.id));
+    const isFirst = orderIndex <= 0;
+    const isLast = orderIndex < 0 || orderIndex >= cars.length - 1;
 
     const safeName = String(car.name || '').replace(/"/g, '&quot;');
     const equipBadge = car.isEquipmentCar ? `<span class="equipment-badge" title="道具車">📦 道具車</span>` : '';
     list.innerHTML += `
-      <div class="car-card ${inactiveClass}${car.isEquipmentCar ? ' is-equipment' : ''}">
+      <div class="car-card ${inactiveClass}${car.isEquipmentCar ? ' is-equipment' : ''}" data-car-id="${car.id}">
         <div class="car-card-header">
           <label class="car-name-label">
             <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
@@ -366,6 +535,11 @@ function renderCars() {
           </label>
           ${equipBadge}
           ${buildCapacityBadgeHtml(summary)}
+          <div class="car-reorder">
+            <span class="car-drag-handle" draggable="true" data-id="${car.id}" title="ドラッグして並び替え" aria-label="並び替え">≡</span>
+            <button type="button" class="btn-move-car btn-move-up" data-action="move-car-up" data-id="${car.id}" ${isFirst ? 'disabled' : ''} aria-label="上へ">▲</button>
+            <button type="button" class="btn-move-car btn-move-down" data-action="move-car-down" data-id="${car.id}" ${isLast ? 'disabled' : ''} aria-label="下へ">▼</button>
+          </div>
           <div class="car-card-tools">
             <label class="cap-edit">定員<input type="number" class="input-cap" data-action="update-capacity" data-id="${car.id}" value="${car.capacity}" min="0"></label>
             <button type="button" class="btn-delete" data-action="delete-car" data-id="${car.id}">✕</button>
@@ -865,6 +1039,8 @@ function maybeShowTutorialOnLaunch() {
   }
 }
 
+bindCarReorderGestures();
+
 
   const HaishaUI = {
     renderCars,
@@ -908,6 +1084,8 @@ function maybeShowTutorialOnLaunch() {
     writeCarSortMode,
     toggleCarSortMode,
     getSortedCarsForRender,
+    moveCar,
+    reorderCar,
     get childSortMode() { return childSortMode; },
     get carSortMode() { return carSortMode; },
     openRestoreModal,

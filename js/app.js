@@ -22,6 +22,8 @@ const CLICK_ACTIONS = new Set([
   'close-modal',
   'save-child',
   'delete-car',
+  'move-car-up',
+  'move-car-down',
   'edit-child',
   'delete-child',
   'add-companion',
@@ -120,6 +122,12 @@ function runClickAction(target) {
       break;
     case 'delete-car':
       deleteCar(id);
+      break;
+    case 'move-car-up':
+      moveCar(id, 'up');
+      break;
+    case 'move-car-down':
+      moveCar(id, 'down');
       break;
     case 'edit-child':
       openEditModal(id);
