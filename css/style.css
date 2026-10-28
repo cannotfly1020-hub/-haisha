@@ -768,6 +768,9 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
   background: rgba(0, 0, 0, 0.06);
 }
 .result-card { display: none; margin-top: 10px; }
+.result-warnings { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.result-warnings[hidden] { display: none; }
+.result-warning-badge { margin: 0; background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 700; line-height: 1.4; }
 .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-top: 8px; line-height: 1.45; }
 .panel-settings { margin-bottom: 10px; }
 .panel-settings .panel-toggle { pointer-events: auto; cursor: pointer; }

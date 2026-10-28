@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261028c">
+<link rel="stylesheet" href="css/style.css?v=20261028d">
 </head>
 <body>
 
@@ -139,6 +139,7 @@
 <!-- 結果表示 -->
 <div class="card result-card" id="resultCard">
   <h2 class="card-heading">配車結果</h2>
+  <div id="resultWarnings" class="result-warnings" hidden></div>
   <div class="result-box" id="resultText"></div>
   <button type="button" class="btn btn-outline" data-action="generate">🔄 別の組み合わせで再計算する</button>
   <button type="button" class="btn btn-success" data-action="copy-result">📋 配車表を共有（履歴を確定保存）</button>
@@ -287,10 +288,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261028c"></script>
-<script src="js/ui.js?v=20261028c"></script>
-<script src="js/carpool.js?v=20261028c"></script>
-<script src="js/app.js?v=20261028c"></script>
+<script src="js/data.js?v=20261028d"></script>
+<script src="js/ui.js?v=20261028d"></script>
+<script src="js/carpool.js?v=20261028d"></script>
+<script src="js/app.js?v=20261028d"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

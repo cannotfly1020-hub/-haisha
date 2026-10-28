@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261028c` / `haisha-cache-v20261028c` 時点  
+> **準拠実装**: `?v=20261028d` / `haisha-cache-v20261028d` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -75,7 +75,7 @@ HaishaCarpool.diagnose                // = diagnoseCarpoolFailure
 HaishaCarpool.copyResult
 HaishaCarpool.buildLinePlanText()     // 直近生成済み LINE 文を返す
 HaishaCarpool.clearDiagnosis / clearLastSessionCommit
-HaishaCarpool.currentAssignments / lastGeneratedPlan / lastSessionCommit
+HaishaCarpool.currentAssignments / assignmentWarnings / lastGeneratedPlan / lastSessionCommit
 
 // HaishaApp
 HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
@@ -95,8 +95,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261028c` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261028c` |
+| `index.html` の CSS/JS `?v=` | `20261028d` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261028d` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -308,25 +308,25 @@ UI 上の used（指定込み）=
 
 ### 3.2 配車ステップ（`HaishaCarpool.generate`）
 
-対象: `activeCars`、`ridingKids`、`onSiteKids`。モード: `#carpoolMode`（`balance`|`grade_same`|`grade_diff`|`position`、非永続）。
+対象: `activeCars`、`ridingKids`、`onSiteKids`。`#carpoolMode` は画面に残るが、スコア計算には使わない。
 
 | Step | 内容 |
 |------|------|
-| 0 | 参加者なし→alert。出勤車0／総席不足→`presentCarpoolFailure`（診断） |
-| 1 | 身内枠除きの有効席で目標 `currentCaps` を均等配分 |
-| 2 | **`fixedCar` 指定を最優先固定**（入らなければ自動枠へ回し alert） |
-| 3 | **親の車 `parentCar`**（有効な指定がある子はスキップ） |
-| 4 | **`motionSick` 優先配置**（直近同一車ペナルティ） |
-| 5 | モード別ソート（同学年は学年順／異学年は高↔低交互／ポジション別と通常はシャッフル） |
-| 6 | 残余をスコア割当。候補なし→未割当として**失敗＋診断** |
-| 7 | 成功: 診断クリア、画面テキスト＋ LINE テキスト生成、結果カード表示 |
+| 0 | 参加者なし→alert。出勤車0→診断して終了 |
+| 1 | 総定員 < 必要座席（選手同乗＋車両同乗）なら alert「座席が〇席不足しています」して終了 |
+| 2 | 出勤台数×2 > 乗車人数なら警告「車両数が多いため、1名乗車の車両が発生します」を保持して続行 |
+| 3 | 骨格: 有効席は定員−車両同乗。`fixedCar` → `parentCar` → フリー選手を、可能な範囲で1台2名以上になるよう均等配置 |
+| 4 | `evaluateAssignmentScore(assignments)` が上がるときだけ、固定ピンでも親車拘束でもない選手を2台間で入れ替える（最大280試行） |
+| 5 | 席に入らない選手が残ったら失敗＋診断。成功時は診断を消し、結果カード上部に `warnings` を出す |
 
-**Step 6 スコア（小さいほど良い）主要項**:
+`currentAssignments` は従来どおり `{ 車両名: 選手[] }`。`warnings` は列挙されないプロパティ、および `HaishaCarpool.assignmentWarnings`。画面は `#resultWarnings`。
 
-- `carPeopleCount < 2` → **-2000**（最低2人**優先**。ハード失敗条件ではない）
-- `lastCar` 一致 → 優先モード（`grade_same` / `grade_diff` / `position`）は **+100**、通常は **+500**。`rideHistory[car]*15`
-- 優先モードは一致がいる車へ一度だけ: `grade_same` **-800**、`grade_diff` **+800**、`position` は同一守備（`未定` 除く）**+800**。いずれも -2000 より弱い
-- 同点は少人数車へ
+**スコア（高いほど良い、減点）**:
+
+- 全体人数が2名/台を満たせるのに選手1名の車 → **-1000**
+- 車酔いの選手が、定員の中央値未満の車 → **-200**
+- 同一車に投手（投手/P）または捕手（捕手/C）が2名以上 → **その人数 × -150**
+- 乗車のある車の平均学年の分散 → **分散 × -30**
 
 ### 3.3 履歴確定とロールバック（`copyResult`）
 
@@ -552,7 +552,7 @@ UI 上の used（指定込み）=
 2. **親車・指定・履歴キーは ID ではなく車両 `name` 文字列** — ただし **`renameCarCascade` により改名時は自動同期され参照切れは発生しない**。  
 3. **companions は `string[]` ではなく `{id,label}[]`**。  
 4. **出欠は単一 enum ではなく `active`×`meetOnSite`**。  
-5. **最低2人ルールはハード失敗条件ではなくスコアバイアス**（診断 D で1席余りを警告）。  
+5. **最低2人はハード失敗にしない**。避けられる1名乗車は -1000 と警告、席不足だけを失敗にする。  
 6. **PWA は導入済み**（`manifest.json` + Cache First `sw.js`）。加えて localStorage とテキスト退避でデータ耐障害を確保。  
 7. **互換グローバルエイリアスが残存** — 新規コードは `Haisha*` のみ使用し、エイリアス依存を増やさない。
 

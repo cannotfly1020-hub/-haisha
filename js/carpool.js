@@ -1,6 +1,7 @@
 (function (global) {
 let lastGeneratedPlan = "";
 let currentAssignments = null;
+let lastAssignmentWarnings = [];
 
 /** 同セッション内の直前 LINE 確定分 { [childId]: carName }（二重加算防止用） */
 const LAST_SESSION_COMMIT_KEY = 'cp_lastSessionCommit';
@@ -351,9 +352,25 @@ function showCarpoolDiagnosis(diagnosis) {
   el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+function renderAssignmentWarnings(warnings) {
+  lastAssignmentWarnings = Array.isArray(warnings) ? warnings.slice() : [];
+  const el = document.getElementById('resultWarnings');
+  if (!el) return;
+  if (!lastAssignmentWarnings.length) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = lastAssignmentWarnings.map((text) =>
+    `<p class="result-warning-badge">${escapeHtml(text)}</p>`
+  ).join('');
+}
+
 function presentCarpoolFailure(extra) {
   currentAssignments = null;
   lastGeneratedPlan = '';
+  renderAssignmentWarnings([]);
   const resultCard = document.getElementById('resultCard');
   if (resultCard) resultCard.style.display = 'none';
   const resultText = document.getElementById('resultText');
@@ -364,14 +381,295 @@ function presentCarpoolFailure(extra) {
   showCarpoolDiagnosis(diagnosis);
 }
 
-// 親の車優先 ＆ 均等配車ロジック
+const MAX_SWAP_TRIALS = 280;
+
+function isPitcher(kid) {
+  const pos = String(kid && kid.pos || '').trim();
+  return pos === '投手' || pos === 'P' || pos === 'ピッチャー';
+}
+
+function isCatcher(kid) {
+  const pos = String(kid && kid.pos || '').trim();
+  return pos === '捕手' || pos === 'C' || pos === 'キャッチャー';
+}
+
+function assignmentCars(assignments) {
+  return Object.keys(assignments || {})
+    .map((name) => cars.find((car) => car.name === name))
+    .filter(Boolean);
+}
+
+function isSwappable(kid, activeCars) {
+  if (!kid) return false;
+  if (kid.fixedCar && activeCars.some((car) => car.name === kid.fixedCar)) return false;
+  if (kid.parentCar && activeCars.some((car) => car.name === kid.parentCar)) return false;
+  return true;
+}
+
+function medianCapacity(activeCars) {
+  const caps = activeCars.map((car) => parseInt(car.capacity, 10) || 0).sort((a, b) => a - b);
+  if (!caps.length) return 0;
+  const mid = Math.floor(caps.length / 2);
+  if (caps.length % 2) return caps[mid];
+  return (caps[mid - 1] + caps[mid]) / 2;
+}
+
+/** 減点方式。高いほど良い。座席不足のハード失敗はここでは扱わない。 */
+function evaluateAssignmentScore(assignments) {
+  const activeCars = assignmentCars(assignments);
+  let score = 0;
+  let totalRiders = 0;
+  activeCars.forEach((car) => {
+    totalRiders += (assignments[car.name] || []).length;
+  });
+  const penalizeSolo = activeCars.length > 0 && totalRiders >= activeCars.length * 2;
+  const median = medianCapacity(activeCars);
+  const averages = [];
+
+  activeCars.forEach((car) => {
+    const riders = assignments[car.name] || [];
+    if (penalizeSolo && riders.length === 1) score -= 1000;
+
+    const pitchers = riders.filter(isPitcher).length;
+    if (pitchers >= 2) score -= 150 * pitchers;
+    const catchers = riders.filter(isCatcher).length;
+    if (catchers >= 2) score -= 150 * catchers;
+
+    const cap = parseInt(car.capacity, 10) || 0;
+    if (cap < median) {
+      riders.forEach((kid) => {
+        if (kid.motionSick) score -= 200;
+      });
+    }
+
+    if (riders.length > 0) {
+      const sum = riders.reduce((total, kid) => total + (Number(kid.grade) || 0), 0);
+      averages.push(sum / riders.length);
+    }
+  });
+
+  if (averages.length >= 2) {
+    const mean = averages.reduce((total, value) => total + value, 0) / averages.length;
+    const variance = averages.reduce((total, value) => total + (value - mean) * (value - mean), 0) / averages.length;
+    score -= variance * 30;
+  }
+  return score;
+}
+
+function canSwapSeats(carA, kidA, carB, kidB, assignments) {
+  const delta = seatCost(kidB) - seatCost(kidA);
+  const capA = parseInt(carA.capacity, 10) || 0;
+  const capB = parseInt(carB.capacity, 10) || 0;
+  const usedA = companionSeatsOf(carA) + occupiedSeats(assignments[carA.name]);
+  const usedB = companionSeatsOf(carB) + occupiedSeats(assignments[carB.name]);
+  return usedA + delta <= capA && usedB - delta <= capB;
+}
+
+function optimizeBySwaps(assignments, activeCars) {
+  let trials = 0;
+  let improved = true;
+  while (improved && trials < MAX_SWAP_TRIALS) {
+    improved = false;
+    for (let a = 0; a < activeCars.length && trials < MAX_SWAP_TRIALS; a++) {
+      for (let b = a + 1; b < activeCars.length && trials < MAX_SWAP_TRIALS; b++) {
+        const carA = activeCars[a];
+        const carB = activeCars[b];
+        const listA = assignments[carA.name];
+        const listB = assignments[carB.name];
+        for (let i = 0; i < listA.length && trials < MAX_SWAP_TRIALS; i++) {
+          const kidA = listA[i];
+          if (!isSwappable(kidA, activeCars)) continue;
+          for (let j = 0; j < listB.length && trials < MAX_SWAP_TRIALS; j++) {
+            const kidB = listB[j];
+            if (!isSwappable(kidB, activeCars)) continue;
+            if (!canSwapSeats(carA, kidA, carB, kidB, assignments)) continue;
+            trials += 1;
+            const before = evaluateAssignmentScore(assignments);
+            listA[i] = kidB;
+            listB[j] = kidA;
+            const after = evaluateAssignmentScore(assignments);
+            if (after > before + 1e-6) {
+              improved = true;
+              a = activeCars.length;
+              b = activeCars.length;
+              i = listA.length;
+              j = listB.length;
+            } else {
+              listA[i] = kidA;
+              listB[j] = kidB;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function preferCar(list, kid, assignments) {
+  let best = list[0];
+  for (let i = 1; i < list.length; i++) {
+    const car = list[i];
+    const bestCount = assignments[best.name].length;
+    const carCount = assignments[car.name].length;
+    if (carCount !== bestCount) {
+      if (carCount < bestCount) best = car;
+      continue;
+    }
+    const bestCap = parseInt(best.capacity, 10) || 0;
+    const carCap = parseInt(car.capacity, 10) || 0;
+    if (kid.motionSick) {
+      if (carCap > bestCap) best = car;
+    } else if (carCap < bestCap) {
+      best = car;
+    }
+  }
+  return best;
+}
+
+function chooseCarForFreeKid(kid, assignments, activeCars, carsToUse) {
+  const fitting = activeCars.filter((car) => remainingSeats(car, assignments) >= seatCost(kid));
+  if (!fitting.length) return null;
+  const singles = fitting.filter((car) => assignments[car.name].length === 1);
+  if (singles.length) return preferCar(singles, kid, assignments);
+
+  const nonEmpty = activeCars.reduce((count, car) => (
+    count + ((assignments[car.name] || []).length > 0 ? 1 : 0)
+  ), 0);
+  const empties = fitting.filter((car) => assignments[car.name].length === 0);
+  if (nonEmpty < carsToUse && empties.length) return preferCar(empties, kid, assignments);
+
+  const used = fitting.filter((car) => assignments[car.name].length > 0);
+  if (used.length) return preferCar(used, kid, assignments);
+  return preferCar(fitting, kid, assignments);
+}
+
+function repairLeftovers(leftover, assignments, activeCars) {
+  const still = [];
+  leftover.forEach((kid) => {
+    let placed = false;
+    for (let a = 0; a < activeCars.length && !placed; a++) {
+      const from = activeCars[a];
+      const list = assignments[from.name];
+      for (let i = 0; i < list.length && !placed; i++) {
+        const mover = list[i];
+        if (!isSwappable(mover, activeCars)) continue;
+        list.splice(i, 1);
+        const dest = remainingSeats(from, assignments) >= seatCost(kid)
+          ? activeCars.find((car) => car !== from && remainingSeats(car, assignments) >= seatCost(mover))
+          : null;
+        if (!dest) {
+          list.splice(i, 0, mover);
+          continue;
+        }
+        assignments[dest.name].push(mover);
+        assignments[from.name].push(kid);
+        placed = true;
+      }
+    }
+    if (!placed) still.push(kid);
+  });
+  return still;
+}
+
+function collectSoftWarnings(assignments, activeCars) {
+  const warnings = [];
+  const median = medianCapacity(activeCars);
+  activeCars.forEach((car) => {
+    const riders = assignments[car.name] || [];
+    if (riders.length === 1) warnings.push(`※${car.name}は選手1名のみの乗車です`);
+    if (riders.filter(isPitcher).length >= 2) warnings.push(`※${car.name}に投手が重複しています`);
+    if (riders.filter(isCatcher).length >= 2) warnings.push(`※${car.name}に捕手が重複しています`);
+    const cap = parseInt(car.capacity, 10) || 0;
+    if (cap < median) {
+      riders.forEach((kid) => {
+        if (kid.motionSick) warnings.push(`※${kid.name}は車酔い配慮の車両に乗れていません`);
+      });
+    }
+  });
+  return warnings;
+}
+
+function attachAssignmentWarnings(assignments, warnings) {
+  const list = warnings.slice();
+  Object.defineProperty(assignments, 'warnings', {
+    value: list,
+    enumerable: false,
+    configurable: true,
+    writable: true
+  });
+  lastAssignmentWarnings = list;
+  return list;
+}
+
+/**
+ * フェーズ1で固定ピン・親車・最低2名の骨格を作り、フェーズ2でソフト制約をスワップする。
+ * 席が物理的に足りないときだけ leftover を返す。
+ */
+function buildTwoPhaseAssignment(activeCars, ridingKids) {
+  const assignments = {};
+  activeCars.forEach((car) => { assignments[car.name] = []; });
+
+  const overflowedCars = [];
+  const afterPins = [];
+  ridingKids.forEach((kid) => {
+    if (!kid.fixedCar) {
+      afterPins.push(kid);
+      return;
+    }
+    const car = activeCars.find((item) => item.name === kid.fixedCar);
+    if (car && remainingSeats(car, assignments) >= seatCost(kid)) {
+      assignments[car.name].push(kid);
+      return;
+    }
+    if (car && !overflowedCars.includes(car.name)) overflowedCars.push(car.name);
+    afterPins.push(kid);
+  });
+
+  const free = [];
+  afterPins.forEach((kid) => {
+    const pinnedElsewhere = kid.fixedCar && activeCars.some((car) => car.name === kid.fixedCar);
+    if (!pinnedElsewhere && kid.parentCar) {
+      const car = activeCars.find((item) => item.name === kid.parentCar);
+      if (car && remainingSeats(car, assignments) >= seatCost(kid)) {
+        assignments[car.name].push(kid);
+        return;
+      }
+    }
+    free.push(kid);
+  });
+
+  free.sort((a, b) => {
+    const sick = (b.motionSick ? 1 : 0) - (a.motionSick ? 1 : 0);
+    if (sick) return sick;
+    const cost = seatCost(b) - seatCost(a);
+    if (cost) return cost;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+  });
+
+  const carsToUse = Math.min(
+    activeCars.length,
+    Math.max(1, Math.floor(ridingKids.length / 2))
+  );
+  let leftover = [];
+  free.forEach((kid) => {
+    const car = chooseCarForFreeKid(kid, assignments, activeCars, carsToUse);
+    if (!car) leftover.push(kid);
+    else assignments[car.name].push(kid);
+  });
+
+  if (leftover.length) leftover = repairLeftovers(leftover, assignments, activeCars);
+  if (!leftover.length) optimizeBySwaps(assignments, activeCars);
+  return { assignments, overflowedCars, leftover };
+}
+
+// 骨格確定のあと、入れ替えでソフト制約を上げる
 function generateCarpool() {
   clearCarpoolDiagnosis();
+  renderAssignmentWarnings([]);
 
   const activeCars = cars.filter(c => c.active);
   const ridingKids = children.filter(isRiding);
   const onSiteKids = children.filter(isOnSite);
-  const mode = document.getElementById('carpoolMode').value;
 
   if (ridingKids.length === 0 && onSiteKids.length === 0) {
     alert("参加する子供（乗車または現地集合）を選んでください。");
@@ -379,7 +677,7 @@ function generateCarpool() {
   }
 
   let assignments = {};
-  let currentCaps = {};
+  const warnings = [];
 
   if (ridingKids.length > 0) {
     if (activeCars.length === 0) {
@@ -391,171 +689,29 @@ function generateCarpool() {
     const familyDemand = activeCars.reduce((sum, c) => sum + familySeatsOf(c), 0);
     const seatDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0) + familyDemand;
     if (totalCap < seatDemand) {
+      alert(`座席が${seatDemand - totalCap}席不足しています`);
       presentCarpoolFailure();
       return;
     }
 
-    // 1. 身内枠を除いた有効定員に対し、選手の目標座席数を均等計算
-    const kidDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0);
-    let targetCounts = {};
-    let baseCount = Math.floor(kidDemand / activeCars.length);
-    let remainder = kidDemand % activeCars.length;
-
-    let sortedCars = [...activeCars].sort((a, b) => {
-      const availA = Math.max(0, (parseInt(a.capacity, 10) || 0) - familySeatsOf(a));
-      const availB = Math.max(0, (parseInt(b.capacity, 10) || 0) - familySeatsOf(b));
-      return availB - availA;
-    });
-    sortedCars.forEach((c, idx) => {
-      const avail = Math.max(0, (parseInt(c.capacity, 10) || 0) - familySeatsOf(c));
-      let ideal = baseCount + (idx < remainder ? 1 : 0);
-      targetCounts[c.name] = Math.min(ideal, avail);
-    });
-
-    activeCars.forEach(c => {
-      assignments[c.name] = [];
-      currentCaps[c.name] = targetCounts[c.name];
-    });
-
-    let unassigned = [...ridingKids];
-    const overflowedCars = [];
-
-    // 2. 手動指定車両を最優先で固定（同乗保護者分の座席も消費／身内枠は既に確保済み）
-    for (let i = unassigned.length - 1; i >= 0; i--) {
-      let kid = unassigned[i];
-      if (!kid.fixedCar) continue;
-      let fixedCarObj = activeCars.find(c => c.name === kid.fixedCar);
-      if (!fixedCarObj) continue;
-      let cost = seatCost(kid);
-      if (remainingSeats(fixedCarObj, assignments) >= cost) {
-        placeKid(kid, fixedCarObj.name, assignments, currentCaps);
-        unassigned.splice(i, 1);
-      } else {
-        if (!overflowedCars.includes(fixedCarObj.name)) {
-          overflowedCars.push(fixedCarObj.name);
-        }
-      }
+    if (activeCars.length * 2 > ridingKids.length) {
+      warnings.push('車両数が多いため、1名乗車の車両が発生します');
     }
 
-    if (overflowedCars.length > 0) {
-      alert(`${overflowedCars.map(n => `「${n}」`).join('、')}の定員を超えて指定されています。\nあふれた分は自動配車に回します。`);
+    const built = buildTwoPhaseAssignment(activeCars, ridingKids);
+    if (built.overflowedCars.length > 0) {
+      alert(`${built.overflowedCars.map(n => `「${n}」`).join('、')}の定員を超えて指定されています。\nあふれた分は自動配車に回します。`);
     }
-
-    // 3. 手動指定（本日稼働中の車）がなく、親の車が出ている子供を固定
-    for (let i = unassigned.length - 1; i >= 0; i--) {
-      let kid = unassigned[i];
-      if (kid.fixedCar && activeCars.some(c => c.name === kid.fixedCar)) continue;
-      let parentCarObj = activeCars.find(c => c.name === kid.parentCar);
-      if (parentCarObj) {
-        let cost = seatCost(kid);
-        if (remainingSeats(parentCarObj, assignments) >= cost) {
-          placeKid(kid, parentCarObj.name, assignments, currentCaps);
-          unassigned.splice(i, 1);
-        }
-      }
-    }
-
-    // 4. 親の車がない「車酔いの子」を優先配備
-    for (let i = unassigned.length - 1; i >= 0; i--) {
-      let kid = unassigned[i];
-      if (kid.motionSick) {
-        let cost = seatCost(kid);
-        let availableCars = activeCars.filter(c => currentCaps[c.name] >= cost);
-        if (availableCars.length === 0) {
-          availableCars = activeCars.filter(c => remainingSeats(c, assignments) >= cost);
-        }
-        if (availableCars.length === 0) continue;
-        availableCars.sort((a, b) => {
-          let diffA = (kid.lastCar === a.name) ? 99 : 0;
-          let diffB = (kid.lastCar === b.name) ? 99 : 0;
-          if (diffA !== diffB) return diffA - diffB;
-          return currentCaps[b.name] - currentCaps[a.name];
-        });
-        placeKid(kid, availableCars[0].name, assignments, currentCaps);
-        unassigned.splice(i, 1);
-      }
-    }
-
-    // 5. モード別ソート
-    if (mode === 'grade_same') {
-      unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
-    } else if (mode === 'grade_diff') {
-      unassigned.sort((a, b) => (b.grade || 0) - (a.grade || 0));
-      let interleaved = [];
-      let left = 0, right = unassigned.length - 1;
-      while (left <= right) {
-        if (left === right) { interleaved.push(unassigned[left]); break; }
-        interleaved.push(unassigned[left++]);
-        interleaved.push(unassigned[right--]);
-      }
-      unassigned = interleaved;
-    } else if (mode === 'position') {
-      unassigned.sort(() => Math.random() - 0.5);
-    } else {
-      unassigned.sort(() => Math.random() - 0.5);
-    }
-
-    // 6. 残りの選手を割り当て（最低2人優先・過去履歴の公平化・モード別スコア）
-    const stillUnassigned = [];
-    unassigned.forEach(kid => {
-      if (!kid.rideHistory) kid.rideHistory = {};
-      const cost = seatCost(kid);
-
-      let availableCars = activeCars.filter(c => currentCaps[c.name] >= cost);
-      if (availableCars.length === 0) {
-        availableCars = activeCars.filter(c => remainingSeats(c, assignments) >= cost);
-      }
-      if (availableCars.length === 0) {
-        stillUnassigned.push(kid);
-        return;
-      }
-
-      availableCars.sort((a, b) => {
-        let scoreA = 0;
-        let scoreB = 0;
-
-        if (carPeopleCount(a, assignments[a.name]) < 2) scoreA -= 2000;
-        if (carPeopleCount(b, assignments[b.name]) < 2) scoreB -= 2000;
-
-        const lastCarPenalty = (mode === 'grade_same' || mode === 'grade_diff' || mode === 'position') ? 100 : 500;
-        if (kid.lastCar === a.name) scoreA += lastCarPenalty;
-        if (kid.lastCar === b.name) scoreB += lastCarPenalty;
-
-        scoreA += (kid.rideHistory[a.name] || 0) * 15;
-        scoreB += (kid.rideHistory[b.name] || 0) * 15;
-
-        if (mode === 'grade_same') {
-          let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
-          let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
-          if (countSameGradeA > 0) scoreA -= 800;
-          if (countSameGradeB > 0) scoreB -= 800;
-        } else if (mode === 'grade_diff') {
-          let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
-          let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
-          if (countSameGradeA > 0) scoreA += 800;
-          if (countSameGradeB > 0) scoreB += 800;
-        } else if (mode === 'position') {
-          let countSamePosA = assignments[a.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
-          let countSamePosB = assignments[b.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
-          if (countSamePosA > 0) scoreA += 800;
-          if (countSamePosB > 0) scoreB += 800;
-        }
-
-        if (scoreA !== scoreB) return scoreA - scoreB;
-        return carPeopleCount(a, assignments[a.name]) - carPeopleCount(b, assignments[b.name]);
-      });
-
-      placeKid(kid, availableCars[0].name, assignments, currentCaps);
-    });
-
-    // 乗せるつもりだった選手が残っている場合は失敗として診断
-    if (stillUnassigned.length > 0) {
-      presentCarpoolFailure({ leftoverKids: stillUnassigned });
+    if (built.leftover.length > 0) {
+      presentCarpoolFailure({ leftoverKids: built.leftover });
       return;
     }
+    assignments = built.assignments;
+    collectSoftWarnings(assignments, activeCars).forEach((text) => warnings.push(text));
   }
 
   clearCarpoolDiagnosis();
+  attachAssignmentWarnings(assignments, warnings);
   currentAssignments = assignments;
 
   function carHasAnyone(car, riders) {
@@ -638,6 +794,7 @@ function generateCarpool() {
 
   const screenText = buildScreenPlanText();
   lastGeneratedPlan = buildLinePlanText();
+  renderAssignmentWarnings(lastAssignmentWarnings);
   document.getElementById('resultText').innerText = screenText;
   document.getElementById('resultCard').style.display = 'block';
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -682,6 +839,8 @@ function copyResult() {
     set lastGeneratedPlan(v) { lastGeneratedPlan = v; },
     get currentAssignments() { return currentAssignments; },
     set currentAssignments(v) { currentAssignments = v; },
+    get assignmentWarnings() { return lastAssignmentWarnings.slice(); },
+    evaluateAssignmentScore,
     get lastSessionCommit() { return lastSessionCommit; }
   };
   global.HaishaCarpool = HaishaCarpool;
