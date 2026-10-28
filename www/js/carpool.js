@@ -433,7 +433,7 @@ function generateCarpool() {
       }
       unassigned = interleaved;
     } else if (mode === 'position') {
-      unassigned.sort((a, b) => (a.pos || '').localeCompare(b.pos || ''));
+      unassigned.sort(() => Math.random() - 0.5);
     } else {
       unassigned.sort(() => Math.random() - 0.5);
     }
@@ -460,8 +460,9 @@ function generateCarpool() {
         if (carPeopleCount(a, assignments[a.name]) < 2) scoreA -= 2000;
         if (carPeopleCount(b, assignments[b.name]) < 2) scoreB -= 2000;
 
-        if (kid.lastCar === a.name) scoreA += 500;
-        if (kid.lastCar === b.name) scoreB += 500;
+        const lastCarPenalty = (mode === 'grade_same' || mode === 'grade_diff' || mode === 'position') ? 100 : 500;
+        if (kid.lastCar === a.name) scoreA += lastCarPenalty;
+        if (kid.lastCar === b.name) scoreB += lastCarPenalty;
 
         scoreA += (kid.rideHistory[a.name] || 0) * 15;
         scoreB += (kid.rideHistory[b.name] || 0) * 15;
@@ -469,18 +470,18 @@ function generateCarpool() {
         if (mode === 'grade_same') {
           let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
           let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
-          scoreA -= countSameGradeA * 50;
-          scoreB -= countSameGradeB * 50;
+          if (countSameGradeA > 0) scoreA -= 800;
+          if (countSameGradeB > 0) scoreB -= 800;
         } else if (mode === 'grade_diff') {
           let countSameGradeA = assignments[a.name].filter(k => k.grade === kid.grade).length;
           let countSameGradeB = assignments[b.name].filter(k => k.grade === kid.grade).length;
-          scoreA += countSameGradeA * 40;
-          scoreB += countSameGradeB * 40;
+          if (countSameGradeA > 0) scoreA += 800;
+          if (countSameGradeB > 0) scoreB += 800;
         } else if (mode === 'position') {
           let countSamePosA = assignments[a.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
           let countSamePosB = assignments[b.name].filter(k => k.pos === kid.pos && k.pos !== '未定').length;
-          scoreA += countSamePosA * 40;
-          scoreB += countSamePosB * 40;
+          if (countSamePosA > 0) scoreA += 800;
+          if (countSamePosB > 0) scoreB += 800;
         }
 
         if (scoreA !== scoreB) return scoreA - scoreB;
