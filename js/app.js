@@ -31,6 +31,12 @@ const CLICK_ACTIONS = new Set([
   'remove-companion',
   'add-child-companion',
   'remove-child-companion',
+  'toggle-role-master',
+  'add-driver-role',
+  'remove-driver-role',
+  'add-companion-role',
+  'remove-companion-role',
+  'reset-role-labels',
   'toggle-section',
   'open-child-companion',
   'open-tutorial',
@@ -148,7 +154,8 @@ function runClickAction(target) {
       break;
     }
     case 'add-child-companion':
-      addChildCompanionCustom(id);
+      if (target.dataset.label) addChildCompanion(id, target.dataset.label);
+      else addChildCompanionCustom(id);
       break;
     case 'remove-child-companion': {
       const childId = Number(target.dataset.childId);
@@ -167,6 +174,24 @@ function runClickAction(target) {
       break;
     case 'open-tutorial':
       openTutorialModal({ reset: true });
+      break;
+    case 'toggle-role-master':
+      toggleRoleMaster();
+      break;
+    case 'add-driver-role':
+      addDriverRoleFromInput();
+      break;
+    case 'remove-driver-role':
+      removeDriverRole(target.dataset.label || '');
+      break;
+    case 'add-companion-role':
+      addCompanionRoleFromInput();
+      break;
+    case 'remove-companion-role':
+      removeCompanionRole(target.dataset.label || '');
+      break;
+    case 'reset-role-labels':
+      resetRoleLabelsToDefault();
       break;
     case 'close-tutorial':
       closeTutorialModal();
@@ -310,6 +335,20 @@ function initApp() {
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
+
+    const driverRoleInput = event.target.closest('#driverRoleInput');
+    if (driverRoleInput) {
+      event.preventDefault();
+      addDriverRoleFromInput();
+      return;
+    }
+
+    const companionRoleInput = event.target.closest('#companionRoleInput');
+    if (companionRoleInput) {
+      event.preventDefault();
+      addCompanionRoleFromInput();
+      return;
+    }
 
     const carInput = event.target.closest('.companion-input');
     if (carInput && carInput.id) {

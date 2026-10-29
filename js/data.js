@@ -17,12 +17,71 @@ function normalizeCompanion(item, fallbackId) {
   };
 }
 
-const DRIVER_ROLES = ['父', '母', '祖父', '祖母', 'その他'];
+const DEFAULT_DRIVER_ROLES = ['父', '母', '祖父', '祖母', 'その他'];
+const DEFAULT_COMPANION_ROLES = ['父', '母', '兄', '弟', '妹'];
+const DRIVER_ROLES_KEY = 'cp_driver_roles';
+const COMPANION_ROLES_KEY = 'cp_companion_roles';
+const ROLE_LABEL_MAX = 20;
+
+function sanitizeRoleList(value) {
+  if (!Array.isArray(value)) return null;
+  const seen = new Set();
+  const list = [];
+  value.forEach((item) => {
+    const label = typeof item === 'string' ? item.trim() : '';
+    if (!label || label.length > ROLE_LABEL_MAX || seen.has(label)) return;
+    seen.add(label);
+    list.push(label);
+  });
+  return list;
+}
+
+function readRoleList(key, defaults) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null || raw === '') return defaults.slice();
+    const parsed = JSON.parse(raw);
+    const list = sanitizeRoleList(parsed);
+    if (!list) return defaults.slice();
+    return list;
+  } catch (e) {
+    return defaults.slice();
+  }
+}
+
+function writeRoleList(key, list) {
+  const clean = sanitizeRoleList(list) || [];
+  try {
+    localStorage.setItem(key, JSON.stringify(clean));
+  } catch (e) { /* 容量不足などは無視 */ }
+  return clean;
+}
+
+function getDriverRoles() {
+  return readRoleList(DRIVER_ROLES_KEY, DEFAULT_DRIVER_ROLES);
+}
+
+function saveDriverRoles(list) {
+  return writeRoleList(DRIVER_ROLES_KEY, list);
+}
+
+function getCompanionRoles() {
+  return readRoleList(COMPANION_ROLES_KEY, DEFAULT_COMPANION_ROLES);
+}
+
+function saveCompanionRoles(list) {
+  return writeRoleList(COMPANION_ROLES_KEY, list);
+}
+
+function resetRoleLabels() {
+  saveDriverRoles(DEFAULT_DRIVER_ROLES);
+  saveCompanionRoles(DEFAULT_COMPANION_ROLES);
+}
 
 function normalizeDriverRole(value) {
   const role = typeof value === 'string' ? value.trim() : '';
-  if (DRIVER_ROLES.includes(role)) return role;
-  return '父';
+  if (!role) return '父';
+  return role.slice(0, ROLE_LABEL_MAX);
 }
 
 function normalizeCar(car) {
@@ -694,6 +753,11 @@ function promoteAllGrades() {
     getDispatchPeriod,
     setDispatchPeriod,
     getCarDispatchCount,
+    getDriverRoles,
+    saveDriverRoles,
+    getCompanionRoles,
+    saveCompanionRoles,
+    resetRoleLabels,
     localDateString,
     normalizeChild,
     normalizeCompanion,
@@ -753,6 +817,11 @@ function promoteAllGrades() {
   global.getDispatchPeriod = getDispatchPeriod;
   global.setDispatchPeriod = setDispatchPeriod;
   global.getCarDispatchCount = getCarDispatchCount;
+  global.getDriverRoles = getDriverRoles;
+  global.saveDriverRoles = saveDriverRoles;
+  global.getCompanionRoles = getCompanionRoles;
+  global.saveCompanionRoles = saveCompanionRoles;
+  global.resetRoleLabels = resetRoleLabels;
   global.localDateString = localDateString;
   global.normalizeChild = normalizeChild;
   global.normalizeCompanion = normalizeCompanion;

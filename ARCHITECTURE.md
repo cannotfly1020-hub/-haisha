@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261028f` / `haisha-cache-v20261028f` 時点  
+> **準拠実装**: `?v=20261029c` / `haisha-cache-v20261029c` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -95,8 +95,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261028f` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261028f` |
+| `index.html` の CSS/JS `?v=` | `20261029c` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261029c` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
@@ -183,7 +183,7 @@ interface Car {
   active: boolean;            // 本日出勤
   companions: Companion[];    // 車両側の事前同乗枠
   isEquipmentCar: boolean;    // 道具車フラグ（既定 false）。LINE/画面見出しに反映
-  driverRole: string;          // 本日の運転者。父 / 母 / 祖父 / 祖母 / その他。未設定の読み込みは「父」。席は消費しない
+  driverRole: string;          // 本日の運転者。未設定の読み込みは「父」。選択肢は cp_driver_roles。席は消費しない
 }
 // 移行互換: familySeats?: number → companions に「身内」を人数分生成
 // normalizeCar: isEquipmentCar: !!car.isEquipmentCar（永続化・バックアップ対応）
@@ -549,7 +549,7 @@ UI 上の used（指定込み）=
 
 ## 9. 実装上の意図的ギャップ（理想仕様との差）
 
-1. **個人名の `driverName` は無い** — 運転者は役割 `driverRole`（父・母・祖父・祖母・その他）。席は消費しない。  
+1. **個人名の `driverName` は無い** — 運転者は役割 `driverRole`。選択肢は `cp_driver_roles`、同乗チップは `cp_companion_roles`。席は消費しない。  
 2. **親車・指定・履歴キーは ID ではなく車両 `name` 文字列** — ただし **`renameCarCascade` により改名時は自動同期され参照切れは発生しない**。  
 3. **companions は `string[]` ではなく `{id,label}[]`**。  
 4. **出欠は単一 enum ではなく `active`×`meetOnSite`**。  

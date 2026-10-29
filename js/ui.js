@@ -489,8 +489,13 @@ function buildCapacityBadgeHtml(summary) {
   return `<span class="seat-badge seat-badge-ok">定員${summary.capacity}・残${summary.remaining}</span>`;
 }
 
-const QUICK_COMPANION_LABELS = ['母', '兄', '姉', '弟', '妹'];
-const DRIVER_ROLE_OPTIONS = ['父', '母', '祖父', '祖母', 'その他'];
+function escapeRoleText(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * 配車見出しの括弧。運転者を先頭にし、同じ名前の同乗者は重ねない。
@@ -498,30 +503,125 @@ const DRIVER_ROLE_OPTIONS = ['父', '母', '祖父', '祖母', 'その他'];
  */
 function formatCarCompanionHeader(car) {
   const role = car && typeof car.driverRole === 'string' ? car.driverRole.trim() : '';
-  const driver = DRIVER_ROLE_OPTIONS.includes(role) ? role : '';
   const companions = companionsOf(car)
     .map((item) => (item && item.label ? String(item.label).trim() : ''))
-    .filter((label) => label && label !== driver);
-  const parts = driver ? [driver, ...companions] : companions;
+    .filter((label) => label && label !== role);
+  const parts = role ? [role, ...companions] : companions;
   if (!parts.length) return '';
   return `（${parts.join('、')}）`;
 }
 
 function buildDriverSelectHtml(car) {
-  const current = DRIVER_ROLE_OPTIONS.includes(car.driverRole) ? car.driverRole : '父';
-  const options = DRIVER_ROLE_OPTIONS.map((role) =>
-    `<option value="${role}" ${current === role ? 'selected' : ''}>${role}</option>`
-  ).join('');
-  return `<label class="driver-select-label"><span>運転:</span><select class="car-driver-select" data-action="set-car-driver" data-id="${car.id}" data-car-id="${car.id}" aria-label="本日の運転者">${options}</select></label>`;
+  const roles = getDriverRoles();
+  const current = car && typeof car.driverRole === 'string' ? car.driverRole.trim() : '';
+  const options = roles.slice();
+  if (current && options.indexOf(current) === -1) options.unshift(current);
+  if (!options.length) options.push(current || '父');
+  const selected = options.indexOf(current) !== -1 ? current : options[0];
+  const html = options.map((role) => {
+    const safe = escapeRoleText(role);
+    return `<option value="${safe}" ${selected === role ? 'selected' : ''}>${safe}</option>`;
+  }).join('');
+  return `<label class="driver-select-label"><span>運転:</span><select class="car-driver-select" data-action="set-car-driver" data-id="${car.id}" data-car-id="${car.id}" aria-label="本日の運転者">${html}</select></label>`;
 }
 
 function setCarDriverRole(id, role) {
   const car = cars.find((item) => String(item.id) === String(id));
   if (!car) return;
-  const next = DRIVER_ROLE_OPTIONS.includes(role) ? role : '父';
-  if (car.driverRole === next) return;
+  const next = typeof role === 'string' ? role.trim().slice(0, 20) : '';
+  if (!next || car.driverRole === next) return;
   car.driverRole = next;
   saveData();
+}
+
+function buildQuickRoleButtonsHtml(labels, action, ownerId, disabled) {
+  return labels.map((label) => {
+    const safe = escapeRoleText(label);
+    return `<button type="button" class="companion-quick" data-action="${action}" data-id="${ownerId}" data-label="${safe}" ${disabled ? 'disabled' : ''}>${safe}</button>`;
+  }).join('');
+}
+
+function renderRoleTagList(elementId, labels, action) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  if (!labels.length) {
+    el.innerHTML = '<span class="role-tag-empty">ラベルがありません</span>';
+    return;
+  }
+  el.innerHTML = labels.map((label) => {
+    const safe = escapeRoleText(label);
+    return `<span class="role-tag">${safe}<button type="button" class="role-tag-delete" data-action="${action}" data-label="${safe}" aria-label="${safe}を削除">×</button></span>`;
+  }).join('');
+}
+
+function renderRoleMaster() {
+  renderRoleTagList('driverRoleTags', getDriverRoles(), 'remove-driver-role');
+  renderRoleTagList('companionRoleTags', getCompanionRoles(), 'remove-companion-role');
+}
+
+function toggleRoleMaster() {
+  const box = document.getElementById('roleMasterContainer');
+  const btn = document.getElementById('btnToggleRoleMaster');
+  if (!box || !btn) return;
+  const willOpen = box.hidden;
+  box.hidden = !willOpen;
+  btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  btn.textContent = willOpen
+    ? '🏷️ 運転者・同乗者ラベルを編集 ▲'
+    : '🏷️ 運転者・同乗者ラベルを編集 ▼';
+}
+
+function addRoleLabel(inputId, getter, saver, emptyMessage) {
+  const input = document.getElementById(inputId);
+  const name = input ? input.value.trim() : '';
+  if (!name) {
+    alert(emptyMessage);
+    return;
+  }
+  const list = getter();
+  if (list.indexOf(name) !== -1) {
+    alert('すでに登録されています。');
+    return;
+  }
+  list.push(name);
+  saver(list);
+  if (input) input.value = '';
+  renderCars();
+  renderChildren();
+}
+
+function addDriverRoleFromInput() {
+  addRoleLabel('driverRoleInput', getDriverRoles, saveDriverRoles, '運転者ラベルを入力してください。');
+}
+
+function addCompanionRoleFromInput() {
+  addRoleLabel('companionRoleInput', getCompanionRoles, saveCompanionRoles, '同乗者ラベルを入力してください。');
+}
+
+function removeRoleLabel(label, getter, saver) {
+  const name = typeof label === 'string' ? label.trim() : '';
+  if (!name) return;
+  saver(getter().filter((item) => item !== name));
+  renderCars();
+  renderChildren();
+}
+
+function removeDriverRole(label) {
+  removeRoleLabel(label, getDriverRoles, saveDriverRoles);
+}
+
+function removeCompanionRole(label) {
+  removeRoleLabel(label, getCompanionRoles, saveCompanionRoles);
+}
+
+function resetRoleLabelsToDefault() {
+  resetRoleLabels();
+  const driverInput = document.getElementById('driverRoleInput');
+  const companionInput = document.getElementById('companionRoleInput');
+  if (driverInput) driverInput.value = '';
+  if (companionInput) companionInput.value = '';
+  renderCars();
+  renderChildren();
 }
 
 function buildCompanionChipsHtml(car) {
@@ -536,9 +636,11 @@ function buildCompanionChipsHtml(car) {
 }
 
 function buildQuickCompanionButtonsHtml(car, disabled) {
-  return QUICK_COMPANION_LABELS.map(label => `
-    <button type="button" class="companion-quick" data-action="add-companion" data-id="${car.id}" data-label="${label}" ${disabled ? 'disabled' : ''}>${label}</button>
-  `).join('');
+  return buildQuickRoleButtonsHtml(getCompanionRoles(), 'add-companion', car.id, disabled);
+}
+
+function buildChildQuickCompanionButtonsHtml(child, disabled) {
+  return buildQuickRoleButtonsHtml(getCompanionRoles(), 'add-child-companion', child.id, disabled);
 }
 
 function syncDispatchPeriodSelect() {
@@ -551,6 +653,7 @@ function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
   syncDispatchPeriodSelect();
+  renderRoleMaster();
   list.innerHTML = '';
   updateCarSortToggleButton();
   getSortedCarsForRender().forEach((car) => {
@@ -661,6 +764,9 @@ function renderChildren() {
           </div>
           ${editorOpen ? `
             <div class="child-companion-editor">
+              <div class="companion-add-row">
+                ${buildChildQuickCompanionButtonsHtml(c, !!companionDisabled)}
+              </div>
               <input type="text" class="child-companion-input" id="childCompanionInput-${c.id}"
                 placeholder="名前を入力..." ${companionDisabled} maxlength="20">
               <button type="button" class="companion-add-btn" data-action="add-child-companion" data-id="${c.id}" ${companionDisabled}>＋追加</button>
@@ -1134,6 +1240,13 @@ bindCarReorderGestures();
     reorderCar,
     formatCarCompanionHeader,
     setCarDriverRole,
+    renderRoleMaster,
+    toggleRoleMaster,
+    addDriverRoleFromInput,
+    addCompanionRoleFromInput,
+    removeDriverRole,
+    removeCompanionRole,
+    resetRoleLabelsToDefault,
     syncDispatchPeriodSelect,
     get childSortMode() { return childSortMode; },
     get carSortMode() { return carSortMode; },

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261028f">
+<link rel="stylesheet" href="css/style.css?v=20261029c">
 </head>
 <body>
 
@@ -164,6 +164,22 @@
         <option value="180">直近半年 (180日)</option>
       </select>
     </label>
+    <button type="button" class="btn btn-secondary btn-block" id="btnToggleRoleMaster" data-action="toggle-role-master" aria-expanded="false" aria-controls="roleMasterContainer">🏷️ 運転者・同乗者ラベルを編集 ▼</button>
+    <div id="roleMasterContainer" class="role-master" hidden>
+      <p class="role-master-label">運転者</p>
+      <div id="driverRoleTags" class="role-tag-list"></div>
+      <div class="role-master-add">
+        <input type="text" id="driverRoleInput" class="role-label-input" maxlength="20" placeholder="例: 添乗員" aria-label="運転者ラベルを追加">
+        <button type="button" class="btn btn-outline btn-compact" data-action="add-driver-role">追加</button>
+      </div>
+      <p class="role-master-label">同乗者</p>
+      <div id="companionRoleTags" class="role-tag-list"></div>
+      <div class="role-master-add">
+        <input type="text" id="companionRoleInput" class="role-label-input" maxlength="20" placeholder="例: 看護師" aria-label="同乗者ラベルを追加">
+        <button type="button" class="btn btn-outline btn-compact" data-action="add-companion-role">追加</button>
+      </div>
+      <button type="button" class="btn btn-secondary btn-compact" data-action="reset-role-labels">初期値に戻す</button>
+    </div>
     <button type="button" class="btn btn-outline btn-compact" data-action="copy-backup">💾 データをLINE/メモへ退避（コピー）</button>
     <button type="button" class="btn btn-restore btn-compact" data-action="open-restore">📥 退避テキストから復元</button>
     <div class="reset-link reset-link-inline">
@@ -288,10 +304,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261028f"></script>
-<script src="js/ui.js?v=20261028f"></script>
-<script src="js/carpool.js?v=20261028f"></script>
-<script src="js/app.js?v=20261028f"></script>
+<script src="js/data.js?v=20261029c"></script>
+<script src="js/ui.js?v=20261029c"></script>
+<script src="js/carpool.js?v=20261029c"></script>
+<script src="js/app.js?v=20261029c"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
