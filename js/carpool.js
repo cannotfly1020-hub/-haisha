@@ -699,15 +699,20 @@ function syncResultHeading() {
   el.textContent = typeof planResultHeading === 'function' ? planResultHeading() : '本日の配車結果';
 }
 
-function buildLineNameList(riders) {
-  const names = [];
-  (riders || []).forEach(k => {
-    names.push(k.name);
-    childCompanionsOf(k).forEach(c => {
-      names.push(c.label);
-    });
+function realAssignedPlayers(riders) {
+  const roster = Array.isArray(children) ? children : [];
+  return (riders || []).filter((player) => {
+    if (!player || typeof player !== 'object') return false;
+    if (player.isCompanion) return false;
+    if (player.id == null || player.id === '') return false;
+    return roster.some((orig) => String(orig.id) === String(player.id));
   });
-  return names;
+}
+
+function playerListLabel(child, carName) {
+  const pinned = child.fixedCar && carName && child.fixedCar === carName ? '📌' : '';
+  const sick = child.motionSick ? '🤢' : '';
+  return `${pinned}${child.name}${sick}`;
 }
 
 function buildPlanTexts(assignments) {
@@ -723,12 +728,12 @@ function buildPlanTexts(assignments) {
   let line = `【連絡】${phrase}の配車です🚗\n---------------------\n`;
   if (hasRideBlock) {
     activeCars.forEach(c => {
-      const riders = (assignments && assignments[c.name]) || [];
-      const names = riders.map(k => formatRiderLabel(k, c.name, { showPin: true })).join('、');
-      const lineNames = buildLineNameList(riders);
+      const riders = realAssignedPlayers((assignments && assignments[c.name]) || []);
+      const names = riders.map(k => playerListLabel(k, c.name)).join('、');
+      const lineNames = riders.map(k => k.name);
       screen += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車📦】' : ''}\n  乗車: ${names || 'なし'}\n\n`;
       line += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
-      line += `${lineNames.length > 0 ? lineNames.join('、') : 'なし'}\n\n`;
+      line += `${lineNames.length > 0 ? lineNames.join('\n') : 'なし'}\n\n`;
     });
   } else {
     screen += `${phrase}の乗車配車はありません。\n\n`;
