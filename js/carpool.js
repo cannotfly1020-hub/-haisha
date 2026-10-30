@@ -37,6 +37,26 @@ function clearLastSessionCommit() {
   writeLastDispatchCommit(null);
 }
 
+function exportPlanSessionCommits() {
+  const sessionCommit = readLastSessionCommit();
+  const dispatchCommit = readLastDispatchCommit();
+  return {
+    sessionCommit: sessionCommit ? JSON.parse(JSON.stringify(sessionCommit)) : null,
+    dispatchCommit: dispatchCommit ? JSON.parse(JSON.stringify(dispatchCommit)) : null
+  };
+}
+
+function importPlanSessionCommits(pack) {
+  const sessionCommit = pack && pack.sessionCommit && typeof pack.sessionCommit === 'object' && !Array.isArray(pack.sessionCommit)
+    ? pack.sessionCommit
+    : null;
+  const dispatchCommit = pack && pack.dispatchCommit && typeof pack.dispatchCommit === 'object' && Array.isArray(pack.dispatchCommit.carIds)
+    ? pack.dispatchCommit
+    : null;
+  writeLastSessionCommit(sessionCommit);
+  writeLastDispatchCommit(dispatchCommit);
+}
+
 const LAST_DISPATCH_COMMIT_KEY = 'cp_lastDispatchCommit';
 let lastDispatchCommit = null;
 
@@ -370,6 +390,7 @@ function renderAssignmentWarnings(warnings) {
 function presentCarpoolFailure(extra) {
   currentAssignments = null;
   lastGeneratedPlan = '';
+  if (typeof markPlanResultCleared === 'function') markPlanResultCleared();
   renderAssignmentWarnings([]);
   const resultCard = document.getElementById('resultCard');
   if (resultCard) resultCard.style.display = 'none';
@@ -662,6 +683,116 @@ function buildTwoPhaseAssignment(activeCars, ridingKids) {
   return { assignments, overflowedCars, leftover };
 }
 
+function planDatePhrase() {
+  try {
+    if (typeof getActivePlanDateLabel === 'function') {
+      const label = getActivePlanDateLabel();
+      if (label) return label;
+    }
+  } catch (e) { /* ignore */ }
+  return '本日';
+}
+
+function syncResultHeading() {
+  const el = document.getElementById('resultHeading');
+  if (!el) return;
+  el.textContent = typeof planResultHeading === 'function' ? planResultHeading() : '本日の配車結果';
+}
+
+function buildLineNameList(car, riders) {
+  const names = [];
+  (riders || []).forEach(k => {
+    names.push(k.name);
+    childCompanionsOf(k).forEach(c => {
+      names.push(c.label);
+    });
+  });
+  companionsOf(car).forEach(c => {
+    names.push(c.label);
+  });
+  return names;
+}
+
+function buildPlanTexts(assignments) {
+  const activeCars = cars.filter(c => c.active);
+  const ridingKids = children.filter(isRiding);
+  const onSiteKids = children.filter(isOnSite);
+  const phrase = planDatePhrase();
+  const hasMotionSick = ridingKids.some(k => k.motionSick);
+  const hasPinned = ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
+  const hasRideBlock = ridingKids.length > 0 || activeCars.some(c => companionSeatsOf(c) > 0);
+
+  let screen = `【連絡】${phrase}の配車です🚗\n---------------------\n`;
+  let line = `【連絡】${phrase}の配車です🚗\n---------------------\n`;
+  if (hasRideBlock) {
+    activeCars.forEach(c => {
+      const riders = (assignments && assignments[c.name]) || [];
+      const riderNames = riders.map(k => formatRiderLabel(k, c.name, { showPin: true }));
+      const companionNames = companionsOf(c).map(x => x.label);
+      const names = [...riderNames, ...companionNames].join('、');
+      const lineNames = buildLineNameList(c, riders);
+      screen += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車📦】' : ''}\n  乗車: ${names || 'なし'}\n\n`;
+      line += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
+      line += `${lineNames.length > 0 ? lineNames.join('、') : 'なし'}\n\n`;
+    });
+  } else {
+    screen += `${phrase}の乗車配車はありません。\n\n`;
+    line += `${phrase}の乗車配車はありません。\n\n`;
+  }
+  if (onSiteKids.length > 0) {
+    screen += `【現地集合】${onSiteKids.map(k => k.name).join('、')}\n\n`;
+    line += `【現地集合】\n${onSiteKids.map(k => k.name).join('、')}\n\n`;
+  }
+  if (hasPinned) screen += "※「📌」は事前指定で固定した乗車です。\n";
+  if (hasMotionSick) screen += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
+  screen += "---------------------\nよろしくお願いいたします！";
+  line += "---------------------\nよろしくお願いいたします！";
+  return { screen, line };
+}
+
+function showPlanTexts(texts) {
+  syncResultHeading();
+  const resultText = document.getElementById('resultText');
+  const resultCard = document.getElementById('resultCard');
+  if (resultText) resultText.innerText = texts.screen;
+  if (resultCard) resultCard.style.display = 'block';
+  lastGeneratedPlan = texts.line;
+}
+
+function refreshDisplayedPlan() {
+  syncResultHeading();
+  const card = document.getElementById('resultCard');
+  if (!currentAssignments || !card || card.style.display !== 'block') return;
+  showPlanTexts(buildPlanTexts(currentAssignments));
+}
+
+function restoreDisplayedPlan(payload) {
+  if (!payload || !payload.assignments || typeof payload.assignments !== 'object') {
+    currentAssignments = null;
+    lastGeneratedPlan = '';
+    renderAssignmentWarnings([]);
+    const resultCard = document.getElementById('resultCard');
+    if (resultCard) resultCard.style.display = 'none';
+    const resultText = document.getElementById('resultText');
+    if (resultText) resultText.textContent = '';
+    syncResultHeading();
+    return;
+  }
+  const assignments = {};
+  Object.keys(payload.assignments).forEach((carName) => {
+    const ids = payload.assignments[carName];
+    if (!Array.isArray(ids)) return;
+    assignments[carName] = ids
+      .map((id) => children.find((child) => String(child.id) === String(id)))
+      .filter(Boolean);
+  });
+  const warnings = Array.isArray(payload.warnings) ? payload.warnings.slice() : [];
+  attachAssignmentWarnings(assignments, warnings);
+  currentAssignments = assignments;
+  showPlanTexts(buildPlanTexts(assignments));
+  renderAssignmentWarnings(warnings);
+}
+
 // 骨格確定のあと、入れ替えでソフト制約を上げる
 function generateCarpool() {
   clearCarpoolDiagnosis();
@@ -713,88 +844,8 @@ function generateCarpool() {
   clearCarpoolDiagnosis();
   attachAssignmentWarnings(assignments, warnings);
   currentAssignments = assignments;
-
-  function carHasAnyone(car, riders) {
-    return (riders && riders.length > 0) || companionSeatsOf(car) > 0;
-  }
-
-  /** LINE用: 選手・選手同乗・車両同乗の名前を順にフラット化（注記なし） */
-  function buildLineNameList(car, riders) {
-    const names = [];
-    (riders || []).forEach(k => {
-      names.push(k.name);
-      childCompanionsOf(k).forEach(c => {
-        names.push(c.label);
-      });
-    });
-    companionsOf(car).forEach(c => {
-      names.push(c.label);
-    });
-    return names;
-  }
-
-  // 画面用テキスト（📌あり／同乗は名前列挙）
-  function buildScreenPlanText() {
-    let hasMotionSick = ridingKids.some(k => k.motionSick);
-    let hasPinned = ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
-    let text = `【連絡】本日の配車です🚗\n---------------------\n`;
-
-    if (ridingKids.length > 0 || activeCars.some(c => companionSeatsOf(c) > 0)) {
-      activeCars.forEach(c => {
-        const riders = assignments[c.name] || [];
-        const riderNames = riders.map(k => formatRiderLabel(k, c.name, { showPin: true }));
-        const companionNames = companionsOf(c).map(x => x.label);
-        const names = [...riderNames, ...companionNames].join('、');
-        const equipTag = c.isEquipmentCar ? ' 【道具車📦】' : '';
-        text += `■ ${c.name}${formatCarCompanionHeader(c)}${equipTag}\n  乗車: ${names || 'なし'}\n\n`;
-      });
-    } else {
-      text += "本日の乗車配車はありません。\n\n";
-    }
-
-    if (onSiteKids.length > 0) {
-      text += `【現地集合】${onSiteKids.map(k => k.name).join('、')}\n\n`;
-    }
-
-    if (hasPinned) {
-      text += "※「📌」は事前指定で固定した乗車です。\n";
-    }
-    if (hasMotionSick) {
-      text += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
-    }
-    text += "---------------------\nよろしくお願いいたします！";
-    return text;
-  }
-
-  // LINE用テキスト（1台1行の横並び・注記なし。車両見出しのみ【道具車】可）
-  function buildLinePlanText() {
-    let text = `【連絡】本日の配車です🚗\n---------------------\n`;
-
-    if (ridingKids.length > 0 || activeCars.some(c => companionSeatsOf(c) > 0)) {
-      activeCars.forEach(c => {
-        const riders = assignments[c.name] || [];
-        const names = buildLineNameList(c, riders);
-        const equipTag = c.isEquipmentCar ? ' 【道具車】' : '';
-        text += `■ ${c.name}${formatCarCompanionHeader(c)}${equipTag}\n`;
-        text += `${names.length > 0 ? names.join('、') : 'なし'}\n\n`;
-      });
-    } else {
-      text += "本日の乗車配車はありません。\n\n";
-    }
-
-    if (onSiteKids.length > 0) {
-      text += `【現地集合】\n${onSiteKids.map(k => k.name).join('、')}\n\n`;
-    }
-
-    text += "---------------------\nよろしくお願いいたします！";
-    return text;
-  }
-
-  const screenText = buildScreenPlanText();
-  lastGeneratedPlan = buildLinePlanText();
+  showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(lastAssignmentWarnings);
-  document.getElementById('resultText').innerText = screenText;
-  document.getElementById('resultCard').style.display = 'block';
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
@@ -830,6 +881,8 @@ function copyResult() {
     clearCarpoolDiagnosis,
     diagnoseCarpoolFailure,
     generateCarpool,
+    restoreDisplayedPlan,
+    refreshDisplayedPlan,
     presentCarpoolFailure,
     showCarpoolDiagnosis,
     buildLinePlanText: function buildLinePlanText() { return lastGeneratedPlan || ''; },
@@ -865,6 +918,10 @@ function copyResult() {
   global.generateCarpool = generateCarpool;
   global.generate = generateCarpool;
   global.copyResult = copyResult;
+  global.restoreDisplayedPlan = restoreDisplayedPlan;
+  global.refreshDisplayedPlan = refreshDisplayedPlan;
+  global.exportPlanSessionCommits = exportPlanSessionCommits;
+  global.importPlanSessionCommits = importPlanSessionCommits;
   global.clearCarpoolDiagnosis = clearCarpoolDiagnosis;
   global.clearLastSessionCommit = clearLastSessionCommit;
   global.diagnoseCarpoolFailure = diagnoseCarpoolFailure;

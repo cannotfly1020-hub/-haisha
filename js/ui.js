@@ -649,10 +649,24 @@ function syncDispatchPeriodSelect() {
   el.value = String(getDispatchPeriod());
 }
 
+function syncPlanDayBar() {
+  if (typeof getPlanSlotView !== 'function') return;
+  const view = getPlanSlotView();
+  const input = document.getElementById('planDateInput');
+  if (input && document.activeElement !== input) input.value = view.date || '';
+  const label = document.getElementById('planDateLabel');
+  if (label) label.textContent = view.longLabel || '日付を選択';
+  const title = document.getElementById('carsPanelTitle');
+  if (title) title.textContent = view.panelTitle;
+  const heading = document.getElementById('resultHeading');
+  if (heading) heading.textContent = view.resultHeading;
+}
+
 function renderCars() {
   const list = document.getElementById('carList');
   if (!list) return;
   syncDispatchPeriodSelect();
+  syncPlanDayBar();
   renderRoleMaster();
   list.innerHTML = '';
   updateCarSortToggleButton();
@@ -1241,6 +1255,7 @@ bindCarReorderGestures();
     formatCarCompanionHeader,
     setCarDriverRole,
     renderRoleMaster,
+    syncPlanDayBar,
     toggleRoleMaster,
     addDriverRoleFromInput,
     addCompanionRoleFromInput,

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="配車">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261029c">
+<link rel="stylesheet" href="css/style.css?v=20261030c">
 </head>
 <body>
 
@@ -41,8 +41,22 @@
 <!-- クイック操作バー -->
 <div class="control-bar">
   <button type="button" class="control-btn control-btn-help" data-action="open-tutorial" title="使い方ガイドを開く">❓ 使い方</button>
-  <button type="button" class="control-btn control-btn-reset" data-action="reset-today" title="出欠・同乗・指定のみ初期化（マスタは保持）">🔄 本日の配車をリセット</button>
+  <button type="button" class="control-btn control-btn-reset" data-action="reset-today" title="この日の出欠・同乗・指定のみ初期化（ほかの日とマスタは保持）">🔄 この日の配車をリセット</button>
   <button type="button" class="control-btn" data-action="manual-save">💾 今の状態を保存</button>
+</div>
+
+<!-- 任意日付の配車ナビ -->
+<div class="plan-day-bar" id="planDayBar">
+  <p class="plan-day-caption">📅 配車対象日</p>
+  <div class="plan-day-nav">
+    <button type="button" class="plan-day-step" data-action="shift-plan-date" data-delta="-1" aria-label="前日">◀ 前日</button>
+    <label class="plan-day-picker">
+      <input type="date" id="planDateInput" data-action="set-plan-date" aria-label="配車対象日">
+      <span id="planDateLabel">日付を選択</span>
+    </label>
+    <button type="button" class="plan-day-step" data-action="shift-plan-date" data-delta="1" aria-label="翌日">翌日 ▶</button>
+  </div>
+  <button type="button" class="plan-day-today" data-action="go-plan-today">今日</button>
 </div>
 
 <!-- 本日の車 ＋ 選手一覧（スマホ1カラム / 768px〜2カラム） -->
@@ -51,7 +65,7 @@
   <section class="panel is-open" id="carsPanel" data-section="cars">
     <button type="button" class="panel-toggle" data-action="toggle-section" data-section="cars" aria-expanded="true">
       <div class="panel-toggle-main">
-        <span class="panel-title">本日の車</span>
+        <span class="panel-title" id="carsPanelTitle">本日の車</span>
         <span class="panel-summary" id="carsSummary">出勤 —</span>
       </div>
       <span class="panel-chevron" aria-hidden="true"></span>
@@ -138,7 +152,7 @@
 
 <!-- 結果表示 -->
 <div class="card result-card" id="resultCard">
-  <h2 class="card-heading">配車結果</h2>
+  <h2 class="card-heading" id="resultHeading">本日の配車結果</h2>
   <div id="resultWarnings" class="result-warnings" hidden></div>
   <div class="result-box" id="resultText"></div>
   <button type="button" class="btn btn-outline" data-action="generate">🔄 別の組み合わせで再計算する</button>
@@ -304,10 +318,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261029c"></script>
-<script src="js/ui.js?v=20261029c"></script>
-<script src="js/carpool.js?v=20261029c"></script>
-<script src="js/app.js?v=20261029c"></script>
+<script src="js/data.js?v=20261030c"></script>
+<script src="js/ui.js?v=20261030c"></script>
+<script src="js/carpool.js?v=20261030c"></script>
+<script src="js/app.js?v=20261030c"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

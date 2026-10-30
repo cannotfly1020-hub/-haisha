@@ -32,6 +32,8 @@ const CLICK_ACTIONS = new Set([
   'add-child-companion',
   'remove-child-companion',
   'toggle-role-master',
+  'shift-plan-date',
+  'go-plan-today',
   'add-driver-role',
   'remove-driver-role',
   'add-companion-role',
@@ -178,6 +180,12 @@ function runClickAction(target) {
     case 'toggle-role-master':
       toggleRoleMaster();
       break;
+    case 'shift-plan-date':
+      shiftPlanDate(Number(target.dataset.delta) || 0);
+      break;
+    case 'go-plan-today':
+      goToPlanToday();
+      break;
     case 'add-driver-role':
       addDriverRoleFromInput();
       break;
@@ -317,6 +325,9 @@ function handleAppChange(event) {
     case 'set-car-driver':
       setCarDriverRole(target.dataset.carId || target.dataset.id, target.value);
       break;
+    case 'set-plan-date':
+      setActivePlanDate(target.value);
+      break;
     default:
       break;
   }
@@ -378,6 +389,7 @@ function initApp() {
   renderCars();
   renderChildren();
   updateStatusBar();
+  if (typeof restoreDisplayedPlan === 'function') restoreDisplayedPlan(getActivePlanResult());
   maybeShowTutorialOnLaunch();
 }
 

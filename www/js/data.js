@@ -17,8 +17,11 @@ function normalizeCompanion(item, fallbackId) {
   };
 }
 
-const DEFAULT_DRIVER_ROLES = ['父', '母', '祖父', '祖母', 'その他'];
-const DEFAULT_COMPANION_ROLES = ['父', '母', '兄', '弟', '妹'];
+const DEFAULT_DRIVER_ROLES = ['父', '母', '祖父', '祖母', '指導者', 'その他'];
+const DEFAULT_COMPANION_ROLES = ['母', '父', '兄', '弟', '妹'];
+const PREVIOUS_DRIVER_ROLES = ['父', '母', '祖父', '祖母', 'その他'];
+const PREVIOUS_COMPANION_ROLES = ['父', '母', '兄', '弟', '妹'];
+const LEGACY_TEST_ROLE_LABELS = ['看護師', '添乗員', '職員'];
 const DRIVER_ROLES_KEY = 'cp_driver_roles';
 const COMPANION_ROLES_KEY = 'cp_companion_roles';
 const ROLE_LABEL_MAX = 20;
@@ -76,6 +79,41 @@ function saveCompanionRoles(list) {
 function resetRoleLabels() {
   saveDriverRoles(DEFAULT_DRIVER_ROLES);
   saveCompanionRoles(DEFAULT_COMPANION_ROLES);
+}
+
+function roleListsEqual(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i++) {
+    if (left[i] !== right[i]) return false;
+  }
+  return true;
+}
+
+function migrateStoredRoleList(key, previousDefault, nextDefault) {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(key);
+  } catch (e) {
+    return;
+  }
+  if (raw == null || raw === '') return;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return;
+  }
+  const list = sanitizeRoleList(parsed);
+  if (!list) return;
+  const cleaned = list.filter((label) => LEGACY_TEST_ROLE_LABELS.indexOf(label) === -1);
+  const next = roleListsEqual(cleaned, previousDefault) ? nextDefault.slice() : cleaned;
+  if (roleListsEqual(next, list)) return;
+  writeRoleList(key, next);
+}
+
+function migrateRoleLabels() {
+  migrateStoredRoleList(DRIVER_ROLES_KEY, PREVIOUS_DRIVER_ROLES, DEFAULT_DRIVER_ROLES);
+  migrateStoredRoleList(COMPANION_ROLES_KEY, PREVIOUS_COMPANION_ROLES, DEFAULT_COMPANION_ROLES);
 }
 
 function normalizeDriverRole(value) {
@@ -364,8 +402,25 @@ function newCompanionId() {
  * 車両改名時の参照カスケード:
  * 全選手の parentCar / fixedCar / rideHistory / lastCar を oldName → newName に同期する。
  */
+function renamePlanSlotCarName(oldName, newName) {
+  if (!planStore || !planStore.sessions || !oldName || !newName || oldName === newName) return;
+  Object.keys(planStore.sessions).forEach((ymd) => {
+    const slot = planStore.sessions[ymd];
+    if (!slot) return;
+    Object.keys(slot.children || {}).forEach((childId) => {
+      const daily = slot.children[childId];
+      if (daily && daily.fixedCar === oldName) daily.fixedCar = newName;
+    });
+    if (slot.result && slot.result.assignments && slot.result.assignments[oldName]) {
+      slot.result.assignments[newName] = slot.result.assignments[oldName];
+      delete slot.result.assignments[oldName];
+    }
+  });
+}
+
 function renameCarCascade(car, oldName, newName) {
   if (!car || !oldName || !newName || oldName === newName) return;
+  renamePlanSlotCarName(oldName, newName);
 
   children.forEach((child) => {
     if (child.parentCar === oldName) child.parentCar = newName;
@@ -414,6 +469,460 @@ function renameCar(carId, newName) {
 
 let cars = [];
 let children = [];
+let planStore = null;
+let planResultDirty = false;
+
+const PLAN_SLOTS_KEY = 'cp_day_slots';
+const PLAN_INDEX_KEY = 'cp_plan_sessions';
+const PLAN_WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+function asLocalDate(base) {
+  if (base && typeof base.getFullYear === 'function' && typeof base.getMonth === 'function' && typeof base.getDate === 'function') {
+    const date = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function weekendDates(base) {
+  const today = asLocalDate(base);
+  const sat = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const delta = today.getDay() === 0 ? -1 : (6 - today.getDay());
+  sat.setDate(sat.getDate() + delta);
+  const sun = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() + 1);
+  return { sat: localDateString(sat), sun: localDateString(sun) };
+}
+
+function migrationSlotFor(base) {
+  return asLocalDate(base).getDay() === 0 ? 'sun' : 'sat';
+}
+
+function isPlanYmd(value) {
+  return typeof value === 'string' && normalizeDispatchDate(value) === value;
+}
+
+function formatPlanDateLabel(ymd) {
+  if (!isPlanYmd(ymd)) return '';
+  const parts = ymd.split('-').map(Number);
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  return `${date.getMonth() + 1}月${date.getDate()}日(${PLAN_WEEKDAYS[date.getDay()]})`;
+}
+
+function cloneData(value) {
+  return JSON.parse(JSON.stringify(value == null ? null : value));
+}
+
+function defaultCarDaily() {
+  return { active: true, companions: [], isEquipmentCar: false, driverRole: '父' };
+}
+
+function defaultChildDaily() {
+  return { active: true, meetOnSite: false, companions: [], fixedCar: '' };
+}
+
+function captureCarDaily(car) {
+  return {
+    active: !!car.active,
+    companions: cloneData(Array.isArray(car.companions) ? car.companions : []),
+    isEquipmentCar: !!car.isEquipmentCar,
+    driverRole: normalizeDriverRole(car.driverRole)
+  };
+}
+
+function captureChildDaily(child) {
+  return {
+    active: !!child.active,
+    meetOnSite: !!child.meetOnSite,
+    companions: cloneData(Array.isArray(child.companions) ? child.companions : []),
+    fixedCar: typeof child.fixedCar === 'string' ? child.fixedCar : ''
+  };
+}
+
+function emptyPlanSlot(date) {
+  return {
+    date: isPlanYmd(date) ? date : '',
+    cars: {},
+    children: {},
+    result: null,
+    sessionCommit: null,
+    dispatchCommit: null
+  };
+}
+
+function isResultShown() {
+  if (typeof document === 'undefined' || !document.getElementById) return false;
+  const card = document.getElementById('resultCard');
+  return !!(card && card.style && card.style.display === 'block');
+}
+
+function captureLiveResult() {
+  if (!isResultShown()) return null;
+  let src = null;
+  try {
+    if (typeof currentAssignments !== 'undefined') src = currentAssignments;
+  } catch (e) {
+    src = null;
+  }
+  if (!src || typeof src !== 'object') return null;
+  const assignments = {};
+  Object.keys(src).forEach((name) => {
+    if (!Array.isArray(src[name])) return;
+    assignments[name] = src[name]
+      .map((kid) => (kid && kid.id != null ? kid.id : null))
+      .filter((id) => id != null);
+  });
+  const warnings = (typeof HaishaCarpool !== 'undefined' && HaishaCarpool && Array.isArray(HaishaCarpool.assignmentWarnings))
+    ? HaishaCarpool.assignmentWarnings.slice()
+    : [];
+  return { assignments, warnings };
+}
+
+function readSessionCommitPack() {
+  if (typeof exportPlanSessionCommits !== 'function') {
+    return { sessionCommit: null, dispatchCommit: null };
+  }
+  const pack = exportPlanSessionCommits() || {};
+  return {
+    sessionCommit: pack.sessionCommit ? cloneData(pack.sessionCommit) : null,
+    dispatchCommit: pack.dispatchCommit ? cloneData(pack.dispatchCommit) : null
+  };
+}
+
+function writeSessionCommitPack(slot) {
+  if (typeof importPlanSessionCommits !== 'function') return;
+  importPlanSessionCommits({
+    sessionCommit: slot && slot.sessionCommit ? slot.sessionCommit : null,
+    dispatchCommit: slot && slot.dispatchCommit ? slot.dispatchCommit : null
+  });
+}
+
+function applyCarDaily(car, daily) {
+  const source = daily || defaultCarDaily();
+  car.active = !!source.active;
+  const list = Array.isArray(source.companions) ? source.companions : [];
+  car.companions = list
+    .map((item, idx) => normalizeCompanion(item, `cmp-${car.id}-${idx}`))
+    .filter(Boolean);
+  car.isEquipmentCar = !!source.isEquipmentCar;
+  car.driverRole = normalizeDriverRole(typeof source.driverRole === 'string' ? source.driverRole : '');
+}
+
+function applyChildDaily(child, daily) {
+  const source = daily || defaultChildDaily();
+  child.active = !!source.active;
+  child.meetOnSite = !!source.meetOnSite;
+  child.fixedCar = typeof source.fixedCar === 'string' ? source.fixedCar : '';
+  const list = Array.isArray(source.companions) ? source.companions : [];
+  child.companions = list
+    .map((item, idx) => normalizeCompanion(item, `ch-cmp-${child.id}-${idx}`))
+    .filter(Boolean);
+}
+
+function applySlotToLive(slot) {
+  const dailyCars = slot && slot.cars ? slot.cars : {};
+  const dailyChildren = slot && slot.children ? slot.children : {};
+  cars.forEach((car) => applyCarDaily(car, dailyCars[String(car.id)]));
+  children.forEach((child) => applyChildDaily(child, dailyChildren[String(child.id)]));
+}
+
+function slotHasDaily(slot) {
+  return !!(slot && slot.cars && Object.keys(slot.cars).length > 0);
+}
+
+function sanitizeStoredSlot(raw, fallbackDate) {
+  const slot = emptyPlanSlot(fallbackDate);
+  if (!raw || typeof raw !== 'object') return slot;
+  slot.date = isPlanYmd(raw.date) ? raw.date : slot.date;
+  if (raw.cars && typeof raw.cars === 'object' && !Array.isArray(raw.cars)) slot.cars = raw.cars;
+  if (raw.children && typeof raw.children === 'object' && !Array.isArray(raw.children)) slot.children = raw.children;
+  if (raw.result && typeof raw.result === 'object' && raw.result.assignments && typeof raw.result.assignments === 'object') {
+    slot.result = {
+      assignments: raw.result.assignments,
+      warnings: Array.isArray(raw.result.warnings) ? raw.result.warnings.filter((item) => typeof item === 'string') : []
+    };
+  }
+  if (raw.sessionCommit && typeof raw.sessionCommit === 'object' && !Array.isArray(raw.sessionCommit)) {
+    slot.sessionCommit = raw.sessionCommit;
+  }
+  if (raw.dispatchCommit && typeof raw.dispatchCommit === 'object' && Array.isArray(raw.dispatchCommit.carIds)) {
+    slot.dispatchCommit = raw.dispatchCommit;
+  }
+  return slot;
+}
+
+function snapshotLiveIntoSlot(slot) {
+  cars.forEach((car) => { slot.cars[String(car.id)] = captureCarDaily(car); });
+  children.forEach((child) => { slot.children[String(child.id)] = captureChildDaily(child); });
+}
+
+function todayYmd() {
+  const date = asLocalDate();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addDaysYmd(ymd, delta) {
+  const base = isPlanYmd(ymd) ? ymd : todayYmd();
+  const parts = base.split('-').map(Number);
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  date.setDate(date.getDate() + (Number(delta) || 0));
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatPlanDateLong(ymd) {
+  if (!isPlanYmd(ymd)) return '';
+  const parts = ymd.split('-').map(Number);
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  return `${parts[0]}年${date.getMonth() + 1}月${date.getDate()}日(${PLAN_WEEKDAYS[date.getDay()]})`;
+}
+
+function sessionStorageKey(ymd) {
+  return isPlanYmd(ymd) ? `cp_session_${ymd}` : '';
+}
+
+function readStoredSession(ymd) {
+  const key = sessionStorageKey(ymd);
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return sanitizeStoredSlot(JSON.parse(raw), ymd);
+  } catch (e) {
+    return null;
+  }
+}
+
+function persistPlanStore() {
+  if (!planStore || !planStore.sessions) return;
+  const dates = Object.keys(planStore.sessions).filter(isPlanYmd).sort();
+  localStorage.setItem(PLAN_INDEX_KEY, JSON.stringify({
+    version: 2,
+    active: planStore.active,
+    dates: dates
+  }));
+  dates.forEach((ymd) => {
+    const slot = planStore.sessions[ymd];
+    slot.date = ymd;
+    localStorage.setItem(sessionStorageKey(ymd), JSON.stringify(slot));
+  });
+}
+
+function clearPlanStorage() {
+  let dates = [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(PLAN_INDEX_KEY) || 'null');
+    if (raw && Array.isArray(raw.dates)) dates = raw.dates;
+  } catch (e) { /* ignore */ }
+  dates.forEach((ymd) => {
+    const key = sessionStorageKey(ymd);
+    if (key) {
+      try { localStorage.removeItem(key); } catch (err) { /* ignore */ }
+    }
+  });
+  try { localStorage.removeItem(PLAN_INDEX_KEY); } catch (e) { /* ignore */ }
+  try { localStorage.removeItem(PLAN_SLOTS_KEY); } catch (e) { /* ignore */ }
+}
+
+function readPlanIndex() {
+  let stored = null;
+  try {
+    const raw = localStorage.getItem(PLAN_INDEX_KEY);
+    if (raw) stored = JSON.parse(raw);
+  } catch (e) {
+    stored = null;
+  }
+  if (!stored || typeof stored !== 'object' || !Array.isArray(stored.dates)) return null;
+  const sessions = {};
+  stored.dates.forEach((ymd) => {
+    if (!isPlanYmd(ymd)) return;
+    const slot = readStoredSession(ymd);
+    if (slot) sessions[ymd] = slot;
+  });
+  const active = isPlanYmd(stored.active) && sessions[stored.active] ? stored.active : '';
+  if (!active && !Object.keys(sessions).length) return null;
+  return {
+    version: 2,
+    active: active || Object.keys(sessions).sort()[0],
+    sessions: sessions
+  };
+}
+
+function sessionsFromWeekendSlots(stored) {
+  const dates = weekendDates();
+  const sessions = {};
+  ['sat', 'sun'].forEach((slotId) => {
+    const raw = stored.slots[slotId];
+    const fallback = dates[slotId];
+    const slot = sanitizeStoredSlot(raw, fallback);
+    if (!isPlanYmd(slot.date)) slot.date = fallback;
+    const ymd = slot.date;
+    const existing = sessions[ymd];
+    const prefer = stored.active === slotId || (!slotHasDaily(existing) && slotHasDaily(slot));
+    if (!existing || prefer) sessions[ymd] = slot;
+  });
+  const activeId = stored.active === 'sun' ? 'sun' : 'sat';
+  const activeRaw = stored.slots[activeId];
+  const activeDate = activeRaw && isPlanYmd(activeRaw.date) ? activeRaw.date : dates[activeId];
+  return {
+    version: 2,
+    active: sessions[activeDate] ? activeDate : (Object.keys(sessions).sort()[0] || dates.sat),
+    sessions: sessions
+  };
+}
+
+function readLegacyWeekendStore() {
+  let stored = null;
+  try {
+    const raw = localStorage.getItem(PLAN_SLOTS_KEY);
+    if (raw) stored = JSON.parse(raw);
+  } catch (e) {
+    stored = null;
+  }
+  if (!stored || typeof stored !== 'object' || !stored.slots || typeof stored.slots !== 'object') return null;
+  return sessionsFromWeekendSlots(stored);
+}
+
+function activateLoadedStore() {
+  const slot = planStore.sessions[planStore.active];
+  if (slot && slotHasDaily(slot)) applySlotToLive(slot);
+}
+
+function ensurePlanStore() {
+  if (planStore && planStore.sessions && isPlanYmd(planStore.active) && planStore.sessions[planStore.active]) {
+    return planStore;
+  }
+  const indexed = readPlanIndex();
+  if (indexed) {
+    planStore = indexed;
+    activateLoadedStore();
+    return planStore;
+  }
+  const legacy = readLegacyWeekendStore();
+  if (legacy) {
+    planStore = legacy;
+    activateLoadedStore();
+    try {
+      persistPlanStore();
+      localStorage.removeItem(PLAN_SLOTS_KEY);
+    } catch (e) { /* ignore */ }
+    return planStore;
+  }
+  const today = todayYmd();
+  planStore = {
+    version: 2,
+    active: today,
+    sessions: { [today]: emptyPlanSlot(today) }
+  };
+  snapshotLiveIntoSlot(planStore.sessions[today]);
+  try { persistPlanStore(); } catch (e) { /* ignore */ }
+  return planStore;
+}
+
+function ensurePlanSlots() {
+  return ensurePlanStore();
+}
+
+function captureActiveSlot() {
+  ensurePlanStore();
+  const slot = planStore.sessions[planStore.active];
+  snapshotLiveIntoSlot(slot);
+  if (isResultShown()) slot.result = captureLiveResult();
+  else if (planResultDirty) slot.result = null;
+  planResultDirty = false;
+  const commits = readSessionCommitPack();
+  slot.sessionCommit = commits.sessionCommit;
+  slot.dispatchCommit = commits.dispatchCommit;
+}
+
+function markPlanResultCleared() {
+  planResultDirty = true;
+}
+
+function getActivePlanDateLabel() {
+  ensurePlanStore();
+  return formatPlanDateLabel(planStore.active);
+}
+
+function getActivePlanResult() {
+  ensurePlanStore();
+  const slot = planStore.sessions[planStore.active];
+  return slot && slot.result ? slot.result : null;
+}
+
+function planResultHeading() {
+  const label = getActivePlanDateLabel();
+  return label ? `${label}の配車結果` : '本日の配車結果';
+}
+
+function getPlanSlotView() {
+  ensurePlanStore();
+  const date = planStore.active;
+  const label = formatPlanDateLabel(date);
+  return {
+    date: date,
+    label: label,
+    longLabel: formatPlanDateLong(date),
+    panelTitle: label ? `${label}の車` : '本日の車',
+    resultHeading: planResultHeading()
+  };
+}
+
+function showPlanDate(ymd) {
+  writeSessionCommitPack(planStore.sessions[ymd]);
+  if (typeof openChildCompanionEditors !== 'undefined' && openChildCompanionEditors.clear) {
+    openChildCompanionEditors.clear();
+  }
+  if (typeof clearCarpoolDiagnosis === 'function') clearCarpoolDiagnosis();
+  const result = planStore.sessions[ymd] && planStore.sessions[ymd].result;
+  if (typeof restoreDisplayedPlan === 'function') restoreDisplayedPlan(result);
+  else markPlanResultCleared();
+  saveData();
+  if (typeof renderCars === 'function') renderCars();
+  if (typeof renderChildren === 'function') renderChildren();
+  if (typeof updateStatusBar === 'function') updateStatusBar();
+}
+
+function goToPlanDate(value) {
+  const ymd = typeof value === 'string' ? value.trim() : '';
+  if (!isPlanYmd(ymd)) return;
+  ensurePlanStore();
+  if (planStore.active === ymd && planStore.sessions[ymd]) return;
+  captureActiveSlot();
+  if (!planStore.sessions[ymd]) {
+    planStore.sessions[ymd] = emptyPlanSlot(ymd);
+    planStore.active = ymd;
+    applySlotToLive(planStore.sessions[ymd]);
+  } else {
+    planStore.active = ymd;
+    applySlotToLive(planStore.sessions[ymd]);
+  }
+  showPlanDate(ymd);
+}
+
+function shiftPlanDate(delta) {
+  ensurePlanStore();
+  goToPlanDate(addDaysYmd(planStore.active, delta));
+}
+
+function goToPlanToday() {
+  goToPlanDate(todayYmd());
+}
+
+function switchPlanSlot(slotId) {
+  const dates = weekendDates();
+  if (slotId === 'sun') goToPlanDate(dates.sun);
+  else if (slotId === 'sat') goToPlanDate(dates.sat);
+}
+
+function setActivePlanDate(value) {
+  goToPlanDate(value);
+}
 
 function loadData() {
   try {
@@ -448,14 +957,18 @@ function loadData() {
       localStorage.setItem('cp_children', JSON.stringify(children));
     } catch (e) { /* ignore */ }
   }
+  ensurePlanSlots();
 }
 
+migrateRoleLabels();
 loadData();
 
 function saveData() {
   try {
+    captureActiveSlot();
     localStorage.setItem('cp_cars', JSON.stringify(cars));
     localStorage.setItem('cp_children', JSON.stringify(children));
+    persistPlanStore();
   } catch (e) {
     console.error("保存エラー:", e);
   }
@@ -488,7 +1001,9 @@ function manualSave() {
  * 選手/車両マスタと rideHistory・lastCar は保持。
  */
 function resetTodaySession() {
-  const msg = '出欠・同乗・指定枠を初期化して、次回の配車を開始しますか？\n（選手・車両リストと配車履歴は消えません）';
+  const label = getActivePlanDateLabel();
+  const dayLabel = label || 'この日';
+  const msg = `「${dayLabel}」の出欠・同乗・指定枠を初期化して、次の配車を開始しますか？\nほかの日の配車はそのまま残ります。\n（選手・車両リストと配車履歴は消えません）`;
   if (!confirm(msg)) return;
 
   cars.forEach(c => {
@@ -511,6 +1026,7 @@ function resetTodaySession() {
 
   currentAssignments = null;
   lastGeneratedPlan = '';
+  markPlanResultCleared();
   if (typeof clearLastSessionCommit === 'function') clearLastSessionCommit();
   const resultCard = document.getElementById('resultCard');
   if (resultCard) resultCard.style.display = 'none';
@@ -547,11 +1063,13 @@ function isBackupChild(child) {
 }
 
 function buildBackupPayload() {
+  captureActiveSlot();
   return {
-    version: 1,
+    version: 3,
     exportedAt: new Date().toISOString(),
     cars: cars,
-    children: children
+    children: children,
+    planSessions: cloneData(planStore)
   };
 }
 
@@ -688,7 +1206,41 @@ function restoreBackupData(text) {
 
   cars = data.cars.map(normalizeCar);
   children = data.children.map(normalizeChild);
+  clearPlanStorage();
+  planStore = null;
+  if (data.planSessions && typeof data.planSessions === 'object' && data.planSessions.sessions) {
+    planStore = {
+      version: 2,
+      active: isPlanYmd(data.planSessions.active) ? data.planSessions.active : '',
+      sessions: {}
+    };
+    Object.keys(data.planSessions.sessions).forEach((ymd) => {
+      if (!isPlanYmd(ymd)) return;
+      planStore.sessions[ymd] = sanitizeStoredSlot(data.planSessions.sessions[ymd], ymd);
+    });
+    if (!planStore.active || !planStore.sessions[planStore.active]) {
+      const dates = Object.keys(planStore.sessions).sort();
+      planStore.active = dates[0] || todayYmd();
+      if (!planStore.sessions[planStore.active]) planStore.sessions[planStore.active] = emptyPlanSlot(planStore.active);
+    }
+    activateLoadedStore();
+  } else if (data.planSlots && typeof data.planSlots === 'object' && data.planSlots.slots) {
+    try {
+      localStorage.setItem(PLAN_SLOTS_KEY, JSON.stringify(data.planSlots));
+    } catch (e) { /* ignore */ }
+    ensurePlanStore();
+  } else {
+    ensurePlanStore();
+  }
+  currentAssignments = null;
+  lastGeneratedPlan = '';
+  planResultDirty = false;
+  const resultCard = document.getElementById('resultCard');
+  if (resultCard) resultCard.style.display = 'none';
+  const resultText = document.getElementById('resultText');
+  if (resultText) resultText.textContent = '';
   saveData();
+  if (typeof restoreDisplayedPlan === 'function') restoreDisplayedPlan(getActivePlanResult());
   renderCars();
   renderChildren();
   updateStatusBar();
@@ -696,13 +1248,6 @@ function restoreBackupData(text) {
   if (typeof openChildCompanionEditors !== 'undefined' && openChildCompanionEditors.clear) {
     openChildCompanionEditors.clear();
   }
-
-  const resultCard = document.getElementById('resultCard');
-  if (resultCard) resultCard.style.display = 'none';
-  const resultText = document.getElementById('resultText');
-  if (resultText) resultText.textContent = '';
-  currentAssignments = null;
-  lastGeneratedPlan = '';
 
   alert('データを正常に復元しました');
   return true;
@@ -753,6 +1298,18 @@ function promoteAllGrades() {
     getDispatchPeriod,
     setDispatchPeriod,
     getCarDispatchCount,
+    getActivePlanDateLabel,
+    getActivePlanResult,
+    planResultHeading,
+    getPlanSlotView,
+    goToPlanDate,
+    shiftPlanDate,
+    goToPlanToday,
+    switchPlanSlot,
+    setActivePlanDate,
+    markPlanResultCleared,
+    weekendDates,
+    migrationSlotFor,
     getDriverRoles,
     saveDriverRoles,
     getCompanionRoles,
@@ -817,6 +1374,16 @@ function promoteAllGrades() {
   global.getDispatchPeriod = getDispatchPeriod;
   global.setDispatchPeriod = setDispatchPeriod;
   global.getCarDispatchCount = getCarDispatchCount;
+  global.getActivePlanDateLabel = getActivePlanDateLabel;
+  global.getActivePlanResult = getActivePlanResult;
+  global.planResultHeading = planResultHeading;
+  global.getPlanSlotView = getPlanSlotView;
+  global.goToPlanDate = goToPlanDate;
+  global.shiftPlanDate = shiftPlanDate;
+  global.goToPlanToday = goToPlanToday;
+  global.switchPlanSlot = switchPlanSlot;
+  global.setActivePlanDate = setActivePlanDate;
+  global.markPlanResultCleared = markPlanResultCleared;
   global.getDriverRoles = getDriverRoles;
   global.saveDriverRoles = saveDriverRoles;
   global.getCompanionRoles = getCompanionRoles;

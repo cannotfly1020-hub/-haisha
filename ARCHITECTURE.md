@@ -1,7 +1,7 @@
 # 少年野球配車管理システム システム設計書 兼 仕様書（完全版）
 
 > **対象**: `-haisha`（少年野球 配車ヘルパー）  
-> **準拠実装**: `?v=20261029c` / `haisha-cache-v20261029c` 時点  
+> **準拠実装**: `?v=20261030c` / `haisha-cache-v20261030c` 時点  
 > **目的**: 本ファイル単体でアーキテクチャ・データモデル・契約ルールを把握し、改修時のリグレッションを防ぐ。  
 > **ソース・オブ・トゥルース**: 挙動が食い違う場合はコードを正し、続けて本ファイルを更新する。
 
@@ -95,8 +95,8 @@ HaishaApp.init / runClickAction / handleAppClick / handleAppChange / …
 
 | 箇所 | 例（現行） |
 |------|------------|
-| `index.html` の CSS/JS `?v=` | `20261029c` |
-| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261029c` |
+| `index.html` の CSS/JS `?v=` | `20261030c` |
+| `sw.js` の `CACHE_NAME` | `haisha-cache-v20261030c` |
 | `sw.js` の PRECACHE 内 `?v=` 付き URL | 同上 |
 
 片方だけの更新は iOS PWA で古い JS/CSS が残り、原因不明の不具合になる。
