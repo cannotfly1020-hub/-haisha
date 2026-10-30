@@ -699,16 +699,13 @@ function syncResultHeading() {
   el.textContent = typeof planResultHeading === 'function' ? planResultHeading() : '本日の配車結果';
 }
 
-function buildLineNameList(car, riders) {
+function buildLineNameList(riders) {
   const names = [];
   (riders || []).forEach(k => {
     names.push(k.name);
     childCompanionsOf(k).forEach(c => {
       names.push(c.label);
     });
-  });
-  companionsOf(car).forEach(c => {
-    names.push(c.label);
   });
   return names;
 }
@@ -727,10 +724,8 @@ function buildPlanTexts(assignments) {
   if (hasRideBlock) {
     activeCars.forEach(c => {
       const riders = (assignments && assignments[c.name]) || [];
-      const riderNames = riders.map(k => formatRiderLabel(k, c.name, { showPin: true }));
-      const companionNames = companionsOf(c).map(x => x.label);
-      const names = [...riderNames, ...companionNames].join('、');
-      const lineNames = buildLineNameList(c, riders);
+      const names = riders.map(k => formatRiderLabel(k, c.name, { showPin: true })).join('、');
+      const lineNames = buildLineNameList(riders);
       screen += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車📦】' : ''}\n  乗車: ${names || 'なし'}\n\n`;
       line += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
       line += `${lineNames.length > 0 ? lineNames.join('、') : 'なし'}\n\n`;
