@@ -146,8 +146,30 @@ function normalizeCar(car) {
     companions: companions,
     isEquipmentCar: !!car.isEquipmentCar,
     driverRole: normalizeDriverRole(car.driverRole),
+    dayMode: normalizeDayMode(car.dayMode),
     dispatchHistory: normalizeDispatchHistory(car.dispatchHistory)
   };
+}
+
+function normalizeDayMode(value) {
+  return value === 'direct' || value === 'individual' ? value : 'normal';
+}
+
+function carDayMode(car) {
+  if (!car || !car.active) return 'normal';
+  return normalizeDayMode(car.dayMode);
+}
+
+function isPoolCar(car) {
+  return !!car && !!car.active && carDayMode(car) === 'normal';
+}
+
+function isDirectCar(car) {
+  return !!car && !!car.active && carDayMode(car) === 'direct';
+}
+
+function isHoldCar(car) {
+  return !!car && !!car.active && carDayMode(car) === 'individual';
 }
 
 const DISPATCH_PERIOD_KEY = 'cp_dispatch_period';
@@ -278,12 +300,17 @@ function normalizeChildCompanions(child) {
 }
 
 function normalizeChild(child) {
-  const meetOnSite = !!child.meetOnSite;
-  const companions = meetOnSite ? [] : normalizeChildCompanions(child);
+  let dayMode = normalizeDayMode(child.dayMode);
+  let meetOnSite = !!child.meetOnSite;
+  if (dayMode === 'normal' && meetOnSite) dayMode = 'direct';
+  if (dayMode === 'direct') meetOnSite = true;
+  if (dayMode === 'individual') meetOnSite = false;
+  const companions = meetOnSite || dayMode === 'individual' ? [] : normalizeChildCompanions(child);
   return {
     ...child,
     active: !!child.active,
     meetOnSite: meetOnSite,
+    dayMode: dayMode,
     companions: companions,
     motionSick: !!child.motionSick,
     parentCar: typeof child.parentCar === 'string' ? child.parentCar : '',
@@ -306,12 +333,29 @@ function isParticipating(child) {
   return !!child && !!child.active;
 }
 
+function childDayMode(child) {
+  if (!isParticipating(child)) return 'off';
+  if (child.dayMode === 'individual') return 'individual';
+  if (child.dayMode === 'direct' || child.meetOnSite) return 'direct';
+  return 'normal';
+}
+
 function isOnSite(child) {
-  return isParticipating(child) && !!child.meetOnSite;
+  return childDayMode(child) === 'direct';
+}
+
+function isHoldKid(child) {
+  return childDayMode(child) === 'individual';
 }
 
 function isRiding(child) {
-  return isParticipating(child) && !child.meetOnSite;
+  return childDayMode(child) === 'normal';
+}
+
+function needsPoolSeat(child) {
+  if (!isRiding(child)) return false;
+  const home = cars.find((car) => car.name === child.parentCar);
+  return !(home && isDirectCar(home));
 }
 
 function seatCost(child) {
@@ -334,24 +378,36 @@ function autoFixedLabel(child) {
 }
 
 function getAttendMode(child) {
-  if (!child.active) return 'off';
-  return child.meetOnSite ? 'site' : 'ride';
+  const mode = childDayMode(child);
+  if (mode === 'off') return 'off';
+  if (mode === 'direct') return 'site';
+  if (mode === 'individual') return 'hold';
+  return 'ride';
 }
 
 function setAttendMode(child, mode) {
   if (mode === 'off') {
     child.active = false;
     child.meetOnSite = false;
+    child.dayMode = 'normal';
     child.companions = [];
     child.fixedCar = '';
   } else if (mode === 'site') {
     child.active = true;
     child.meetOnSite = true;
+    child.dayMode = 'direct';
+    child.companions = [];
+    child.fixedCar = '';
+  } else if (mode === 'hold') {
+    child.active = true;
+    child.meetOnSite = false;
+    child.dayMode = 'individual';
     child.companions = [];
     child.fixedCar = '';
   } else {
     child.active = true;
     child.meetOnSite = false;
+    child.dayMode = 'normal';
   }
 }
 
@@ -514,11 +570,11 @@ function cloneData(value) {
 }
 
 function defaultCarDaily() {
-  return { active: true, companions: [], isEquipmentCar: false, driverRole: '父' };
+  return { active: true, companions: [], isEquipmentCar: false, driverRole: '父', dayMode: 'normal' };
 }
 
 function defaultChildDaily() {
-  return { active: true, meetOnSite: false, companions: [], fixedCar: '' };
+  return { active: true, meetOnSite: false, dayMode: 'normal', companions: [], fixedCar: '' };
 }
 
 function captureCarDaily(car) {
@@ -526,14 +582,16 @@ function captureCarDaily(car) {
     active: !!car.active,
     companions: cloneData(Array.isArray(car.companions) ? car.companions : []),
     isEquipmentCar: !!car.isEquipmentCar,
-    driverRole: normalizeDriverRole(car.driverRole)
+    driverRole: normalizeDriverRole(car.driverRole),
+    dayMode: normalizeDayMode(car.dayMode)
   };
 }
 
 function captureChildDaily(child) {
   return {
     active: !!child.active,
-    meetOnSite: !!child.meetOnSite,
+    meetOnSite: childDayMode(child) === 'direct',
+    dayMode: childDayMode(child) === 'off' ? 'normal' : childDayMode(child),
     companions: cloneData(Array.isArray(child.companions) ? child.companions : []),
     fixedCar: typeof child.fixedCar === 'string' ? child.fixedCar : ''
   };
@@ -606,17 +664,22 @@ function applyCarDaily(car, daily) {
     .filter(Boolean);
   car.isEquipmentCar = !!source.isEquipmentCar;
   car.driverRole = normalizeDriverRole(typeof source.driverRole === 'string' ? source.driverRole : '');
+  car.dayMode = normalizeDayMode(source.dayMode);
 }
 
 function applyChildDaily(child, daily) {
   const source = daily || defaultChildDaily();
   child.active = !!source.active;
-  child.meetOnSite = !!source.meetOnSite;
+  child.dayMode = normalizeDayMode(source.dayMode);
+  if (child.dayMode === 'normal' && source.meetOnSite) child.dayMode = 'direct';
+  child.meetOnSite = child.dayMode === 'direct';
   child.fixedCar = typeof source.fixedCar === 'string' ? source.fixedCar : '';
   const list = Array.isArray(source.companions) ? source.companions : [];
-  child.companions = list
-    .map((item, idx) => normalizeCompanion(item, `ch-cmp-${child.id}-${idx}`))
-    .filter(Boolean);
+  child.companions = child.dayMode === 'direct' || child.dayMode === 'individual'
+    ? []
+    : list
+      .map((item, idx) => normalizeCompanion(item, `ch-cmp-${child.id}-${idx}`))
+      .filter(Boolean);
 }
 
 function applySlotToLive(slot) {
@@ -1008,6 +1071,7 @@ function resetTodaySession() {
 
   cars.forEach(c => {
     c.active = true;
+    c.dayMode = 'normal';
     c.companions = [];
     c.isEquipmentCar = false; // 道具車は週ごとに変わるため毎回クリア
   });
@@ -1016,6 +1080,7 @@ function resetTodaySession() {
     // 既存の初期状態に合わせ、全員「乗車」に戻す（マスタ情報は触らない）
     c.active = true;
     c.meetOnSite = false;
+    c.dayMode = 'normal';
     c.companions = [];
     c.fixedCar = '';
   });
@@ -1262,6 +1327,7 @@ function promoteAllGrades() {
       } else {
         c.active = false;
         c.meetOnSite = false;
+        c.dayMode = 'normal';
         c.companions = [];
         c.fixedCar = '';
       }
@@ -1400,7 +1466,14 @@ function promoteAllGrades() {
   global.childCompanionSeatsOf = childCompanionSeatsOf;
   global.isParticipating = isParticipating;
   global.isOnSite = isOnSite;
+  global.isHoldKid = isHoldKid;
   global.isRiding = isRiding;
+  global.childDayMode = childDayMode;
+  global.carDayMode = carDayMode;
+  global.isPoolCar = isPoolCar;
+  global.isDirectCar = isDirectCar;
+  global.isHoldCar = isHoldCar;
+  global.needsPoolSeat = needsPoolSeat;
   global.seatCost = seatCost;
   global.formatRiderLabel = formatRiderLabel;
   global.autoFixedLabel = autoFixedLabel;

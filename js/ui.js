@@ -404,8 +404,18 @@ function updatePanelSummaries(activeCarsList, activeSeats, seatDemand, activeKid
 function updateStatusBar() {
   const activeKids = children.filter(isParticipating).length;
   const onSiteKids = children.filter(isOnSite).length;
-  const activeCarsList = cars.filter(c => c.active);
-  const kidSeats = children.reduce((sum, c) => sum + seatCost(c), 0);
+  const activeCarsList = cars.filter(isPoolCar);
+  let overflowSeats = 0;
+  cars.filter(isDirectCar).forEach((car) => {
+    const cap = parseInt(car.capacity, 10) || 0;
+    let used = companionSeatsOf(car);
+    children.filter((kid) => isRiding(kid) && kid.parentCar === car.name).forEach((kid) => {
+      const cost = seatCost(kid);
+      if (used + cost <= cap) used += cost;
+      else overflowSeats += cost;
+    });
+  });
+  const kidSeats = children.reduce((sum, c) => sum + (needsPoolSeat(c) ? seatCost(c) : 0), 0) + overflowSeats;
   const companionDemand = activeCarsList.reduce((sum, c) => sum + companionSeatsOf(c), 0);
   const seatDemand = kidSeats + companionDemand;
   const activeSeats = activeCarsList.reduce((sum, c) => sum + (parseInt(c.capacity, 10) || 0), 0);
@@ -439,7 +449,7 @@ function updateStatusBar() {
 
 function buildFixedCarOptionsHtml(selected, child) {
   let html = `<option value="">${autoFixedLabel(child || {})}</option>`;
-  const activeCars = cars.filter(c => c.active);
+  const activeCars = cars.filter(isPoolCar);
   activeCars.forEach(c => {
     html += `<option value="${c.name}" ${selected === c.name ? 'selected' : ''}>${c.name}</option>`;
   });
@@ -681,13 +691,19 @@ function renderCars() {
     const isLast = orderIndex < 0 || orderIndex >= cars.length - 1;
 
     const safeName = String(car.name || '').replace(/"/g, '&quot;');
+    const dayClass = car.dayMode === 'direct' ? ' is-direct' : car.dayMode === 'individual' ? ' is-hold' : '';
+    const dayBadge = car.dayMode === 'direct'
+      ? '<span class="badge-day-direct">現地</span>'
+      : car.dayMode === 'individual'
+        ? '<span class="badge-day-hold">個人</span>'
+        : '';
     const equipBadge = car.isEquipmentCar ? `<span class="equipment-badge" title="道具車">📦 道具車</span>` : '';
     const periodDays = getDispatchPeriod();
     const periodLabel = periodDays === 30 ? '1ヶ月' : periodDays === 90 ? '3ヶ月' : periodDays === 180 ? '半年' : `${periodDays}日`;
     const dispatchCount = getCarDispatchCount(car, periodDays);
     const dispatchBadge = `<span class="badge-dispatch" title="過去${periodDays}日間の出動回数">直近${periodLabel}: ${dispatchCount}回</span>`;
     list.innerHTML += `
-      <div class="car-card ${inactiveClass}${car.isEquipmentCar ? ' is-equipment' : ''}" data-car-id="${car.id}">
+      <div class="car-card ${inactiveClass}${car.isEquipmentCar ? ' is-equipment' : ''}${dayClass}" data-car-id="${car.id}">
         <div class="car-card-header">
           <label class="car-name-label">
             <input type="checkbox" data-action="toggle-car" data-id="${car.id}" ${car.active ? 'checked' : ''}>
@@ -695,6 +711,7 @@ function renderCars() {
               value="${safeName}" maxlength="40" title="車両名（変更すると参照も連動更新）" aria-label="車両名">
           </label>
           ${equipBadge}
+          ${dayBadge}
           ${buildCapacityBadgeHtml(summary)}
           ${dispatchBadge}
           <div class="car-reorder">
@@ -713,6 +730,7 @@ function renderCars() {
             <input type="checkbox" class="car-equipment-checkbox" data-action="toggle-equipment" data-id="${car.id}" data-car-id="${car.id}" ${car.isEquipmentCar ? 'checked' : ''}>
             道具車
           </label>
+          ${dayModeChipsHtml('car', car.id, car.dayMode || 'normal', false)}
         </div>
 
         <div class="companion-bar">
@@ -741,6 +759,16 @@ function buildChildCompanionChipsHtml(child) {
   `).join('');
 }
 
+function dayModeChipsHtml(kind, id, mode, disabled) {
+  const off = disabled ? 'disabled' : '';
+  const directOn = mode === 'direct';
+  const holdOn = mode === 'individual';
+  return `<span class="day-mode-chips">
+    <button type="button" class="day-chip day-chip-direct${directOn ? ' is-on' : ''}" data-action="toggle-day-mode" data-kind="${kind}" data-mode="direct" data-id="${id}" aria-pressed="${directOn ? 'true' : 'false'}" ${off}>🚗 現地</button>
+    <button type="button" class="day-chip day-chip-hold${holdOn ? ' is-on' : ''}" data-action="toggle-day-mode" data-kind="${kind}" data-mode="individual" data-id="${id}" aria-pressed="${holdOn ? 'true' : 'false'}" ${off}>👤 個人</button>
+  </span>`;
+}
+
 function renderChildren() {
   const list = document.getElementById('childList');
   if (!list) return;
@@ -764,7 +792,9 @@ function renderChildren() {
               <option value="off" ${mode === 'off' ? 'selected' : ''}>欠席</option>
               <option value="ride" ${mode === 'ride' ? 'selected' : ''}>乗車</option>
               <option value="site" ${mode === 'site' ? 'selected' : ''}>現地</option>
+              <option value="hold" ${mode === 'hold' ? 'selected' : ''}>個人</option>
             </select>
+            ${dayModeChipsHtml('child', c.id, mode === 'site' ? 'direct' : mode === 'hold' ? 'individual' : 'normal', mode === 'off')}
             <span class="child-name">${c.name}</span>
             ${chipsHtml}
             ${mode === 'ride' && !editorOpen ? `
@@ -774,6 +804,7 @@ function renderChildren() {
             ${c.motionSick ? `<span class="badge-motion">🤢酔い</span>` : ''}
             ${c.parentCar ? `<span class="badge">親:${c.parentCar}</span>` : ''}
             ${mode === 'site' ? `<span class="badge-site">現地</span>` : ''}
+            ${mode === 'hold' ? `<span class="badge-hold">個人</span>` : ''}
             ${c.fixedCar && mode === 'ride' ? `<span class="badge-fixed">📌${c.fixedCar}</span>` : ''}
           </div>
           ${editorOpen ? `
@@ -850,12 +881,146 @@ function commitCarRename(id, newName) {
   }
 }
 
+function assignmentPlanIsOpen() {
+  const card = document.getElementById('resultCard');
+  return !!(card && card.style && card.style.display === 'block' && typeof currentAssignments !== 'undefined' && currentAssignments);
+}
+
 function setChildAttend(id, mode) {
-  const ch = children.find(x => x.id === id);
+  const ch = children.find(x => String(x.id) === String(id));
   if (!ch) return;
+  if (assignmentPlanIsOpen() && (mode === 'site' || mode === 'off' || mode === 'hold')) {
+    moveAssignedPlayer(ch.id, mode === 'site' ? 'site' : mode === 'hold' ? 'hold' : 'off');
+    return;
+  }
+  if (assignmentPlanIsOpen() && mode === 'ride' && (ch.meetOnSite || ch.dayMode === 'individual')) {
+    setAttendMode(ch, 'ride');
+    finishManualMove();
+    return;
+  }
   setAttendMode(ch, mode);
   saveData();
   refreshLists();
+}
+
+function toggleDayMode(kind, id, mode) {
+  if (mode !== 'direct' && mode !== 'individual') return;
+  if (kind === 'car') {
+    const car = cars.find((item) => String(item.id) === String(id));
+    if (!car) return;
+    car.dayMode = car.dayMode === mode ? 'normal' : mode;
+    if (assignmentPlanIsOpen() && typeof reconcileOpenCarMode === 'function') {
+      reconcileOpenCarMode(car);
+      finishManualMove();
+      return;
+    }
+    saveData();
+    refreshLists();
+    return;
+  }
+  const child = children.find((item) => String(item.id) === String(id));
+  if (!child || !child.active) return;
+  const current = childDayMode(child);
+  const next = current === mode ? 'normal' : mode;
+  const attend = next === 'direct' ? 'site' : next === 'individual' ? 'hold' : 'ride';
+  setChildAttend(child.id, attend);
+}
+
+function toggleSelfDrive(id) {
+  const ch = children.find(x => String(x.id) === String(id));
+  if (!ch || getAttendMode(ch) === 'off') return;
+  setChildAttend(ch.id, ch.meetOnSite ? 'ride' : 'site');
+}
+
+function buildRiderMoveOptions(currentCar, poolCars, kid) {
+  const options = ['<option value="">移動 ▼</option>'];
+  poolCars.forEach((car) => {
+    if (car.name === currentCar) return;
+    options.push(`<option value="car:${escapeRoleText(car.name)}">${escapeRoleText(car.name)}</option>`);
+  });
+  const mode = kid ? childDayMode(kid) : 'normal';
+  if (mode !== 'direct') options.push('<option value="site">現地集合</option>');
+  if (mode !== 'individual') options.push('<option value="hold">個人</option>');
+  return options.join('');
+}
+
+function buildRiderMoveRow(kid, currentCar, poolCars, suffix) {
+  const pinned = kid.fixedCar && currentCar && kid.fixedCar === currentCar ? '📌' : '';
+  const sick = kid.motionSick ? '🤢' : '';
+  const label = `${pinned}${kid.name}${sick}${suffix || ''}`;
+  return `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(label)}</span><select class="result-move" data-action="move-rider" data-id="${escapeRoleText(kid.id)}" aria-label="${escapeRoleText(kid.name)}の移動先">${buildRiderMoveOptions(currentCar, poolCars, kid)}</select></li>`;
+}
+
+function buildAssignmentMoveHtml(assignments) {
+  const poolCars = cars.filter(isPoolCar);
+  const placed = new Set();
+  cars.filter(isDirectCar).forEach((car) => {
+    const riders = typeof realAssignedPlayers === 'function'
+      ? realAssignedPlayers((assignments && assignments[car.name]) || [])
+      : ((assignments && assignments[car.name]) || []);
+    riders.forEach((kid) => placed.add(String(kid.id)));
+  });
+  let html = '';
+  poolCars.forEach((car) => {
+    const riders = typeof realAssignedPlayers === 'function'
+      ? realAssignedPlayers((assignments && assignments[car.name]) || [])
+      : ((assignments && assignments[car.name]) || []);
+    const header = formatCarCompanionHeader(car);
+    const equip = car.isEquipmentCar ? ' 【道具車📦】' : '';
+    html += `<section class="result-car"><p class="result-car-title">■ ${escapeRoleText(car.name)}${escapeRoleText(header)}${equip}</p>`;
+    if (!riders.length) {
+      html += '<p class="result-car-empty">乗車: なし</p>';
+    } else {
+      html += '<ul class="result-rider-list">';
+      riders.forEach((kid) => {
+        placed.add(String(kid.id));
+        html += buildRiderMoveRow(kid, car.name, poolCars);
+      });
+      html += '</ul>';
+    }
+    html += '</section>';
+  });
+
+  const loose = children.filter((kid) => isRiding(kid) && !placed.has(String(kid.id)));
+  if (loose.length) {
+    html += '<section class="result-loose"><p class="result-car-title">■ 未割当</p><ul class="result-rider-list">';
+    loose.forEach((kid) => { html += buildRiderMoveRow(kid, '', poolCars); });
+    html += '</ul></section>';
+  }
+
+  const directCars = cars.filter(isDirectCar);
+  const onSite = children.filter(isOnSite);
+  if (directCars.length || onSite.length) {
+    html += '<section class="result-site"><p class="result-car-title">■ 現地集合（直行）</p><ul class="result-rider-list">';
+    directCars.forEach((car) => {
+      const riders = typeof realAssignedPlayers === 'function'
+        ? realAssignedPlayers((assignments && assignments[car.name]) || [])
+        : [];
+      const role = car.driverRole && String(car.driverRole).trim();
+      const head = role ? `${car.name}（${role}）` : car.name;
+      if (!riders.length) {
+        html += `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(`・${head}（自走直行）`)}</span></li>`;
+      } else {
+        riders.forEach((kid) => {
+          html += buildRiderMoveRow(kid, car.name, poolCars, `（${head}・自走直行）`);
+        });
+      }
+    });
+    onSite.forEach((kid) => { html += buildRiderMoveRow(kid, '', poolCars, '（現地合流）'); });
+    html += '</ul></section>';
+  }
+
+  const holdCars = cars.filter(isHoldCar);
+  const holdKids = children.filter(isHoldKid);
+  if (holdCars.length || holdKids.length) {
+    html += '<section class="result-hold"><p class="result-car-title">■ 個人対応（様子見・自走）</p><ul class="result-rider-list">';
+    holdCars.forEach((car) => {
+      html += `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(`・${car.name}（出動保留）`)}</span></li>`;
+    });
+    holdKids.forEach((kid) => { html += buildRiderMoveRow(kid, '', poolCars, '（体調様子見）'); });
+    html += '</ul></section>';
+  }
+  return html;
 }
 
 function setChildFixedCar(id, carName) {
@@ -1224,6 +1389,9 @@ bindCarReorderGestures();
     toggleEquipmentCar,
     commitCarRename,
     setChildAttend,
+    toggleDayMode,
+    toggleSelfDrive,
+    buildAssignmentMoveHtml,
     setChildFixedCar,
     addCompanion,
     addCompanionCustom,

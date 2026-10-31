@@ -41,6 +41,8 @@ const CLICK_ACTIONS = new Set([
   'reset-role-labels',
   'toggle-section',
   'open-child-companion',
+  'toggle-site',
+  'toggle-day-mode',
   'open-tutorial',
   'close-tutorial',
   'tutorial-next',
@@ -173,6 +175,12 @@ function runClickAction(target) {
       break;
     case 'open-child-companion':
       openChildCompanionEditor(id);
+      break;
+    case 'toggle-site':
+      toggleSelfDrive(id);
+      break;
+    case 'toggle-day-mode':
+      toggleDayMode(target.dataset.kind || 'child', id, target.dataset.mode || '');
       break;
     case 'open-tutorial':
       openTutorialModal({ reset: true });
@@ -314,6 +322,9 @@ function handleAppChange(event) {
       break;
     case 'set-attend':
       setChildAttend(id, target.value);
+      break;
+    case 'move-rider':
+      moveAssignedPlayer(id, target.value);
       break;
     case 'set-fixed-car':
       setChildFixedCar(id, target.value);

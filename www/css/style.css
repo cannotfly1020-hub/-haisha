@@ -344,13 +344,70 @@ h1 {
 .item-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .item-right { display: flex; align-items: center; flex-shrink: 0; gap: 2px; padding-top: 2px; }
 .attend-select {
-  width: 58px;
+  width: 72px;
   padding: 4px 2px;
   font-size: 11px;
   font-weight: bold;
   flex-shrink: 0;
   min-height: 32px;
 }
+.btn-site-toggle {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.btn-site-toggle.is-on {
+  background: #047857;
+  border-color: #047857;
+  color: #fff;
+}
+.btn-site-toggle:disabled {
+  opacity: 0.45;
+}
+.day-mode-chips {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.day-chip {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.day-chip:disabled { opacity: 0.45; }
+.day-chip-direct.is-on {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #075985;
+}
+.day-chip-hold.is-on {
+  background: #fef9c3;
+  border-color: #eab308;
+  color: #854d0e;
+}
+.badge-day-direct,
+.badge-hold {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.badge-day-direct { background: #e0f2fe; color: #0369a1; }
+.badge-hold { background: #fef9c3; color: #a16207; }
+.car-card.is-direct { border-color: #7dd3fc; background: linear-gradient(180deg, #f0f9ff 0%, #fff 55%); }
+.car-card.is-hold { border-color: #fde047; background: linear-gradient(180deg, #fefce8 0%, #fff 55%); }
 .child-top-row {
   display: flex;
   flex-wrap: wrap;
@@ -464,6 +521,7 @@ h1 {
 .car-meta-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0 0 4px;
   position: relative;
@@ -872,7 +930,16 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
 .result-warnings { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .result-warnings[hidden] { display: none; }
 .result-warning-badge { margin: 0; background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 700; line-height: 1.4; }
-.result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-top: 8px; line-height: 1.45; }
+.result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 10px; font-size: 12px; margin-top: 8px; line-height: 1.45; }
+.result-car { margin: 0 0 10px; }
+.result-car-title { margin: 0 0 4px; font-weight: 700; }
+.result-car-empty { margin: 0; color: #64748b; }
+.result-rider-list { list-style: none; margin: 0; padding: 0; }
+.result-rider { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+.result-rider-name { font-weight: 650; }
+.result-move { min-height: 44px; max-width: 54%; font-size: 12px; }
+.result-share-label { margin: 12px 0 4px; font-size: 11px; color: #64748b; }
+.result-share-preview { margin: 0; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.45; }
 .panel-settings { margin-bottom: 10px; }
 .panel-settings .panel-toggle { pointer-events: auto; cursor: pointer; }
 .panel-settings .panel-chevron { display: inline-block; }

@@ -195,8 +195,8 @@ function escapeHtml(str) {
  * 優先度付きの解決サジェストを返す。
  */
 function diagnoseCarpoolFailure(options) {
-  const ridingKids = children.filter(isRiding);
-  const activeCars = cars.filter(c => c.active);
+  const ridingKids = children.filter(needsPoolSeat);
+  const activeCars = cars.filter(isPoolCar);
   const inactiveCars = cars.filter(c => !c.active);
   const leftoverKids = options && Array.isArray(options.leftoverKids) ? options.leftoverKids : [];
 
@@ -217,6 +217,7 @@ function diagnoseCarpoolFailure(options) {
   if (carCompanionSeats > 0) {
     notes.push(`車両側の事前同乗で ${carCompanionSeats}席 が確保済み`);
   }
+  parentCancelShortageWarnings(ridingKids, shortage).forEach((text) => notes.unshift(text));
 
   // A. 同乗枠の解放（車両側）
   activeCars.forEach(car => {
@@ -385,6 +386,53 @@ function renderAssignmentWarnings(warnings) {
   el.innerHTML = lastAssignmentWarnings.map((text) =>
     `<p class="result-warning-badge">${escapeHtml(text)}</p>`
   ).join('');
+}
+
+function cancelledParentCarNames(ridingKids) {
+  const names = [];
+  (ridingKids || []).forEach((kid) => {
+    const parent = kid && typeof kid.parentCar === 'string' ? kid.parentCar.trim() : '';
+    if (!parent || names.indexOf(parent) !== -1) return;
+    const car = cars.find((item) => item.name === parent);
+    if (car && !car.active) names.push(parent);
+  });
+  return names;
+}
+
+function heldParentCarNames(ridingKids) {
+  const names = [];
+  (ridingKids || []).forEach((kid) => {
+    const parent = kid && typeof kid.parentCar === 'string' ? kid.parentCar.trim() : '';
+    if (!parent || names.indexOf(parent) !== -1) return;
+    const car = cars.find((item) => item.name === parent);
+    if (car && isHoldCar(car)) names.push(parent);
+  });
+  return names;
+}
+
+function parentCancelShortageWarnings(ridingKids, shortage) {
+  if (!(shortage > 0)) return [];
+  const lines = [];
+  const cancelled = cancelledParentCarNames(ridingKids);
+  if (cancelled.length) {
+    lines.push(`※${cancelled.join('、')}がキャンセルされたため、${shortage}席不足しています。追加の出動車が必要です`);
+  }
+  const held = heldParentCarNames(ridingKids);
+  if (held.length) {
+    lines.push(`※${held.join('、')}が個人（様子見）のため、${shortage}席不足しています。追加の出動車が必要です`);
+  }
+  return lines;
+}
+
+function revealResultWarnings(warnings) {
+  const lines = Array.isArray(warnings) ? warnings.filter(Boolean) : [];
+  if (!lines.length) return;
+  renderAssignmentWarnings(lines);
+  syncResultHeading();
+  const resultCard = document.getElementById('resultCard');
+  if (resultCard) resultCard.style.display = 'block';
+  const resultText = document.getElementById('resultText');
+  if (resultText) resultText.textContent = lines.join('\n');
 }
 
 function presentCarpoolFailure(extra) {
@@ -655,6 +703,7 @@ function buildTwoPhaseAssignment(activeCars, ridingKids) {
         assignments[car.name].push(kid);
         return;
       }
+      // 親の車が休み、またはその車に席が無いときはエラーにせずフリー枠へ戻す
     }
     free.push(kid);
   });
@@ -715,19 +764,45 @@ function playerListLabel(child, carName) {
   return `${pinned}${child.name}${sick}`;
 }
 
+function directCarShareLine(car, assignments) {
+  const riders = realAssignedPlayers((assignments && assignments[car.name]) || []);
+  const role = car.driverRole && String(car.driverRole).trim();
+  const head = role ? `${car.name}（${role}）` : car.name;
+  const who = riders.map((kid) => kid.name).join('、');
+  return who ? `・${head}：${who}（自走直行）` : `・${head}（自走直行）`;
+}
+
+function directSectionLines(assignments) {
+  const lines = [];
+  cars.filter(isDirectCar).forEach((car) => lines.push(directCarShareLine(car, assignments)));
+  children.filter(isOnSite).forEach((kid) => lines.push(`・${kid.name}（現地合流）`));
+  return lines;
+}
+
+function holdSectionLines() {
+  const lines = [];
+  cars.filter(isHoldCar).forEach((car) => lines.push(`・${car.name}（出動保留）`));
+  children.filter(isHoldKid).forEach((kid) => lines.push(`・${kid.name}（体調様子見）`));
+  return lines;
+}
+
 function buildPlanTexts(assignments) {
-  const activeCars = cars.filter(c => c.active);
+  const poolCars = cars.filter(isPoolCar);
   const ridingKids = children.filter(isRiding);
-  const onSiteKids = children.filter(isOnSite);
   const phrase = planDatePhrase();
   const hasMotionSick = ridingKids.some(k => k.motionSick);
-  const hasPinned = ridingKids.some(k => k.fixedCar && activeCars.some(c => c.name === k.fixedCar));
-  const hasRideBlock = ridingKids.length > 0 || activeCars.some(c => companionSeatsOf(c) > 0);
+  const hasPinned = ridingKids.some(k => k.fixedCar && poolCars.some(c => c.name === k.fixedCar));
+  const hasPoolRide = poolCars.some((car) => {
+    const riders = realAssignedPlayers((assignments && assignments[car.name]) || []);
+    return riders.length > 0 || companionSeatsOf(car) > 0;
+  });
+  const directLines = directSectionLines(assignments);
+  const holdLines = holdSectionLines();
 
   let screen = `【連絡】${phrase}の配車です🚗\n---------------------\n`;
   let line = `【連絡】${phrase}の配車です🚗\n---------------------\n`;
-  if (hasRideBlock) {
-    activeCars.forEach(c => {
+  if (hasPoolRide) {
+    poolCars.forEach(c => {
       const riders = realAssignedPlayers((assignments && assignments[c.name]) || []);
       const names = riders.map(k => playerListLabel(k, c.name)).join('、');
       const lineNames = riders.map(k => k.name);
@@ -735,13 +810,27 @@ function buildPlanTexts(assignments) {
       line += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
       line += `${lineNames.length > 0 ? lineNames.join('\n') : 'なし'}\n\n`;
     });
-  } else {
+  }
+  const placedIds = new Set();
+  Object.keys(assignments || {}).forEach((carName) => {
+    realAssignedPlayers(assignments[carName]).forEach((kid) => placedIds.add(String(kid.id)));
+  });
+  const looseKids = ridingKids.filter((kid) => !placedIds.has(String(kid.id)));
+  if (looseKids.length > 0) {
+    screen += `■ 未割当\n  ${looseKids.map(k => k.name).join('、')}\n\n`;
+    line += `■ 未割当\n${looseKids.map(k => k.name).join('\n')}\n\n`;
+  }
+  if (!hasPoolRide && looseKids.length === 0 && directLines.length === 0 && holdLines.length === 0) {
     screen += `${phrase}の乗車配車はありません。\n\n`;
     line += `${phrase}の乗車配車はありません。\n\n`;
   }
-  if (onSiteKids.length > 0) {
-    screen += `【現地集合】${onSiteKids.map(k => k.name).join('、')}\n\n`;
-    line += `【現地集合】\n${onSiteKids.map(k => k.name).join('、')}\n\n`;
+  if (directLines.length > 0) {
+    screen += `■ 現地集合（直行）\n  ${directLines.join('\n  ')}\n\n`;
+    line += `■ 現地集合（直行）\n${directLines.join('\n')}\n\n`;
+  }
+  if (holdLines.length > 0) {
+    screen += `■ 個人対応（様子見・自走）\n  ${holdLines.join('\n  ')}\n\n`;
+    line += `■ 個人対応（様子見・自走）\n${holdLines.join('\n')}\n\n`;
   }
   if (hasPinned) screen += "※「📌」は事前指定で固定した乗車です。\n";
   if (hasMotionSick) screen += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
@@ -754,9 +843,87 @@ function showPlanTexts(texts) {
   syncResultHeading();
   const resultText = document.getElementById('resultText');
   const resultCard = document.getElementById('resultCard');
-  if (resultText) resultText.innerText = texts.screen;
+  if (resultText) {
+    const editor = typeof buildAssignmentMoveHtml === 'function'
+      ? buildAssignmentMoveHtml(currentAssignments)
+      : '';
+    const preview = `<p class="result-share-label">共有される文章</p><pre class="result-share-preview">${escapeHtml(texts.line || '')}</pre>`;
+    resultText.innerHTML = editor + preview;
+  }
   if (resultCard) resultCard.style.display = 'block';
   lastGeneratedPlan = texts.line;
+}
+
+function stripAssignedPlayer(childId) {
+  if (!currentAssignments) return;
+  Object.keys(currentAssignments).forEach((name) => {
+    const list = currentAssignments[name];
+    if (!Array.isArray(list)) return;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i] && String(list[i].id) === String(childId)) list.splice(i, 1);
+    }
+  });
+}
+
+function finishManualMove() {
+  const poolCars = cars.filter(isPoolCar);
+  const warnings = collectSoftWarnings(currentAssignments || {}, poolCars);
+  attachAssignmentWarnings(currentAssignments, warnings);
+  showPlanTexts(buildPlanTexts(currentAssignments));
+  renderAssignmentWarnings(warnings);
+  saveData();
+  renderChildren();
+  renderCars();
+  updateStatusBar();
+}
+
+function reconcileOpenCarMode(car) {
+  if (!currentAssignments || !car) return;
+  const list = Array.isArray(currentAssignments[car.name]) ? currentAssignments[car.name] : [];
+  if (isDirectCar(car)) {
+    const family = list.filter((kid) => kid && isRiding(kid) && kid.parentCar === car.name);
+    if (family.length) currentAssignments[car.name] = family;
+    else delete currentAssignments[car.name];
+    return;
+  }
+  if (isHoldCar(car)) delete currentAssignments[car.name];
+}
+
+function moveAssignedPlayer(childId, destination) {
+  if (!currentAssignments) return;
+  const child = children.find((item) => String(item.id) === String(childId));
+  const dest = String(destination || '');
+  if (!child || !dest) return;
+
+  if (dest === 'site' || dest === 'off' || dest === 'hold') {
+    stripAssignedPlayer(child.id);
+    setAttendMode(child, dest === 'site' ? 'site' : dest === 'hold' ? 'hold' : 'off');
+    finishManualMove();
+    return;
+  }
+
+  const carName = dest.indexOf('car:') === 0 ? dest.slice(4) : '';
+  const car = cars.find((item) => isPoolCar(item) && item.name === carName);
+  if (!car) {
+    refreshDisplayedPlan();
+    return;
+  }
+  if (!Array.isArray(currentAssignments[car.name])) currentAssignments[car.name] = [];
+  const alreadyThere = (currentAssignments[car.name] || []).some((kid) => String(kid.id) === String(child.id));
+  if (alreadyThere) {
+    refreshDisplayedPlan();
+    return;
+  }
+  const ridingPreview = Object.assign({}, child, { active: true, meetOnSite: false, dayMode: 'normal' });
+  if (remainingSeats(car, currentAssignments) < seatCost(ridingPreview)) {
+    alert(`「${car.name}」の定員を超えるため移動できません。`);
+    refreshDisplayedPlan();
+    return;
+  }
+  stripAssignedPlayer(child.id);
+  if (!isRiding(child)) setAttendMode(child, 'ride');
+  currentAssignments[car.name].push(child);
+  finishManualMove();
 }
 
 function refreshDisplayedPlan() {
@@ -794,42 +961,70 @@ function restoreDisplayedPlan(payload) {
 }
 
 // 骨格確定のあと、入れ替えでソフト制約を上げる
+function assignDirectFamilies() {
+  const assignments = {};
+  cars.filter(isDirectCar).forEach((car) => {
+    const seated = [];
+    children.filter((kid) => isRiding(kid) && kid.parentCar === car.name).forEach((kid) => {
+      const scratch = {};
+      scratch[car.name] = seated;
+      if (remainingSeats(car, scratch) >= seatCost(kid)) seated.push(kid);
+    });
+    if (seated.length) assignments[car.name] = seated;
+  });
+  return assignments;
+}
+
 function generateCarpool() {
   clearCarpoolDiagnosis();
   renderAssignmentWarnings([]);
 
-  const activeCars = cars.filter(c => c.active);
-  const ridingKids = children.filter(isRiding);
+  const directAssignments = assignDirectFamilies();
+  const placedDirect = new Set();
+  Object.keys(directAssignments).forEach((name) => {
+    directAssignments[name].forEach((kid) => placedDirect.add(String(kid.id)));
+  });
+  const poolCars = cars.filter(isPoolCar);
+  const ridingKids = children.filter((kid) => isRiding(kid) && !placedDirect.has(String(kid.id)));
   const onSiteKids = children.filter(isOnSite);
+  const holdKids = children.filter(isHoldKid);
+  const holdCars = cars.filter(isHoldCar);
+  const directCars = cars.filter(isDirectCar);
 
-  if (ridingKids.length === 0 && onSiteKids.length === 0) {
-    alert("参加する子供（乗車または現地集合）を選んでください。");
+  if (ridingKids.length === 0 && onSiteKids.length === 0 && holdKids.length === 0 && holdCars.length === 0 && directCars.length === 0) {
+    alert("参加する子供（乗車・現地集合・個人）または当日の車両状態を選んでください。");
     return;
   }
 
   let assignments = {};
+  Object.keys(directAssignments).forEach((name) => {
+    assignments[name] = directAssignments[name].slice();
+  });
   const warnings = [];
 
   if (ridingKids.length > 0) {
-    if (activeCars.length === 0) {
+    if (poolCars.length === 0) {
       presentCarpoolFailure();
       return;
     }
 
-    const totalCap = activeCars.reduce((sum, c) => sum + (parseInt(c.capacity, 10) || 0), 0);
-    const familyDemand = activeCars.reduce((sum, c) => sum + familySeatsOf(c), 0);
+    const totalCap = poolCars.reduce((sum, c) => sum + (parseInt(c.capacity, 10) || 0), 0);
+    const familyDemand = poolCars.reduce((sum, c) => sum + familySeatsOf(c), 0);
     const seatDemand = ridingKids.reduce((sum, c) => sum + seatCost(c), 0) + familyDemand;
     if (totalCap < seatDemand) {
-      alert(`座席が${seatDemand - totalCap}席不足しています`);
+      const shortage = seatDemand - totalCap;
+      const guide = parentCancelShortageWarnings(ridingKids, shortage);
+      alert(guide[0] || `座席が${shortage}席不足しています`);
       presentCarpoolFailure();
+      revealResultWarnings(guide);
       return;
     }
 
-    if (activeCars.length * 2 > ridingKids.length) {
+    if (poolCars.length * 2 > ridingKids.length) {
       warnings.push('車両数が多いため、1名乗車の車両が発生します');
     }
 
-    const built = buildTwoPhaseAssignment(activeCars, ridingKids);
+    const built = buildTwoPhaseAssignment(poolCars, ridingKids);
     if (built.overflowedCars.length > 0) {
       alert(`${built.overflowedCars.map(n => `「${n}」`).join('、')}の定員を超えて指定されています。\nあふれた分は自動配車に回します。`);
     }
@@ -837,8 +1032,10 @@ function generateCarpool() {
       presentCarpoolFailure({ leftoverKids: built.leftover });
       return;
     }
-    assignments = built.assignments;
-    collectSoftWarnings(assignments, activeCars).forEach((text) => warnings.push(text));
+    Object.keys(built.assignments).forEach((name) => {
+      assignments[name] = built.assignments[name];
+    });
+    collectSoftWarnings(assignments, poolCars).forEach((text) => warnings.push(text));
   }
 
   clearCarpoolDiagnosis();
@@ -936,5 +1133,10 @@ function copyResult() {
   global.remainingSeats = remainingSeats;
   global.placeKid = placeKid;
   global.escapeHtml = escapeHtml;
+  global.realAssignedPlayers = realAssignedPlayers;
+  global.moveAssignedPlayer = moveAssignedPlayer;
+  global.finishManualMove = finishManualMove;
+  global.reconcileOpenCarMode = reconcileOpenCarMode;
+  global.parentCancelShortageWarnings = parentCancelShortageWarnings;
 
 })(typeof window !== 'undefined' ? window : globalThis);
