@@ -753,8 +753,9 @@ function realAssignedPlayers(riders) {
   return (riders || []).filter((player) => {
     if (!player || typeof player !== 'object') return false;
     if (player.isCompanion) return false;
+    if (typeof isHoldKid === 'function' && isHoldKid(player)) return false;
     if (player.id == null || player.id === '') return false;
-    return roster.some((orig) => String(orig.id) === String(player.id));
+    return roster.some((orig) => String(orig.id) === String(player.id) && !(typeof isHoldKid === 'function' && isHoldKid(orig)));
   });
 }
 
@@ -781,8 +782,20 @@ function directSectionLines(assignments) {
 
 function holdSectionLines() {
   const lines = [];
-  cars.filter(isHoldCar).forEach((car) => lines.push(`・${car.name}（出動保留）`));
-  children.filter(isHoldKid).forEach((kid) => lines.push(`・${kid.name}（体調様子見）`));
+  const indCars = cars.filter((car) => carDayMode(car) === 'individual' || car.dispatchStatus === 'individual');
+  indCars.forEach((car) => {
+    let headerText = car.name;
+    if (typeof formatCarCompanionHeader === 'function') {
+      const formatted = formatCarCompanionHeader(car).replace(/^■\s*/, '').trim();
+      headerText = formatted.indexOf(String(car.name || '')) === 0 ? formatted : `${car.name}${formatted}`;
+    }
+    const myKids = children.filter((player) => isChildOfCar(player, car) && (player.dayMode === 'individual' || player.dispatchStatus === 'individual' || player.status === 'individual'));
+    if (myKids.length > 0) {
+      lines.push(`・${headerText}：${myKids.map((kid) => kid.name).join('、')}`);
+    } else {
+      lines.push(`・${headerText}`);
+    }
+  });
   return lines;
 }
 
@@ -829,8 +842,8 @@ function buildPlanTexts(assignments) {
     line += `■ 現地集合（直行）\n${directLines.join('\n')}\n\n`;
   }
   if (holdLines.length > 0) {
-    screen += `■ 個人対応（様子見・自走）\n  ${holdLines.join('\n  ')}\n\n`;
-    line += `■ 個人対応（様子見・自走）\n${holdLines.join('\n')}\n\n`;
+    screen += `■ 個人（家庭送迎・自走）\n  ${holdLines.join('\n  ')}\n\n`;
+    line += `■ 個人（家庭送迎・自走）\n${holdLines.join('\n')}\n\n`;
   }
   if (hasPinned) screen += "※「📌」は事前指定で固定した乗車です。\n";
   if (hasMotionSick) screen += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
@@ -978,6 +991,7 @@ function assignDirectFamilies() {
 function generateCarpool() {
   clearCarpoolDiagnosis();
   renderAssignmentWarnings([]);
+  if (typeof excludePlayersOfIndividualCars === 'function') excludePlayersOfIndividualCars();
 
   const directAssignments = assignDirectFamilies();
   const placedDirect = new Set();
@@ -985,7 +999,16 @@ function generateCarpool() {
     directAssignments[name].forEach((kid) => placedDirect.add(String(kid.id)));
   });
   const poolCars = cars.filter(isPoolCar);
-  const ridingKids = children.filter((kid) => isRiding(kid) && !placedDirect.has(String(kid.id)));
+  const individualCars = cars.filter((car) => carDayMode(car) === 'individual' || car.dispatchStatus === 'individual');
+  const ridingKids = children.filter((kid) => {
+    if (!isRiding(kid) || placedDirect.has(String(kid.id))) return false;
+    if (kid.dispatchStatus === 'individual' || kid.status === 'individual' || !kid.active) return false;
+    if (individualCars.some((car) => isChildOfCar(kid, car))) {
+      kid.dispatchStatus = 'individual';
+      return false;
+    }
+    return true;
+  });
   const onSiteKids = children.filter(isOnSite);
   const holdKids = children.filter(isHoldKid);
   const holdCars = cars.filter(isHoldCar);

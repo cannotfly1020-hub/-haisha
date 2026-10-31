@@ -454,7 +454,8 @@ function buildFixedCarOptionsHtml(selected, child) {
     html += `<option value="${c.name}" ${selected === c.name ? 'selected' : ''}>${c.name}</option>`;
   });
   if (selected && !activeCars.some(c => c.name === selected)) {
-    html += `<option value="${selected}" selected>${selected}（本日休み）</option>`;
+    const name = escapeRoleText(selected);
+    html += `<option value="${name}" selected>${name}</option>`;
   }
   return html;
 }
@@ -690,13 +691,12 @@ function renderCars() {
     const isFirst = orderIndex <= 0;
     const isLast = orderIndex < 0 || orderIndex >= cars.length - 1;
 
-    const safeName = String(car.name || '').replace(/"/g, '&quot;');
+    const displayName = car.name;
+    const safeName = String(displayName || '').replace(/"/g, '&quot;');
     const dayClass = car.dayMode === 'direct' ? ' is-direct' : car.dayMode === 'individual' ? ' is-hold' : '';
     const dayBadge = car.dayMode === 'direct'
       ? '<span class="badge-day-direct">現地</span>'
-      : car.dayMode === 'individual'
-        ? '<span class="badge-day-hold">個人</span>'
-        : '';
+      : '';
     const equipBadge = car.isEquipmentCar ? `<span class="equipment-badge" title="道具車">📦 道具車</span>` : '';
     const periodDays = getDispatchPeriod();
     const periodLabel = periodDays === 30 ? '1ヶ月' : periodDays === 90 ? '3ヶ月' : periodDays === 180 ? '半年' : `${periodDays}日`;
@@ -908,7 +908,25 @@ function toggleDayMode(kind, id, mode) {
   if (kind === 'car') {
     const car = cars.find((item) => String(item.id) === String(id));
     if (!car) return;
+    if (mode === 'individual') {
+      const turningOn = carDayMode(car) !== 'individual';
+      applyFamilyIndividual(car, turningOn);
+      if (assignmentPlanIsOpen()) {
+        if (turningOn && typeof stripAssignedPlayer === 'function') {
+          children.forEach((child) => {
+            if (isChildOfCar(child, car)) stripAssignedPlayer(child.id);
+          });
+        }
+        if (typeof reconcileOpenCarMode === 'function') reconcileOpenCarMode(car);
+        finishManualMove();
+        return;
+      }
+      saveData();
+      refreshLists();
+      return;
+    }
     car.dayMode = car.dayMode === mode ? 'normal' : mode;
+    car.dispatchStatus = car.dayMode;
     if (assignmentPlanIsOpen() && typeof reconcileOpenCarMode === 'function') {
       reconcileOpenCarMode(car);
       finishManualMove();
@@ -1011,13 +1029,18 @@ function buildAssignmentMoveHtml(assignments) {
   }
 
   const holdCars = cars.filter(isHoldCar);
-  const holdKids = children.filter(isHoldKid);
-  if (holdCars.length || holdKids.length) {
-    html += '<section class="result-hold"><p class="result-car-title">■ 個人対応（様子見・自走）</p><ul class="result-rider-list">';
+  if (holdCars.length) {
+    html += '<section class="result-hold"><p class="result-car-title">■ 個人（家庭送迎・自走）</p><ul class="result-rider-list">';
     holdCars.forEach((car) => {
-      html += `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(`・${car.name}（出動保留）`)}</span></li>`;
+      let headerText = car.name;
+      if (typeof formatCarCompanionHeader === 'function') {
+        const formatted = formatCarCompanionHeader(car).replace(/^■\s*/, '').trim();
+        headerText = formatted.indexOf(String(car.name || '')) === 0 ? formatted : `${car.name}${formatted}`;
+      }
+      const myKids = children.filter((player) => isChildOfCar(player, car) && (player.dayMode === 'individual' || player.dispatchStatus === 'individual' || player.status === 'individual'));
+      const label = myKids.length ? `・${headerText}：${myKids.map((kid) => kid.name).join('、')}` : `・${headerText}`;
+      html += `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(label)}</span></li>`;
     });
-    holdKids.forEach((kid) => { html += buildRiderMoveRow(kid, '', poolCars, '（体調様子見）'); });
     html += '</ul></section>';
   }
   return html;

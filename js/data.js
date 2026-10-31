@@ -3,7 +3,7 @@ function createDefaultCars() {
   return [
     { id: 1, name: '佐藤号', capacity: 3, active: true, companions: [], isEquipmentCar: false },
     { id: 2, name: '鈴木号', capacity: 3, active: true, companions: [], isEquipmentCar: false },
-    { id: 3, name: '田中号(荷物車)', capacity: 2, active: true, companions: [], isEquipmentCar: false }
+    { id: 3, name: '田中号', capacity: 2, active: true, companions: [], isEquipmentCar: false }
   ];
 }
 
@@ -170,6 +170,65 @@ function isDirectCar(car) {
 
 function isHoldCar(car) {
   return !!car && !!car.active && carDayMode(car) === 'individual';
+}
+
+function isChildOfCar(child, car) {
+  if (!child || !car) return false;
+  const carName = String(car.name || '').trim();
+  if (!carName) return false;
+  if (child.parentCar && String(child.parentCar).trim() === carName) return true;
+  if (child.fixedCar && String(child.fixedCar).trim() === carName) return true;
+  const baseFamilyName = carName.replace(/号$/, '').trim();
+  const childName = String(child.name || '').trim();
+  if (baseFamilyName) {
+    if (childName.startsWith(baseFamilyName)) return true;
+    if (child.familyName && String(child.familyName).trim() === baseFamilyName) return true;
+  }
+  return false;
+}
+
+let familyLinkLock = false;
+
+function applyFamilyIndividual(car, on) {
+  if (!car || familyLinkLock) return;
+  familyLinkLock = true;
+  try {
+    car.dayMode = on ? 'individual' : 'normal';
+    car.dispatchStatus = car.dayMode;
+    children.forEach((child) => {
+      if (!isChildOfCar(child, car)) return;
+      const keptFixed = child.fixedCar;
+      const keptParent = child.parentCar;
+      setAttendMode(child, on ? 'hold' : 'ride');
+      child.fixedCar = keptFixed;
+      child.parentCar = keptParent;
+      child.dispatchStatus = on ? 'individual' : 'normal';
+      child.status = on ? 'individual' : 'attend';
+    });
+  } finally {
+    familyLinkLock = false;
+  }
+}
+
+function excludePlayersOfIndividualCars() {
+  const individualCars = cars.filter((car) => carDayMode(car) === 'individual' || car.dispatchStatus === 'individual');
+  individualCars.forEach((car) => {
+    children.forEach((child) => {
+      if (!isChildOfCar(child, car)) return;
+      if (childDayMode(child) === 'individual') {
+        child.dispatchStatus = 'individual';
+        child.status = 'individual';
+        return;
+      }
+      const keptFixed = child.fixedCar;
+      const keptParent = child.parentCar;
+      setAttendMode(child, 'hold');
+      child.fixedCar = keptFixed;
+      child.parentCar = keptParent;
+      child.dispatchStatus = 'individual';
+      child.status = 'individual';
+    });
+  });
 }
 
 const DISPATCH_PERIOD_KEY = 'cp_dispatch_period';
@@ -354,6 +413,7 @@ function isRiding(child) {
 
 function needsPoolSeat(child) {
   if (!isRiding(child)) return false;
+  if (cars.some((car) => (carDayMode(car) === 'individual' || car.dispatchStatus === 'individual') && isChildOfCar(child, car))) return false;
   const home = cars.find((car) => car.name === child.parentCar);
   return !(home && isDirectCar(home));
 }
@@ -386,28 +446,42 @@ function getAttendMode(child) {
 }
 
 function setAttendMode(child, mode) {
+  const wasIndividual = childDayMode(child) === 'individual';
   if (mode === 'off') {
     child.active = false;
     child.meetOnSite = false;
     child.dayMode = 'normal';
     child.companions = [];
     child.fixedCar = '';
+    child.dispatchStatus = 'absent';
+    child.status = 'absent';
   } else if (mode === 'site') {
     child.active = true;
     child.meetOnSite = true;
     child.dayMode = 'direct';
     child.companions = [];
     child.fixedCar = '';
+    child.dispatchStatus = 'direct';
+    child.status = 'direct';
   } else if (mode === 'hold') {
     child.active = true;
     child.meetOnSite = false;
     child.dayMode = 'individual';
     child.companions = [];
-    child.fixedCar = '';
+    child.dispatchStatus = 'individual';
+    child.status = 'individual';
   } else {
     child.active = true;
     child.meetOnSite = false;
     child.dayMode = 'normal';
+    child.dispatchStatus = 'normal';
+    child.status = 'attend';
+  }
+  if (familyLinkLock) return;
+  if (mode === 'hold') {
+    cars.filter((car) => isChildOfCar(child, car)).forEach((car) => applyFamilyIndividual(car, true));
+  } else if (wasIndividual && mode === 'ride') {
+    cars.filter((car) => isChildOfCar(child, car) && (carDayMode(car) === 'individual' || car.dispatchStatus === 'individual')).forEach((car) => applyFamilyIndividual(car, false));
   }
 }
 
@@ -1473,6 +1547,9 @@ function promoteAllGrades() {
   global.isPoolCar = isPoolCar;
   global.isDirectCar = isDirectCar;
   global.isHoldCar = isHoldCar;
+  global.isChildOfCar = isChildOfCar;
+  global.applyFamilyIndividual = applyFamilyIndividual;
+  global.excludePlayersOfIndividualCars = excludePlayersOfIndividualCars;
   global.needsPoolSeat = needsPoolSeat;
   global.seatCost = seatCost;
   global.formatRiderLabel = formatRiderLabel;
