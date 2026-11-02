@@ -642,7 +642,9 @@ function optimizeBySwaps(assignments, activeCars, rerunSalt) {
           listA[i] = kidB;
           listB[j] = kidA;
           const after = evaluateAssignmentScore(assignments);
-          if (after > before + 1e-6) {
+          const isScoreBetter = after > before + 1e-6;
+          const isScoreEqualInRerun = salt > 0 && Math.abs(after - before) <= 1e-6;
+          if (isScoreBetter || isScoreEqualInRerun) {
             improved = true;
             found = true;
           } else {
@@ -812,6 +814,37 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt) {
 
   if (leftover.length) leftover = repairLeftovers(leftover, assignments, activeCars);
   if (!leftover.length) optimizeBySwaps(assignments, activeCars, salt);
+
+  if (salt > 0 && activeCars.length >= 2) {
+    const movableSlots = [];
+    activeCars.forEach((car) => {
+      const list = assignments[car.name] || [];
+      list.forEach((kid, idx) => {
+        if (isSwappable(kid, activeCars)) movableSlots.push({ car, index: idx, kid });
+      });
+    });
+    const candidates = [];
+    for (let i = 0; i < movableSlots.length; i++) {
+      for (let j = i + 1; j < movableSlots.length; j++) {
+        const slotA = movableSlots[i];
+        const slotB = movableSlots[j];
+        if (slotA.car.name === slotB.car.name) continue;
+        if (canSwapSeats(slotA.car, slotA.kid, slotB.car, slotB.kid, assignments)) {
+          candidates.push([slotA, slotB]);
+        }
+      }
+    }
+    if (candidates.length > 0) {
+      const pick = candidates[(salt - 1) % candidates.length];
+      const slotA = pick[0];
+      const slotB = pick[1];
+      const listA = assignments[slotA.car.name];
+      const listB = assignments[slotB.car.name];
+      const temp = listA[slotA.index];
+      listA[slotA.index] = listB[slotB.index];
+      listB[slotB.index] = temp;
+    }
+  }
   return { assignments, overflowedCars, leftover };
 }
 
