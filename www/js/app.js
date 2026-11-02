@@ -104,7 +104,8 @@ function runClickAction(target) {
       addChild();
       break;
     case 'generate':
-      generateCarpool();
+      if (target.dataset.rerun === '1') rerunCarpool(target);
+      else runPrimaryCarpool();
       break;
     case 'copy-result':
       copyResult();

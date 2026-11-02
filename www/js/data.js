@@ -823,6 +823,71 @@ function sessionStorageKey(ymd) {
   return isPlanYmd(ymd) ? `cp_session_${ymd}` : '';
 }
 
+function readSessionAssignments(ymd) {
+  const live = planStore && planStore.sessions ? planStore.sessions[ymd] : null;
+  const liveMap = live && live.result && live.result.assignments;
+  if (liveMap && typeof liveMap === 'object') return liveMap;
+  try {
+    const raw = localStorage.getItem(sessionStorageKey(ymd));
+    if (!raw) return null;
+    const slot = JSON.parse(raw);
+    const stored = slot && slot.result && slot.result.assignments;
+    if (stored && typeof stored === 'object') return stored;
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+/**
+ * 直近の乗車履歴を解析し、選手ごとの車両乗車回数と直前乗車車名を取得する。
+ * 過去データが空でも空オブジェクトを返し、配車計算は止めない。
+ */
+function getRideHistoryStats(currentDateStr, maxSessions) {
+  const empty = { lastCar: {}, carRideCount: {} };
+  try {
+    const limit = Math.max(0, parseInt(maxSessions, 10) || 0);
+    const current = typeof currentDateStr === 'string' ? currentDateStr : '';
+    if (!limit || !isPlanYmd(current)) return empty;
+    const dates = {};
+    const remember = (ymd) => {
+      if (!isPlanYmd(ymd) || ymd >= current) return;
+      dates[ymd] = true;
+    };
+    if (planStore && planStore.sessions) {
+      Object.keys(planStore.sessions).forEach(remember);
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || key.indexOf('cp_session_') !== 0) continue;
+      remember(key.slice('cp_session_'.length));
+    }
+    const picked = Object.keys(dates).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).slice(0, limit);
+    const lastCar = {};
+    const carRideCount = {};
+    picked.forEach((ymd) => {
+      const assignments = readSessionAssignments(ymd);
+      if (!assignments) return;
+      const seen = {};
+      Object.keys(assignments).forEach((carName) => {
+        const ids = assignments[carName];
+        if (!Array.isArray(ids) || !carName) return;
+        ids.forEach((id) => {
+          if (id == null || id === '') return;
+          const pid = String(id);
+          const mark = `${pid}\0${carName}`;
+          if (seen[mark]) return;
+          seen[mark] = true;
+          if (!lastCar[pid]) lastCar[pid] = carName;
+          if (!carRideCount[pid]) carRideCount[pid] = {};
+          carRideCount[pid][carName] = (carRideCount[pid][carName] || 0) + 1;
+        });
+      });
+    });
+    return { lastCar, carRideCount };
+  } catch (e) {
+    return empty;
+  }
+}
+
 function readStoredSession(ymd) {
   const key = sessionStorageKey(ymd);
   if (!key) return null;
@@ -1514,6 +1579,7 @@ function promoteAllGrades() {
   global.getDispatchPeriod = getDispatchPeriod;
   global.setDispatchPeriod = setDispatchPeriod;
   global.getCarDispatchCount = getCarDispatchCount;
+  global.getRideHistoryStats = getRideHistoryStats;
   global.getActivePlanDateLabel = getActivePlanDateLabel;
   global.getActivePlanResult = getActivePlanResult;
   global.planResultHeading = planResultHeading;

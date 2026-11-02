@@ -881,6 +881,51 @@ function commitCarRename(id, newName) {
   }
 }
 
+function planDateKey() {
+  try {
+    const view = typeof getPlanSlotView === 'function' ? getPlanSlotView() : null;
+    if (view && view.date) return String(view.date);
+  } catch (e) { /* ignore */ }
+  return '';
+}
+
+const rerunSaltByDate = {};
+
+function showResultPattern(rerunSalt) {
+  const el = document.getElementById('resultPattern');
+  if (!el) return;
+  const salt = parseInt(rerunSalt, 10);
+  if (!Number.isFinite(salt) || salt <= 0) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  el.hidden = false;
+  el.textContent = `パターン ${salt + 1}（再計算）`;
+}
+
+function runPrimaryCarpool() {
+  rerunSaltByDate[planDateKey()] = 0;
+  generateCarpool(0);
+}
+
+function rerunCarpool(button) {
+  const key = planDateKey();
+  const next = (parseInt(rerunSaltByDate[key], 10) || 0) + 1;
+  rerunSaltByDate[key] = next;
+  if (button && !button.dataset.rerunLabel) button.dataset.rerunLabel = button.textContent;
+  if (button) button.textContent = '再計算中...';
+  generateCarpool(next);
+  if (!button) return;
+  button.textContent = `パターン ${next + 1} を生成しました`;
+  const token = String(next);
+  button.dataset.rerunToken = token;
+  setTimeout(() => {
+    if (button.dataset.rerunToken !== token) return;
+    button.textContent = button.dataset.rerunLabel || '🔄 別の組み合わせで再計算する';
+  }, 1500);
+}
+
 function assignmentPlanIsOpen() {
   const card = document.getElementById('resultCard');
   return !!(card && card.style && card.style.display === 'block' && typeof currentAssignments !== 'undefined' && currentAssignments);
@@ -1397,6 +1442,9 @@ bindCarReorderGestures();
 
 
   const HaishaUI = {
+    runPrimaryCarpool,
+    rerunCarpool,
+    showResultPattern,
     renderCars,
     renderChildren,
     refreshLists,

@@ -483,6 +483,74 @@ function medianCapacity(activeCars) {
   return (caps[mid - 1] + caps[mid]) / 2;
 }
 
+let rideHistoryStats = { lastCar: {}, carRideCount: {} };
+
+function loadRideHistoryStats() {
+  rideHistoryStats = { lastCar: {}, carRideCount: {} };
+  try {
+    const view = typeof getPlanSlotView === 'function' ? getPlanSlotView() : null;
+    const date = view && view.date ? view.date : '';
+    if (typeof getRideHistoryStats !== 'function') return;
+    const stats = getRideHistoryStats(date, 3);
+    if (!stats || typeof stats !== 'object') return;
+    rideHistoryStats = {
+      lastCar: stats.lastCar && typeof stats.lastCar === 'object' ? stats.lastCar : {},
+      carRideCount: stats.carRideCount && typeof stats.carRideCount === 'object' ? stats.carRideCount : {}
+    };
+  } catch (e) {
+    rideHistoryStats = { lastCar: {}, carRideCount: {} };
+  }
+}
+
+function planDateSeed() {
+  try {
+    const view = typeof getPlanSlotView === 'function' ? getPlanSlotView() : null;
+    if (view && view.date) return String(view.date);
+  } catch (e) { /* ignore */ }
+  return '';
+}
+
+function normalizeRerunSalt(value) {
+  const salt = parseInt(value, 10);
+  return Number.isFinite(salt) && salt > 0 ? salt : 0;
+}
+
+function hashSeedKey(text) {
+  let hash = 2166136261;
+  const source = String(text || '');
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededUnit(seed, id) {
+  return hashSeedKey(`${seed}\0${id}`);
+}
+
+function freeKidRank(kid, rerunSalt) {
+  const dateStr = planDateSeed();
+  const salt = normalizeRerunSalt(rerunSalt);
+  const seedKey = salt ? `${dateStr}_salt${salt}_${kid && kid.id}` : `${dateStr}\0${kid && kid.id}`;
+  return hashSeedKey(seedKey);
+}
+
+function rideRepeatPenalty(kid, car) {
+  if (!kid || !car || kid.id == null) return 0;
+  const carName = String(car.name || '');
+  if (typeof isChildOfCar === 'function' && isChildOfCar(kid, car)) return 0;
+  if (kid.fixedCar && String(kid.fixedCar).trim() === carName) return 0;
+  const pid = String(kid.id);
+  const stats = rideHistoryStats || {};
+  let penalty = 0;
+  if (stats.lastCar && stats.lastCar[pid] === carName) penalty -= 300;
+  const counts = stats.carRideCount && stats.carRideCount[pid];
+  const times = counts && counts[carName] ? counts[carName] : 0;
+  if (times) penalty -= 80 * times;
+  return penalty;
+}
+
 /** 減点方式。高いほど良い。座席不足のハード失敗はここでは扱わない。 */
 function evaluateAssignmentScore(assignments) {
   const activeCars = assignmentCars(assignments);
@@ -511,6 +579,10 @@ function evaluateAssignmentScore(assignments) {
       });
     }
 
+    riders.forEach((kid) => {
+      score += rideRepeatPenalty(kid, car);
+    });
+
     if (riders.length > 0) {
       const sum = riders.reduce((total, kid) => total + (Number(kid.grade) || 0), 0);
       averages.push(sum / riders.length);
@@ -534,39 +606,48 @@ function canSwapSeats(carA, kidA, carB, kidB, assignments) {
   return usedA + delta <= capA && usedB - delta <= capB;
 }
 
-function optimizeBySwaps(assignments, activeCars) {
+function optimizeBySwaps(assignments, activeCars, rerunSalt) {
+  const salt = normalizeRerunSalt(rerunSalt);
   let trials = 0;
   let improved = true;
   while (improved && trials < MAX_SWAP_TRIALS) {
     improved = false;
-    for (let a = 0; a < activeCars.length && trials < MAX_SWAP_TRIALS; a++) {
-      for (let b = a + 1; b < activeCars.length && trials < MAX_SWAP_TRIALS; b++) {
-        const carA = activeCars[a];
-        const carB = activeCars[b];
-        const listA = assignments[carA.name];
-        const listB = assignments[carB.name];
-        for (let i = 0; i < listA.length && trials < MAX_SWAP_TRIALS; i++) {
-          const kidA = listA[i];
-          if (!isSwappable(kidA, activeCars)) continue;
-          for (let j = 0; j < listB.length && trials < MAX_SWAP_TRIALS; j++) {
-            const kidB = listB[j];
-            if (!isSwappable(kidB, activeCars)) continue;
-            if (!canSwapSeats(carA, kidA, carB, kidB, assignments)) continue;
-            trials += 1;
-            const before = evaluateAssignmentScore(assignments);
-            listA[i] = kidB;
-            listB[j] = kidA;
-            const after = evaluateAssignmentScore(assignments);
-            if (after > before + 1e-6) {
-              improved = true;
-              a = activeCars.length;
-              b = activeCars.length;
-              i = listA.length;
-              j = listB.length;
-            } else {
-              listA[i] = kidA;
-              listB[j] = kidB;
-            }
+    const pairOrder = [];
+    for (let a = 0; a < activeCars.length; a++) {
+      for (let b = a + 1; b < activeCars.length; b++) pairOrder.push([a, b]);
+    }
+    if (salt && pairOrder.length) {
+      pairOrder.push(...pairOrder.splice(0, salt % pairOrder.length));
+    }
+    let found = false;
+    for (let p = 0; p < pairOrder.length && !found && trials < MAX_SWAP_TRIALS; p++) {
+      const carA = activeCars[pairOrder[p][0]];
+      const carB = activeCars[pairOrder[p][1]];
+      const listA = assignments[carA.name];
+      const listB = assignments[carB.name];
+      if (!listA || !listB) continue;
+      const startI = salt && listA.length ? salt % listA.length : 0;
+      const startJ = salt && listB.length ? salt % listB.length : 0;
+      for (let ii = 0; ii < listA.length && !found && trials < MAX_SWAP_TRIALS; ii++) {
+        const i = (startI + ii) % listA.length;
+        const kidA = listA[i];
+        if (!isSwappable(kidA, activeCars)) continue;
+        for (let jj = 0; jj < listB.length && !found && trials < MAX_SWAP_TRIALS; jj++) {
+          const j = (startJ + jj) % listB.length;
+          const kidB = listB[j];
+          if (!isSwappable(kidB, activeCars)) continue;
+          if (!canSwapSeats(carA, kidA, carB, kidB, assignments)) continue;
+          trials += 1;
+          const before = evaluateAssignmentScore(assignments);
+          listA[i] = kidB;
+          listB[j] = kidA;
+          const after = evaluateAssignmentScore(assignments);
+          if (after > before + 1e-6) {
+            improved = true;
+            found = true;
+          } else {
+            listA[i] = kidA;
+            listB[j] = kidB;
           }
         }
       }
@@ -674,7 +755,9 @@ function attachAssignmentWarnings(assignments, warnings) {
  * フェーズ1で固定ピン・親車・最低2名の骨格を作り、フェーズ2でソフト制約をスワップする。
  * 席が物理的に足りないときだけ leftover を返す。
  */
-function buildTwoPhaseAssignment(activeCars, ridingKids) {
+function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt) {
+  loadRideHistoryStats();
+  const salt = normalizeRerunSalt(rerunSalt);
   const assignments = {};
   activeCars.forEach((car) => { assignments[car.name] = []; });
 
@@ -713,7 +796,7 @@ function buildTwoPhaseAssignment(activeCars, ridingKids) {
     if (sick) return sick;
     const cost = seatCost(b) - seatCost(a);
     if (cost) return cost;
-    return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+    return freeKidRank(a, salt) - freeKidRank(b, salt);
   });
 
   const carsToUse = Math.min(
@@ -728,7 +811,7 @@ function buildTwoPhaseAssignment(activeCars, ridingKids) {
   });
 
   if (leftover.length) leftover = repairLeftovers(leftover, assignments, activeCars);
-  if (!leftover.length) optimizeBySwaps(assignments, activeCars);
+  if (!leftover.length) optimizeBySwaps(assignments, activeCars, salt);
   return { assignments, overflowedCars, leftover };
 }
 
@@ -956,6 +1039,7 @@ function restoreDisplayedPlan(payload) {
     const resultText = document.getElementById('resultText');
     if (resultText) resultText.textContent = '';
     syncResultHeading();
+    if (typeof showResultPattern === 'function') showResultPattern(0);
     return;
   }
   const assignments = {};
@@ -971,6 +1055,7 @@ function restoreDisplayedPlan(payload) {
   currentAssignments = assignments;
   showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(warnings);
+  if (typeof showResultPattern === 'function') showResultPattern(0);
 }
 
 // 骨格確定のあと、入れ替えでソフト制約を上げる
@@ -988,7 +1073,8 @@ function assignDirectFamilies() {
   return assignments;
 }
 
-function generateCarpool() {
+function generateCarpool(rerunSalt) {
+  const salt = normalizeRerunSalt(rerunSalt);
   clearCarpoolDiagnosis();
   renderAssignmentWarnings([]);
   if (typeof excludePlayersOfIndividualCars === 'function') excludePlayersOfIndividualCars();
@@ -1047,7 +1133,7 @@ function generateCarpool() {
       warnings.push('車両数が多いため、1名乗車の車両が発生します');
     }
 
-    const built = buildTwoPhaseAssignment(poolCars, ridingKids);
+    const built = buildTwoPhaseAssignment(poolCars, ridingKids, salt);
     if (built.overflowedCars.length > 0) {
       alert(`${built.overflowedCars.map(n => `「${n}」`).join('、')}の定員を超えて指定されています。\nあふれた分は自動配車に回します。`);
     }
@@ -1066,6 +1152,7 @@ function generateCarpool() {
   currentAssignments = assignments;
   showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(lastAssignmentWarnings);
+  if (typeof showResultPattern === 'function') showResultPattern(salt);
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
