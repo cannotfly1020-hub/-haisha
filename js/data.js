@@ -322,8 +322,13 @@ function companionsOf(car) {
   return car.companions;
 }
 
+function carCompanionSeats(car) {
+  if (!car || !Array.isArray(car.companions)) return 0;
+  return car.companions.length;
+}
+
 function companionSeatsOf(car) {
-  return companionsOf(car).length;
+  return carCompanionSeats(car);
 }
 
 // 互換エイリアス（旧コード参照用）
@@ -419,8 +424,31 @@ function needsPoolSeat(child) {
 }
 
 function seatCost(child) {
-  if (!isRiding(child)) return 0;
-  return 1 + childCompanionSeatsOf(child);
+  if (!child || !isRiding(child)) return 0;
+  const companionCount = Array.isArray(child.companions) ? child.companions.length : 0;
+  return 1 + companionCount;
+}
+
+function calculateCarRemainingSeats(car, assignedKids) {
+  const cap = parseInt(car && car.capacity, 10) || 0;
+  const companionUsed = carCompanionSeats(car);
+  const kidsUsed = (assignedKids || []).reduce((sum, kid) => sum + seatCost(kid), 0);
+  return cap - companionUsed - kidsUsed;
+}
+
+function ridersCountedForCar(car) {
+  if (!car) return [];
+  const assignments = typeof currentAssignments !== 'undefined' ? currentAssignments : null;
+  let planOpen = false;
+  if (typeof document !== 'undefined' && document.getElementById && assignments) {
+    const card = document.getElementById('resultCard');
+    planOpen = !!(card && card.style && card.style.display === 'block');
+  }
+  if (planOpen) {
+    const list = assignments[car.name];
+    return Array.isArray(list) ? list : [];
+  }
+  return getFixedRidersForCar(car.name);
 }
 
 function formatRiderLabel(child, carName, options) {
@@ -495,16 +523,16 @@ function fixedSeatsUsed(carName) {
 }
 
 function carSeatSummary(car) {
-  const capacity = parseInt(car.capacity, 10) || 0;
-  const companions = companionSeatsOf(car);
-  const guests = fixedSeatsUsed(car.name);
-  const used = companions + guests;
-  const remaining = capacity - used;
+  const capacity = parseInt(car && car.capacity, 10) || 0;
+  const companions = carCompanionSeats(car);
+  const riders = ridersCountedForCar(car);
+  const guests = riders.reduce((sum, kid) => sum + seatCost(kid), 0);
+  const remaining = calculateCarRemainingSeats(car, riders);
   return {
     capacity,
     companions,
     guests,
-    used,
+    used: companions + guests,
     remaining,
     isFull: remaining <= 0,
     isOver: remaining < 0
@@ -513,15 +541,11 @@ function carSeatSummary(car) {
 
 function canFitOnCar(car, extraSeats, excludeChildId) {
   if (!car) return false;
-  const summary = carSeatSummary(car);
-  let used = summary.used;
+  let riders = ridersCountedForCar(car);
   if (excludeChildId != null) {
-    const existing = children.find(c => c.id === excludeChildId);
-    if (existing && existing.fixedCar === car.name && isRiding(existing)) {
-      used -= seatCost(existing);
-    }
+    riders = riders.filter((kid) => kid && String(kid.id) !== String(excludeChildId));
   }
-  return used + extraSeats <= summary.capacity;
+  return calculateCarRemainingSeats(car, riders) >= (Number(extraSeats) || 0);
 }
 
 function newCompanionId() {
@@ -1524,6 +1548,8 @@ function promoteAllGrades() {
     normalizeChild,
     normalizeCompanion,
     companionsOf,
+    carCompanionSeats,
+    calculateCarRemainingSeats,
     companionSeatsOf,
     familySeatsOf,
     childCompanionsOf,
@@ -1600,6 +1626,8 @@ function promoteAllGrades() {
   global.normalizeCompanion = normalizeCompanion;
   global.normalizeChildCompanions = normalizeChildCompanions;
   global.companionsOf = companionsOf;
+  global.carCompanionSeats = carCompanionSeats;
+  global.calculateCarRemainingSeats = calculateCarRemainingSeats;
   global.companionSeatsOf = companionSeatsOf;
   global.familySeatsOf = familySeatsOf;
   global.childCompanionsOf = childCompanionsOf;
@@ -1624,6 +1652,7 @@ function promoteAllGrades() {
   global.setAttendMode = setAttendMode;
   global.getFixedRidersForCar = getFixedRidersForCar;
   global.fixedSeatsUsed = fixedSeatsUsed;
+  global.ridersCountedForCar = ridersCountedForCar;
   global.carSeatSummary = carSeatSummary;
   global.canFitOnCar = canFitOnCar;
   global.newCompanionId = newCompanionId;

@@ -407,16 +407,17 @@ function updateStatusBar() {
   const activeCarsList = cars.filter(isPoolCar);
   let overflowSeats = 0;
   cars.filter(isDirectCar).forEach((car) => {
-    const cap = parseInt(car.capacity, 10) || 0;
-    let used = companionSeatsOf(car);
-    children.filter((kid) => isRiding(kid) && kid.parentCar === car.name).forEach((kid) => {
+    const family = children.filter((kid) => isRiding(kid) && kid.parentCar === car.name);
+    let used = carCompanionSeats(car);
+    family.forEach((kid) => {
       const cost = seatCost(kid);
+      const cap = parseInt(car.capacity, 10) || 0;
       if (used + cost <= cap) used += cost;
       else overflowSeats += cost;
     });
   });
   const kidSeats = children.reduce((sum, c) => sum + (needsPoolSeat(c) ? seatCost(c) : 0), 0) + overflowSeats;
-  const companionDemand = activeCarsList.reduce((sum, c) => sum + companionSeatsOf(c), 0);
+  const companionDemand = activeCarsList.reduce((sum, c) => sum + carCompanionSeats(c), 0);
   const seatDemand = kidSeats + companionDemand;
   const activeSeats = activeCarsList.reduce((sum, c) => sum + (parseInt(c.capacity, 10) || 0), 0);
   const diff = activeSeats - seatDemand;
@@ -837,6 +838,7 @@ function refreshLists() {
   renderCars();
   renderChildren();
   updateStatusBar();
+  if (typeof refreshDisplayedPlan === 'function') refreshDisplayedPlan();
 }
 
 function toggleCar(id, checked) {
@@ -1091,6 +1093,21 @@ function buildAssignmentMoveHtml(assignments) {
   return html;
 }
 
+function seatCarForChild(child) {
+  if (!child) return null;
+  if (assignmentPlanIsOpen() && currentAssignments) {
+    const names = Object.keys(currentAssignments);
+    for (let i = 0; i < names.length; i++) {
+      const list = currentAssignments[names[i]] || [];
+      if (list.some((kid) => kid && String(kid.id) === String(child.id))) {
+        return cars.find((car) => car.name === names[i]) || null;
+      }
+    }
+  }
+  if (child.fixedCar) return cars.find((car) => car.name === child.fixedCar) || null;
+  return null;
+}
+
 function setChildFixedCar(id, carName) {
   const ch = children.find(x => x.id === id);
   if (!ch) return;
@@ -1105,8 +1122,8 @@ function setChildFixedCar(id, carName) {
   const car = cars.find(c => c.name === carName);
   if (!car) return;
 
-  const cost = seatCost({ ...ch, fixedCar: carName, meetOnSite: false, active: true }) || 1;
-  if (!canFitOnCar(car, cost, ch.id)) {
+  const cost = seatCost(Object.assign({}, ch, { active: true, meetOnSite: false, dayMode: 'normal' }));
+  if (calculateCarRemainingSeats(car, ridersCountedForCar(car).filter((kid) => kid && String(kid.id) !== String(ch.id))) < cost) {
     alert(`「${car.name}」の定員を超えるため指定できません。`);
     renderChildren();
     return;
@@ -1122,13 +1139,10 @@ function addChildCompanion(childId, label) {
   const name = (label || '').trim();
   if (!ch || !isRiding(ch) || !name) return;
 
-  if (ch.fixedCar) {
-    const car = cars.find(c => c.name === ch.fixedCar);
-    // 既存の選手＋同乗はすでに used に含まれているので、追加1席分だけ判定
-    if (car && !canFitOnCar(car, 1)) {
-      alert(`「${car.name}」の定員を超えるため、同乗者を追加できません。`);
-      return;
-    }
+  const seatCar = seatCarForChild(ch);
+  if (seatCar && calculateCarRemainingSeats(seatCar, ridersCountedForCar(seatCar)) < 1) {
+    alert(`「${seatCar.name}」の定員を超えるため、同乗者を追加できません。`);
+    return;
   }
 
   if (!Array.isArray(ch.companions)) ch.companions = [];
@@ -1254,8 +1268,8 @@ function saveEditChild() {
     const nextFixed = document.getElementById('editChildFixedCar').value || '';
     if (nextFixed) {
       const car = cars.find(c => c.name === nextFixed);
-      const cost = seatCost({ ...kid, fixedCar: nextFixed, meetOnSite: false, active: true }) || 1;
-      if (car && !canFitOnCar(car, cost, kid.id)) {
+      const cost = seatCost(Object.assign({}, kid, { active: true, meetOnSite: false, dayMode: 'normal' }));
+      if (car && calculateCarRemainingSeats(car, ridersCountedForCar(car).filter((rider) => rider && String(rider.id) !== String(kid.id))) < cost) {
         alert(`「${car.name}」の定員を超えるため指定できません。`);
         return;
       }

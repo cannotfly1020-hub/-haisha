@@ -162,8 +162,8 @@ function carPeopleCount(car, riders) {
 }
 
 function remainingSeats(car, assignments) {
-  const cap = parseInt(car.capacity, 10) || 0;
-  return cap - familySeatsOf(car) - occupiedSeats(assignments[car.name] || []);
+  const riders = (assignments && car && assignments[car.name]) || [];
+  return calculateCarRemainingSeats(car, riders);
 }
 
 function placeKid(kid, carName, assignments, currentCaps) {
@@ -448,6 +448,7 @@ function presentCarpoolFailure(extra) {
   const diagnosis = diagnoseCarpoolFailure(extra || {});
   if (extra && extra.leftoverKids) diagnosis.leftoverKids = extra.leftoverKids;
   showCarpoolDiagnosis(diagnosis);
+  if (typeof renderCars === 'function') renderCars();
 }
 
 const MAX_SWAP_TRIALS = 280;
@@ -598,12 +599,14 @@ function evaluateAssignmentScore(assignments) {
 }
 
 function canSwapSeats(carA, kidA, carB, kidB, assignments) {
-  const delta = seatCost(kidB) - seatCost(kidA);
-  const capA = parseInt(carA.capacity, 10) || 0;
-  const capB = parseInt(carB.capacity, 10) || 0;
-  const usedA = companionSeatsOf(carA) + occupiedSeats(assignments[carA.name]);
-  const usedB = companionSeatsOf(carB) + occupiedSeats(assignments[carB.name]);
-  return usedA + delta <= capA && usedB - delta <= capB;
+  const listA = ((assignments && assignments[carA.name]) || []).slice();
+  const listB = ((assignments && assignments[carB.name]) || []).slice();
+  const indexA = listA.indexOf(kidA);
+  const indexB = listB.indexOf(kidB);
+  if (indexA < 0 || indexB < 0) return false;
+  listA[indexA] = kidB;
+  listB[indexB] = kidA;
+  return calculateCarRemainingSeats(carA, listA) >= 0 && calculateCarRemainingSeats(carB, listB) >= 0;
 }
 
 function optimizeBySwaps(assignments, activeCars, rerunSalt) {
@@ -1073,6 +1076,7 @@ function restoreDisplayedPlan(payload) {
     if (resultText) resultText.textContent = '';
     syncResultHeading();
     if (typeof showResultPattern === 'function') showResultPattern(0);
+    if (typeof renderCars === 'function') renderCars();
     return;
   }
   const assignments = {};
@@ -1089,6 +1093,7 @@ function restoreDisplayedPlan(payload) {
   showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(warnings);
   if (typeof showResultPattern === 'function') showResultPattern(0);
+  if (typeof renderCars === 'function') renderCars();
 }
 
 // 骨格確定のあと、入れ替えでソフト制約を上げる
@@ -1186,6 +1191,7 @@ function generateCarpool(rerunSalt) {
   showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(lastAssignmentWarnings);
   if (typeof showResultPattern === 'function') showResultPattern(salt);
+  if (typeof renderCars === 'function') renderCars();
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
