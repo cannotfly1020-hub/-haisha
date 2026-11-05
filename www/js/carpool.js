@@ -940,7 +940,7 @@ function buildPlanTexts(assignments) {
       const lineNames = riders.map(k => k.name);
       screen += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車📦】' : ''}\n  乗車: ${names || 'なし'}\n\n`;
       line += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
-      line += `${lineNames.length > 0 ? lineNames.join('\n') : 'なし'}\n\n`;
+      line += `${lineNames.length > 0 ? lineNames.join('、') : 'なし'}\n\n`;
     });
   }
   const placedIds = new Set();
@@ -950,7 +950,7 @@ function buildPlanTexts(assignments) {
   const looseKids = ridingKids.filter((kid) => !placedIds.has(String(kid.id)));
   if (looseKids.length > 0) {
     screen += `■ 未割当\n  ${looseKids.map(k => k.name).join('、')}\n\n`;
-    line += `■ 未割当\n${looseKids.map(k => k.name).join('\n')}\n\n`;
+    line += `■ 未割当\n${looseKids.map(k => k.name).join('、')}\n\n`;
   }
   if (!hasPoolRide && looseKids.length === 0 && directLines.length === 0 && holdLines.length === 0) {
     screen += `${phrase}の乗車配車はありません。\n\n`;
