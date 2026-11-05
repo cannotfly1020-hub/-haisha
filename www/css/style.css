@@ -1204,3 +1204,15 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
   opacity: 0.4;
   cursor: not-allowed;
 }
+#avoidPairsContainer[hidden] { display: none !important; }
+.avoid-pair-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}

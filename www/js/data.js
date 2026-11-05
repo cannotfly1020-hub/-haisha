@@ -548,6 +548,43 @@ function canFitOnCar(car, extraSeats, excludeChildId) {
   return calculateCarRemainingSeats(car, riders) >= (Number(extraSeats) || 0);
 }
 
+function getAvoidPairs() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('cp_avoid_pairs') || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveAvoidPairs(pairs) {
+  localStorage.setItem('cp_avoid_pairs', JSON.stringify(pairs));
+}
+
+function addAvoidPair(idA, idB) {
+  if (!idA || !idB || idA === idB) return;
+  const pairs = getAvoidPairs();
+  const exists = pairs.some((p) => (p[0] === idA && p[1] === idB) || (p[0] === idB && p[1] === idA));
+  if (!exists) {
+    pairs.push([idA, idB]);
+    saveAvoidPairs(pairs);
+  }
+}
+
+function removeAvoidPair(index) {
+  const pairs = getAvoidPairs();
+  pairs.splice(index, 1);
+  saveAvoidPairs(pairs);
+}
+
+function isAvoidPair(kidA, kidB) {
+  if (!kidA || !kidB) return false;
+  const pairs = getAvoidPairs();
+  const idA = String(kidA.id);
+  const idB = String(kidB.id);
+  return pairs.some((p) => (String(p[0]) === idA && String(p[1]) === idB) || (String(p[0]) === idB && String(p[1]) === idA));
+}
+
 function newCompanionId() {
   return `cmp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 }
@@ -1566,6 +1603,11 @@ function promoteAllGrades() {
     fixedSeatsUsed,
     carSeatSummary,
     canFitOnCar,
+    getAvoidPairs,
+    saveAvoidPairs,
+    addAvoidPair,
+    removeAvoidPair,
+    isAvoidPair,
     newCompanionId,
     buildBackupPayload
   };
@@ -1655,6 +1697,11 @@ function promoteAllGrades() {
   global.ridersCountedForCar = ridersCountedForCar;
   global.carSeatSummary = carSeatSummary;
   global.canFitOnCar = canFitOnCar;
+  global.getAvoidPairs = getAvoidPairs;
+  global.saveAvoidPairs = saveAvoidPairs;
+  global.addAvoidPair = addAvoidPair;
+  global.removeAvoidPair = removeAvoidPair;
+  global.isAvoidPair = isAvoidPair;
   global.newCompanionId = newCompanionId;
   global.buildBackupPayload = buildBackupPayload;
   global.isBackupCar = isBackupCar;

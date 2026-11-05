@@ -32,6 +32,9 @@ const CLICK_ACTIONS = new Set([
   'add-child-companion',
   'remove-child-companion',
   'toggle-role-master',
+  'toggle-avoid-pairs',
+  'add-avoid-pair',
+  'remove-avoid-pair',
   'shift-plan-date',
   'go-plan-today',
   'add-driver-role',
@@ -188,6 +191,15 @@ function runClickAction(target) {
       break;
     case 'toggle-role-master':
       toggleRoleMaster();
+      break;
+    case 'toggle-avoid-pairs':
+      toggleAvoidPairs();
+      break;
+    case 'add-avoid-pair':
+      addAvoidPairFromSelect();
+      break;
+    case 'remove-avoid-pair':
+      removeAvoidPairAt(target.dataset.index);
       break;
     case 'shift-plan-date':
       shiftPlanDate(Number(target.dataset.delta) || 0);

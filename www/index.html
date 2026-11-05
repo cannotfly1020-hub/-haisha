@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="くるまわり">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261105d">
+<link rel="stylesheet" href="css/style.css?v=20261105e">
 </head>
 <body>
 
@@ -202,6 +202,23 @@
       </div>
       <button type="button" class="btn btn-secondary btn-compact" data-action="reset-role-labels">初期値に戻す</button>
     </div>
+    <div class="card setting-section" style="margin-top: 16px;">
+      <button type="button" id="btnToggleAvoidPairs" class="btn btn-secondary btn-block" data-action="toggle-avoid-pairs" aria-expanded="false" aria-controls="avoidPairsContainer" style="text-align: left; font-size: 0.9rem;">
+        🤝 同乗配慮ペアの設定（非推奨の組み合わせ） ▼
+      </button>
+      <div id="avoidPairsContainer" hidden style="padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-top: 8px;">
+        <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 8px;">
+          ※ここで設定した2名の選手は、自動配車および再計算で<strong>絶対に同じ車になりません</strong>（LINE文や結果画面には一切表示されません）。
+        </p>
+        <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 8px;">
+          <select id="avoidKidSelectA" class="form-control" style="font-size: 0.85rem;" aria-label="同乗配慮の1人目"></select>
+          <span>✕</span>
+          <select id="avoidKidSelectB" class="form-control" style="font-size: 0.85rem;" aria-label="同乗配慮の2人目"></select>
+          <button type="button" id="btnAddAvoidPair" class="btn btn-primary" data-action="add-avoid-pair" style="font-size: 0.85rem; white-space: nowrap;">登録</button>
+        </div>
+        <div id="avoidPairList" style="display: flex; flex-direction: column; gap: 4px;"></div>
+      </div>
+    </div>
     <button type="button" class="btn btn-outline btn-compact" data-action="copy-backup">💾 データをLINE/メモへ退避（コピー）</button>
     <button type="button" class="btn btn-restore btn-compact" data-action="open-restore">📥 退避テキストから復元</button>
     <div class="reset-link reset-link-inline">
@@ -326,10 +343,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261105d"></script>
-<script src="js/ui.js?v=20261105d"></script>
-<script src="js/carpool.js?v=20261105d"></script>
-<script src="js/app.js?v=20261105d"></script>
+<script src="js/data.js?v=20261105e"></script>
+<script src="js/ui.js?v=20261105e"></script>
+<script src="js/carpool.js?v=20261105e"></script>
+<script src="js/app.js?v=20261105e"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

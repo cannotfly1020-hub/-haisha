@@ -839,6 +839,62 @@ function refreshLists() {
   renderChildren();
   updateStatusBar();
   if (typeof refreshDisplayedPlan === 'function') refreshDisplayedPlan();
+  renderAvoidPairControls();
+}
+
+function renderAvoidPairControls() {
+  const list = document.getElementById('avoidPairList');
+  const selectA = document.getElementById('avoidKidSelectA');
+  const selectB = document.getElementById('avoidKidSelectB');
+  if (!list || !selectA || !selectB || typeof getAvoidPairs !== 'function') return;
+  const currentA = selectA.value;
+  const currentB = selectB.value;
+  const options = ['<option value="">選手を選択</option>'].concat(
+    children.map((child) => `<option value="${child.id}">${escapeRoleText(child.name)}</option>`)
+  ).join('');
+  selectA.innerHTML = options;
+  selectB.innerHTML = options;
+  if (currentA) selectA.value = currentA;
+  if (currentB) selectB.value = currentB;
+  const pairs = getAvoidPairs();
+  list.innerHTML = pairs.map((pair, index) => {
+    const left = children.find((child) => String(child.id) === String(pair[0]));
+    const right = children.find((child) => String(child.id) === String(pair[1]));
+    const label = `${left ? left.name : '登録なし'} × ${right ? right.name : '登録なし'}`;
+    return `<div class="avoid-pair-row"><span>${escapeRoleText(label)}</span><button type="button" class="companion-remove" data-action="remove-avoid-pair" data-index="${index}" aria-label="この同乗配慮を解除">×</button></div>`;
+  }).join('');
+}
+
+function toggleAvoidPairs() {
+  const box = document.getElementById('avoidPairsContainer');
+  const button = document.getElementById('btnToggleAvoidPairs');
+  if (!box) return;
+  const willOpen = !!box.hidden;
+  box.hidden = !willOpen;
+  if (button) {
+    button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    button.textContent = willOpen
+      ? '🤝 同乗配慮ペアの設定（非推奨の組み合わせ） ▲'
+      : '🤝 同乗配慮ペアの設定（非推奨の組み合わせ） ▼';
+  }
+  if (willOpen) renderAvoidPairControls();
+}
+
+function addAvoidPairFromSelect() {
+  const selectA = document.getElementById('avoidKidSelectA');
+  const selectB = document.getElementById('avoidKidSelectB');
+  if (!selectA || !selectB || typeof addAvoidPair !== 'function') return;
+  const kidA = children.find((child) => String(child.id) === String(selectA.value));
+  const kidB = children.find((child) => String(child.id) === String(selectB.value));
+  if (!kidA || !kidB || kidA.id === kidB.id) return;
+  addAvoidPair(kidA.id, kidB.id);
+  renderAvoidPairControls();
+}
+
+function removeAvoidPairAt(index) {
+  if (typeof removeAvoidPair !== 'function') return;
+  removeAvoidPair(Number(index));
+  renderAvoidPairControls();
 }
 
 function toggleCar(id, checked) {
@@ -1510,6 +1566,10 @@ bindCarReorderGestures();
     renderRoleMaster,
     syncPlanDayBar,
     toggleRoleMaster,
+    renderAvoidPairControls,
+    toggleAvoidPairs,
+    addAvoidPairFromSelect,
+    removeAvoidPairAt,
     addDriverRoleFromInput,
     addCompanionRoleFromInput,
     removeDriverRole,

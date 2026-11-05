@@ -583,6 +583,11 @@ function evaluateAssignmentScore(assignments) {
     riders.forEach((kid) => {
       score += rideRepeatPenalty(kid, car);
     });
+    for (let i = 0; i < riders.length; i++) {
+      for (let j = i + 1; j < riders.length; j++) {
+        if (typeof isAvoidPair === 'function' && isAvoidPair(riders[i], riders[j])) score -= 50000;
+      }
+    }
 
     if (riders.length > 0) {
       const sum = riders.reduce((total, kid) => total + (Number(kid.grade) || 0), 0);
@@ -598,6 +603,12 @@ function evaluateAssignmentScore(assignments) {
   return score;
 }
 
+function hasAvoidPairConflict(carRiders, kidToPut) {
+  if (!kidToPut || !carRiders || !carRiders.length) return false;
+  if (typeof isAvoidPair !== 'function') return false;
+  return carRiders.some((existingKid) => isAvoidPair(existingKid, kidToPut));
+}
+
 function canSwapSeats(carA, kidA, carB, kidB, assignments) {
   const listA = ((assignments && assignments[carA.name]) || []).slice();
   const listB = ((assignments && assignments[carB.name]) || []).slice();
@@ -606,6 +617,9 @@ function canSwapSeats(carA, kidA, carB, kidB, assignments) {
   if (indexA < 0 || indexB < 0) return false;
   listA[indexA] = kidB;
   listB[indexB] = kidA;
+  const othersA = listA.filter((_, idx) => idx !== indexA);
+  const othersB = listB.filter((_, idx) => idx !== indexB);
+  if (hasAvoidPairConflict(othersA, kidB) || hasAvoidPairConflict(othersB, kidA)) return false;
   return calculateCarRemainingSeats(carA, listA) >= 0 && calculateCarRemainingSeats(carB, listB) >= 0;
 }
 
@@ -682,7 +696,7 @@ function preferCar(list, kid, assignments) {
 }
 
 function chooseCarForFreeKid(kid, assignments, activeCars, carsToUse) {
-  const fitting = activeCars.filter((car) => remainingSeats(car, assignments) >= seatCost(kid));
+  const fitting = activeCars.filter((car) => remainingSeats(car, assignments) >= seatCost(kid) && !hasAvoidPairConflict(assignments[car.name], kid));
   if (!fitting.length) return null;
   const singles = fitting.filter((car) => assignments[car.name].length === 1);
   if (singles.length) return preferCar(singles, kid, assignments);
@@ -709,8 +723,8 @@ function repairLeftovers(leftover, assignments, activeCars) {
         const mover = list[i];
         if (!isSwappable(mover, activeCars)) continue;
         list.splice(i, 1);
-        const dest = remainingSeats(from, assignments) >= seatCost(kid)
-          ? activeCars.find((car) => car !== from && remainingSeats(car, assignments) >= seatCost(mover))
+        const dest = remainingSeats(from, assignments) >= seatCost(kid) && !hasAvoidPairConflict(list, kid)
+          ? activeCars.find((car) => car !== from && remainingSeats(car, assignments) >= seatCost(mover) && !hasAvoidPairConflict(assignments[car.name], mover))
           : null;
         if (!dest) {
           list.splice(i, 0, mover);
@@ -774,11 +788,11 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt) {
       return;
     }
     const car = activeCars.find((item) => item.name === kid.fixedCar);
-    if (car && remainingSeats(car, assignments) >= seatCost(kid)) {
+    if (car && remainingSeats(car, assignments) >= seatCost(kid) && !hasAvoidPairConflict(assignments[car.name], kid)) {
       assignments[car.name].push(kid);
       return;
     }
-    if (car && !overflowedCars.includes(car.name)) overflowedCars.push(car.name);
+    if (car && remainingSeats(car, assignments) < seatCost(kid) && !overflowedCars.includes(car.name)) overflowedCars.push(car.name);
     afterPins.push(kid);
   });
 
@@ -787,7 +801,7 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt) {
     const pinnedElsewhere = kid.fixedCar && activeCars.some((car) => car.name === kid.fixedCar);
     if (!pinnedElsewhere && kid.parentCar) {
       const car = activeCars.find((item) => item.name === kid.parentCar);
-      if (car && remainingSeats(car, assignments) >= seatCost(kid)) {
+      if (car && remainingSeats(car, assignments) >= seatCost(kid) && !hasAvoidPairConflict(assignments[car.name], kid)) {
         assignments[car.name].push(kid);
         return;
       }
@@ -1047,6 +1061,11 @@ function moveAssignedPlayer(childId, destination) {
     return;
   }
   const ridingPreview = Object.assign({}, child, { active: true, meetOnSite: false, dayMode: 'normal' });
+  if (hasAvoidPairConflict(currentAssignments[car.name], child)) {
+    alert('同乗配慮のため、同じ車には指定できません。');
+    refreshDisplayedPlan();
+    return;
+  }
   if (remainingSeats(car, currentAssignments) < seatCost(ridingPreview)) {
     alert(`「${car.name}」の定員を超えるため移動できません。`);
     refreshDisplayedPlan();
@@ -1104,7 +1123,7 @@ function assignDirectFamilies() {
     children.filter((kid) => isRiding(kid) && kid.parentCar === car.name).forEach((kid) => {
       const scratch = {};
       scratch[car.name] = seated;
-      if (remainingSeats(car, scratch) >= seatCost(kid)) seated.push(kid);
+      if (remainingSeats(car, scratch) >= seatCost(kid) && !hasAvoidPairConflict(seated, kid)) seated.push(kid);
     });
     if (seated.length) assignments[car.name] = seated;
   });
