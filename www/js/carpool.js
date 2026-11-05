@@ -950,10 +950,11 @@ function buildPlanTexts(assignments) {
   if (hasPoolRide) {
     poolCars.forEach(c => {
       const riders = realAssignedPlayers((assignments && assignments[c.name]) || []);
+      const header = typeof formatCarCompanionHeader === 'function' ? formatCarCompanionHeader(c, riders) : '';
       const names = riders.map(k => playerListLabel(k, c.name)).join('、');
       const lineNames = riders.map(k => k.name);
-      screen += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車📦】' : ''}\n  乗車: ${names || 'なし'}\n\n`;
-      line += `■ ${c.name}${formatCarCompanionHeader(c)}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
+      screen += `■ ${c.name}${header}${c.isEquipmentCar ? ' 【道具車📦】' : ''}\n  乗車: ${names || 'なし'}\n\n`;
+      line += `■ ${c.name}${header}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
       line += `${lineNames.length > 0 ? lineNames.join('、') : 'なし'}\n\n`;
     });
   }

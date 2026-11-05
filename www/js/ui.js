@@ -510,17 +510,30 @@ function escapeRoleText(value) {
 }
 
 /**
- * 配車見出しの括弧。運転者を先頭にし、同じ名前の同乗者は重ねない。
- * 運転者が空で同乗者もいなければ空文字（「佐藤号」のまま）。
+ * 配車見出しの括弧。運転者を先頭にし、車両の同乗者と乗車選手の同乗者を続ける。
+ * 例: （父、母、はると弟）。同乗者がなければ空文字。
  */
-function formatCarCompanionHeader(car) {
-  const role = car && typeof car.driverRole === 'string' ? car.driverRole.trim() : '';
-  const companions = companionsOf(car)
-    .map((item) => (item && item.label ? String(item.label).trim() : ''))
+function formatCarCompanionHeader(car, riders) {
+  if (!car) return '';
+  const role = typeof car.driverRole === 'string' ? car.driverRole.trim() : '';
+  const carComps = (typeof companionsOf === 'function' ? companionsOf(car) : (car.companions || []))
+    .map((item) => (item && item.label ? String(item.label).trim() : (typeof item === 'string' ? item.trim() : '')))
     .filter((label) => label && label !== role);
-  const parts = role ? [role, ...companions] : companions;
-  if (!parts.length) return '';
-  return `（${parts.join('、')}）`;
+  const childComps = [];
+  (riders || []).forEach((kid) => {
+    if (!kid) return;
+    const comps = typeof childCompanionsOf === 'function'
+      ? childCompanionsOf(kid)
+      : (Array.isArray(kid.companions) ? kid.companions : []);
+    comps.forEach((cmp) => {
+      const label = cmp && cmp.label ? String(cmp.label).trim() : (typeof cmp === 'string' ? cmp.trim() : '');
+      if (!label) return;
+      childComps.push(`${String(kid.name || '').trim()}${label}`);
+    });
+  });
+  const allParts = role ? [role, ...carComps, ...childComps] : [...carComps, ...childComps];
+  if (!allParts.length) return '';
+  return `（${allParts.join('、')}）`;
 }
 
 function buildDriverSelectHtml(car) {
@@ -1086,7 +1099,7 @@ function buildAssignmentMoveHtml(assignments) {
     const riders = typeof realAssignedPlayers === 'function'
       ? realAssignedPlayers((assignments && assignments[car.name]) || [])
       : ((assignments && assignments[car.name]) || []);
-    const header = formatCarCompanionHeader(car);
+    const header = formatCarCompanionHeader(car, riders);
     const equip = car.isEquipmentCar ? ' 【道具車📦】' : '';
     html += `<section class="result-car"><p class="result-car-title">■ ${escapeRoleText(car.name)}${escapeRoleText(header)}${equip}</p>`;
     if (!riders.length) {
