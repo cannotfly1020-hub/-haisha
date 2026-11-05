@@ -1,6 +1,6 @@
 {
-  "name": "配車ヘルパー",
-  "short_name": "配車",
+  "name": "くるまわり - スポ少・部活の車出し＆配車自動作成",
+  "short_name": "くるまわり",
   "description": "少年野球チームの配車決定とLINE共有を支援するオフライン対応アプリ",
   "start_url": "./index.html",
   "scope": "./",

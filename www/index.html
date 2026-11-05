@@ -3,18 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>少年野球 配車ヘルパー</title>
+<title>くるまわり - スポ少・部活の車出し＆配車自動作成</title>
 <meta name="theme-color" content="#1e3a8a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="配車">
+<meta name="apple-mobile-web-app-title" content="くるまわり">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261105a">
+<link rel="stylesheet" href="css/style.css?v=20261105d">
 </head>
 <body>
 
-<h1>⚾ 少年野球 配車ヘルパー</h1>
+<header class="app-header" style="text-align: center; padding: 12px 8px 6px;">
+  <h1 style="margin: 0; font-size: 1.6rem; font-weight: bold; color: #1e3a8a; display: flex; align-items: center; justify-content: center; gap: 8px;">
+    <span>🚗</span> くるまわり
+  </h1>
+  <p style="margin: 4px 0 0; font-size: 0.85rem; color: #64748b; font-weight: 500;">
+    スポ少・部活の車出し＆配車自動作成
+  </p>
+</header>
 
 <!-- リアルタイム状況バー -->
 <div class="status-bar" id="statusBar">
@@ -319,10 +326,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261105a"></script>
-<script src="js/ui.js?v=20261105a"></script>
-<script src="js/carpool.js?v=20261105a"></script>
-<script src="js/app.js?v=20261105a"></script>
+<script src="js/data.js?v=20261105d"></script>
+<script src="js/ui.js?v=20261105d"></script>
+<script src="js/carpool.js?v=20261105d"></script>
+<script src="js/app.js?v=20261105d"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
