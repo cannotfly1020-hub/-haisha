@@ -24,6 +24,8 @@ const PREVIOUS_COMPANION_ROLES = ['父', '母', '兄', '弟', '妹'];
 const LEGACY_TEST_ROLE_LABELS = ['看護師', '添乗員', '職員'];
 const DRIVER_ROLES_KEY = 'cp_driver_roles';
 const COMPANION_ROLES_KEY = 'cp_companion_roles';
+const POSITION_ROLES_KEY = 'cp_position_roles';
+const DEFAULT_POSITION_ROLES = ['投手', '捕手', '内野手', '外野手'];
 const ROLE_LABEL_MAX = 20;
 
 function sanitizeRoleList(value) {
@@ -79,6 +81,32 @@ function saveCompanionRoles(list) {
 function resetRoleLabels() {
   saveDriverRoles(DEFAULT_DRIVER_ROLES);
   saveCompanionRoles(DEFAULT_COMPANION_ROLES);
+}
+
+function getPositionRoles() {
+  const list = readRoleList(POSITION_ROLES_KEY, DEFAULT_POSITION_ROLES);
+  return list.length ? list : DEFAULT_POSITION_ROLES.slice();
+}
+
+function savePositionRoles(roles) {
+  const clean = writeRoleList(POSITION_ROLES_KEY, roles);
+  return clean.length ? clean : writeRoleList(POSITION_ROLES_KEY, DEFAULT_POSITION_ROLES);
+}
+
+function addPositionRole(label) {
+  const name = typeof label === 'string' ? label.trim() : '';
+  const list = getPositionRoles();
+  if (!name || name.length > ROLE_LABEL_MAX || list.indexOf(name) !== -1) return list;
+  list.push(name);
+  return savePositionRoles(list);
+}
+
+function removePositionRole(index) {
+  const list = getPositionRoles();
+  const at = parseInt(index, 10);
+  if (!isFinite(at) || at < 0 || at >= list.length) return list;
+  list.splice(at, 1);
+  return savePositionRoles(list);
 }
 
 function roleListsEqual(left, right) {
@@ -733,7 +761,9 @@ function captureChildDaily(child) {
 }
 
 function normalizeCarpoolMode(value) {
-  return value === 'grade_same' || value === 'grade_diff' ? value : 'balance';
+  return value === 'grade_same' || value === 'grade_diff' || value === 'pos_diff' || value === 'pos_same'
+    ? value
+    : 'balance';
 }
 
 function getCarpoolMode() {
@@ -1776,7 +1806,11 @@ function importRosterData(parsedData, mode) {
     importRosterData,
     getCarpoolMode,
     applyCarpoolMode,
-    normalizeCarpoolMode
+    normalizeCarpoolMode,
+    getPositionRoles,
+    savePositionRoles,
+    addPositionRole,
+    removePositionRole
   };
   global.HaishaData = HaishaData;
 
@@ -1880,5 +1914,9 @@ function importRosterData(parsedData, mode) {
   global.getCarpoolMode = getCarpoolMode;
   global.applyCarpoolMode = applyCarpoolMode;
   global.normalizeCarpoolMode = normalizeCarpoolMode;
+  global.getPositionRoles = getPositionRoles;
+  global.savePositionRoles = savePositionRoles;
+  global.addPositionRole = addPositionRole;
+  global.removePositionRole = removePositionRole;
 
 })(typeof window !== 'undefined' ? window : globalThis);

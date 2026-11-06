@@ -42,6 +42,8 @@ const CLICK_ACTIONS = new Set([
   'add-companion-role',
   'remove-companion-role',
   'reset-role-labels',
+  'add-position-role',
+  'remove-position-role',
   'toggle-section',
   'open-child-companion',
   'toggle-site',
@@ -225,6 +227,19 @@ function runClickAction(target) {
       break;
     case 'reset-role-labels':
       resetRoleLabelsToDefault();
+      break;
+    case 'add-position-role': {
+      const input = document.getElementById('positionRoleInput');
+      addPositionRole(input ? input.value : '');
+      if (input) input.value = '';
+      renderRoleMaster();
+      populatePositionSelects();
+      break;
+    }
+    case 'remove-position-role':
+      removePositionRole(target.dataset.index);
+      renderRoleMaster();
+      populatePositionSelects();
       break;
     case 'close-tutorial':
       closeTutorialModal();

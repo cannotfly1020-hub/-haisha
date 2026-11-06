@@ -188,4 +188,48 @@ test('配車モード: 「学年を揃える」モードで同学年が揃った
   assert.ok(scoreSameMode_Same > scoreSameMode_Diff, '学年を揃えるモードでは同級生同乗が高評価になる');
 });
 
+// -------------------------------------------------------------
+// テスト8: ポジション分散モード（pos_diff）
+// -------------------------------------------------------------
+test('配車モード: 「ポジションを散らす」モードで同一ポジションが分散した組み合わせのスコアが高くなること', () => {
+  const gk1 = { id: 1, name: 'GK1', pos: 'GK', dayMode: 'normal', active: true, parentCar: '' };
+  const gk2 = { id: 2, name: 'GK2', pos: 'GK', dayMode: 'normal', active: true, parentCar: '' };
+  const fw1 = { id: 3, name: 'FW1', pos: 'FW', dayMode: 'normal', active: true, parentCar: '' };
+  const fw2 = { id: 4, name: 'FW2', pos: 'FW', dayMode: 'normal', active: true, parentCar: '' };
+
+  const assignmentsClumped = { 'A号': [gk1, gk2], 'B号': [fw1, fw2] };
+  const assignmentsDispersed = { 'A号': [gk1, fw1], 'B号': [gk2, fw2] };
+
+  const scoreClumped = evaluateAssignmentScore(assignmentsClumped, 'pos_diff');
+  const scoreDispersed = evaluateAssignmentScore(assignmentsDispersed, 'pos_diff');
+
+  assert.strictEqual(
+    scoreDispersed > scoreClumped,
+    true,
+    `分散スコア(${scoreDispersed})は重複スコア(${scoreClumped})より高くなること`
+  );
+});
+
+// -------------------------------------------------------------
+// テスト9: ポジション集約モード（pos_same）
+// -------------------------------------------------------------
+test('配車モード: 「ポジションを揃える」モードで同一ポジションが集まった組み合わせのスコアが高くなること', () => {
+  const c1 = { id: 1, name: '捕手1', pos: '捕手', dayMode: 'normal', active: true, parentCar: '' };
+  const c2 = { id: 2, name: '捕手2', pos: '捕手', dayMode: 'normal', active: true, parentCar: '' };
+  const p1 = { id: 3, name: '投手1', pos: '投手', dayMode: 'normal', active: true, parentCar: '' };
+  const p2 = { id: 4, name: '投手2', pos: '投手', dayMode: 'normal', active: true, parentCar: '' };
+
+  const assignmentsClumped = { 'A号': [c1, c2], 'B号': [p1, p2] };
+  const assignmentsDispersed = { 'A号': [c1, p1], 'B号': [c2, p2] };
+
+  const scoreClumped = evaluateAssignmentScore(assignmentsClumped, 'pos_same');
+  const scoreDispersed = evaluateAssignmentScore(assignmentsDispersed, 'pos_same');
+
+  assert.strictEqual(
+    scoreClumped > scoreDispersed,
+    true,
+    `集約スコア(${scoreClumped})は分散スコア(${scoreDispersed})より高くなること`
+  );
+});
+
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

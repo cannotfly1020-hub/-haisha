@@ -1012,7 +1012,8 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
   font-weight: 700;
   color: #334155;
 }
-.role-tag-list {
+.role-tag-list,
+.role-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;

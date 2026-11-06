@@ -582,6 +582,40 @@ function renderRoleTagList(elementId, labels, action) {
 function renderRoleMaster() {
   renderRoleTagList('driverRoleTags', getDriverRoles(), 'remove-driver-role');
   renderRoleTagList('companionRoleTags', getCompanionRoles(), 'remove-companion-role');
+  renderPositionRoleTags();
+  populatePositionSelects();
+}
+
+function renderPositionRoleTags() {
+  const el = document.getElementById('positionRoleTags');
+  if (!el || typeof getPositionRoles !== 'function') return;
+  const labels = getPositionRoles();
+  if (!labels.length) {
+    el.innerHTML = '<span class="role-tag-empty">ラベルがありません</span>';
+    return;
+  }
+  el.innerHTML = labels.map((label, index) => {
+    const safe = escapeRoleText(label);
+    return `<span class="role-tag">${safe}<button type="button" class="role-tag-delete" data-action="remove-position-role" data-index="${index}" aria-label="${safe}を削除">×</button></span>`;
+  }).join('');
+}
+
+function populatePositionSelects(extraValue) {
+  const roles = typeof getPositionRoles === 'function' ? getPositionRoles() : [];
+  ['newChildPos', 'editChildPos'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const keep = id === 'editChildPos' && extraValue != null ? String(extraValue) : el.value;
+    const labels = roles.slice();
+    if (keep && labels.indexOf(keep) === -1) labels.push(keep);
+    const options = ['<option value="">（なし）</option>'];
+    labels.forEach((label) => {
+      const safe = escapeRoleText(label);
+      options.push('<option value="' + safe + '">' + safe + '</option>');
+    });
+    el.innerHTML = options.join('');
+    el.value = labels.indexOf(keep) !== -1 ? keep : '';
+  });
 }
 
 function toggleRoleMaster() {
@@ -1305,7 +1339,8 @@ function openEditModal(id) {
   document.getElementById('editChildId').value = kid.id;
   document.getElementById('editChildName').value = kid.name;
   document.getElementById('editChildGrade').value = kid.grade || 6;
-  document.getElementById('editChildPos').value = kid.pos || '未定';
+  populatePositionSelects(kid.pos || '');
+  document.getElementById('editChildPos').value = kid.pos || '';
   document.getElementById('editChildMotionSick').checked = !!kid.motionSick;
   updateCarSelectOptions();
   document.getElementById('editChildParentCar').value = kid.parentCar || '';
@@ -1639,6 +1674,7 @@ bindCarReorderGestures();
     formatCarCompanionHeader,
     setCarDriverRole,
     renderRoleMaster,
+    populatePositionSelects,
     syncPlanDayBar,
     toggleRoleMaster,
     renderAvoidPairControls,

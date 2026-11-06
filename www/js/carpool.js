@@ -453,14 +453,28 @@ function presentCarpoolFailure(extra) {
 
 const MAX_SWAP_TRIALS = 280;
 
-function isPitcher(kid) {
-  const pos = String(kid && kid.pos || '').trim();
-  return pos === '投手' || pos === 'P' || pos === 'ピッチャー';
+function positionCounts(riders) {
+  const counts = {};
+  (riders || []).forEach((kid) => {
+    const pos = String(kid && kid.pos || '').trim();
+    if (!pos) return;
+    counts[pos] = (counts[pos] || 0) + 1;
+  });
+  return counts;
 }
 
-function isCatcher(kid) {
-  const pos = String(kid && kid.pos || '').trim();
-  return pos === '捕手' || pos === 'C' || pos === 'キャッチャー';
+function positionModeDelta(riders, mode) {
+  const counts = positionCounts(riders);
+  let delta = 0;
+  Object.keys(counts).forEach((pos) => {
+    const count = counts[pos];
+    if (count < 2) return;
+    const weight = count - 1;
+    if (mode === 'pos_same') delta += weight * 300;
+    else if (mode === 'pos_diff') delta -= weight * 350;
+    else delta -= weight * 150;
+  });
+  return delta;
 }
 
 function assignmentCars(assignments) {
@@ -553,7 +567,7 @@ function rideRepeatPenalty(kid, car) {
 }
 
 function resolveCarpoolMode(mode) {
-  if (mode === 'balance' || mode === 'grade_same' || mode === 'grade_diff') return mode;
+  if (mode === 'balance' || mode === 'grade_same' || mode === 'grade_diff' || mode === 'pos_diff' || mode === 'pos_same') return mode;
   return typeof getCarpoolMode === 'function' ? getCarpoolMode() : 'balance';
 }
 
@@ -631,11 +645,6 @@ function evaluateAssignmentScore(assignments, mode) {
     const riders = assignments[car.name] || [];
     if (penalizeSolo && riders.length === 1) score -= 1000;
 
-    const pitchers = riders.filter(isPitcher).length;
-    if (pitchers >= 2) score -= 150 * pitchers;
-    const catchers = riders.filter(isCatcher).length;
-    if (catchers >= 2) score -= 150 * catchers;
-
     const cap = parseInt(car.capacity, 10) || 0;
     if (cap < median) {
       riders.forEach((kid) => {
@@ -651,6 +660,11 @@ function evaluateAssignmentScore(assignments, mode) {
         if (typeof isAvoidPair === 'function' && isAvoidPair(riders[i], riders[j])) score -= 50000;
       }
     }
+  });
+
+  Object.keys(assignments || {}).forEach((name) => {
+    const riders = assignments[name];
+    if (Array.isArray(riders)) score += positionModeDelta(riders, selected);
   });
 
   return applyGradeModeScore(score, assignments, selected);
@@ -800,8 +814,11 @@ function collectSoftWarnings(assignments, activeCars) {
   activeCars.forEach((car) => {
     const riders = assignments[car.name] || [];
     if (riders.length === 1) warnings.push(`※${car.name}は選手1名のみの乗車です`);
-    if (riders.filter(isPitcher).length >= 2) warnings.push(`※${car.name}に投手が重複しています`);
-    if (riders.filter(isCatcher).length >= 2) warnings.push(`※${car.name}に捕手が重複しています`);
+    if (resolveCarpoolMode() !== 'pos_same') {
+      Object.keys(positionCounts(riders)).forEach((pos) => {
+        if (positionCounts(riders)[pos] >= 2) warnings.push(`※${car.name}に${pos}が重複しています`);
+      });
+    }
     const cap = parseInt(car.capacity, 10) || 0;
     if (cap < median) {
       riders.forEach((kid) => {
