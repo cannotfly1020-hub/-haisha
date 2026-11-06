@@ -483,7 +483,7 @@ function positionModeDelta(riders, mode) {
     const weight = count - 1;
     if (mode === 'pos_same') delta += weight * 500;
     else if (mode === 'pos_diff') delta -= weight * 400;
-    else delta -= weight * 250;
+    else delta -= weight * 400;
   });
   return delta;
 }
@@ -1030,6 +1030,17 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
         if (slotA.car.name === slotB.car.name) continue;
         if (!canSwapSeats(slotA.car, slotA.kid, slotB.car, slotB.kid, assignments)) continue;
         if (rerunSwapIsDestructive(slotA, slotB, assignments, mode)) continue;
+        const listA = assignments[slotA.car.name];
+        const listB = assignments[slotB.car.name];
+        const currentScore = evaluateAssignmentScore(assignments, mode);
+        const tempA = listA[slotA.index];
+        const tempB = listB[slotB.index];
+        listA[slotA.index] = tempB;
+        listB[slotB.index] = tempA;
+        const afterScore = evaluateAssignmentScore(assignments, mode);
+        listA[slotA.index] = tempA;
+        listB[slotB.index] = tempB;
+        if (afterScore < currentScore - 500) continue;
         candidates.push([slotA, slotB]);
       }
     }

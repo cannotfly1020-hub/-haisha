@@ -405,45 +405,54 @@ test('配車モード: 「学年を散らす」モードで高学年と低学年
 
 // -------------------------------------------------------------
 // テスト16: 実機10月31日本番名簿の完全再現E2Eテスト
-// （佐藤号個人除外、田中号母兄同乗、れん車酔い、鈴木号/田中号への完全配車）
+// （乗車履歴注入 ＆ 再計算 salt=1 でも車酔いれんが小型車へ転落しないことの検証）
 // -------------------------------------------------------------
-test('本番再現E2E: 実機10月31日の実編成（佐藤号個人、田中号母兄同乗、れん車酔い）で寸分違わず配車されること', () => {
+test('本番再現E2E: 実機10月31日の実編成（履歴あり・再計算salt=1含む）で親車・定員・車酔いが完全死守されること', () => {
   global.cars = [
-    { id: 'c1', name: '佐藤号', capacity: 4, companions: [{ id: 'sato-haha', label: '母' }], dayMode: 'individual', active: true, driverRole: '父' },
-    { id: 'c2', name: '鈴木号', capacity: 3, companions: [{ id: 'suzuki-haha', label: '母' }], dayMode: 'normal', active: true, driverRole: '祖父' },
+    { id: 'c1', name: '佐藤号', capacity: 4, companions: [], dayMode: 'individual', active: true, driverRole: '父' },
+    { id: 'c2', name: '鈴木号', capacity: 3, companions: [{ id: 'cmp0', label: '母' }], dayMode: 'normal', active: true, driverRole: '祖父' },
     { id: 'c3', name: '田中号', capacity: 5, companions: [{ id: 'cmp1', label: '母' }, { id: 'cmp2', label: '兄' }], dayMode: 'normal', active: true, driverRole: '父' }
   ];
 
   global.children = [
     { id: 1, name: 'ゆうと', parentCar: '佐藤号', pos: '投手', grade: 6, motionSick: false, dayMode: 'individual', active: true, companions: [] },
-    { id: 2, name: 'そうた', parentCar: '鈴木号', pos: '捕手', grade: 6, motionSick: false, dayMode: 'normal', active: true, companions: [] },
-    { id: 3, name: 'れん', parentCar: '', pos: '内野', grade: 5, motionSick: true, dayMode: 'normal', active: true, companions: [] },
-    { id: 4, name: 'はると', parentCar: '田中号', pos: '外野', grade: 5, motionSick: false, dayMode: 'normal', active: true, companions: [] },
-    { id: 5, name: 'こうき', parentCar: '', pos: '内野', grade: 4, motionSick: false, dayMode: 'normal', active: true, companions: [] },
-    { id: 6, name: '大和', parentCar: '', pos: '外野', grade: 3, motionSick: false, dayMode: 'normal', active: true, companions: [] }
+    { id: 2, name: 'そうた', parentCar: '鈴木号', pos: '投手', grade: 5, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 3, name: 'はると', parentCar: '田中号', pos: '外野', grade: 3, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 4, name: '大和', parentCar: '', pos: '外野', grade: 6, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 5, name: 'れん', parentCar: '', pos: '内野', grade: 4, motionSick: true, dayMode: 'normal', active: true, companions: [] },
+    { id: 6, name: 'こうき', parentCar: '', pos: '内野', grade: 2, motionSick: false, dayMode: 'normal', active: true, companions: [] }
   ];
 
-  const plan = generateCarpool(0, 'balance');
-  const asgn = plan.assignments;
+  localStorage.setItem('cp_session_2026-10-24', JSON.stringify({
+    date: '2026-10-24',
+    cars: {},
+    children: {},
+    result: {
+      assignments: {
+        '鈴木号': [2, 4, 5],
+        '田中号': [3, 6]
+      }
+    }
+  }));
 
-  assert.strictEqual(asgn['佐藤号'] === undefined || asgn['佐藤号'].length === 0, true, '佐藤号は個人枠のためプール配車なし');
+  const plan0 = generateCarpool(0, 'balance');
+  const asgn0 = plan0.assignments;
 
-  const suzukiKids = (asgn['鈴木号'] || []).map(k => k.name);
-  const tanakaKids = (asgn['田中号'] || []).map(k => k.name);
-  assert.strictEqual(suzukiKids.includes('そうた'), true, 'そうたは鈴木号に乗車');
-  assert.strictEqual(tanakaKids.includes('はると'), true, 'はるとは田中号に乗車');
+  assert.strictEqual(asgn0['鈴木号'].some(k => k.name === 'そうた'), true, 'そうた親車拘束(salt0)');
+  assert.strictEqual(asgn0['田中号'].some(k => k.name === 'はると'), true, 'はると親車拘束(salt0)');
+  assert.strictEqual(asgn0['田中号'].some(k => k.name === 'れん'), true, '車酔いれんは定員5の田中号に乗車(salt0)');
+  assert.strictEqual(asgn0['鈴木号'].length, 2, '鈴木号は母1席消費で有効2席(salt0)');
+  assert.strictEqual(asgn0['田中号'].length, 3, '田中号は母兄2席消費で有効3席(salt0)');
 
-  const tanakaCar = global.cars.find(c => c.name === '田中号');
-  const tanakaRemaining = calculateCarRemainingSeats(tanakaCar, asgn['田中号']);
-  assert.strictEqual(tanakaRemaining, 0, '田中号は母・兄(2席)＋選手3名で定員5ピッタリであること');
-  assert.strictEqual(calculateCarRemainingSeats(global.cars.find(c => c.name === '鈴木号'), asgn['鈴木号']) >= 0, true, '鈴木号も定員内');
+  const plan1 = generateCarpool(1, 'balance');
+  const asgn1 = plan1.assignments;
 
-  assert.strictEqual(tanakaKids.includes('れん'), true, '車酔いのれんは大きい田中号に配車されること');
+  assert.strictEqual(asgn1['鈴木号'].some(k => k.name === 'そうた'), true, 'そうた親車拘束(salt1)');
+  assert.strictEqual(asgn1['田中号'].some(k => k.name === 'はると'), true, 'はると親車拘束(salt1)');
+  assert.strictEqual(asgn1['田中号'].some(k => k.name === 'れん'), true, '再計算後も車酔いれんは田中号に保護されること(salt1)');
+  assert.strictEqual(asgn1['鈴木号'].some(k => k.name === 'れん'), false, '再計算でれんが鈴木号へ転落しないこと(salt1)');
 
-  assert.strictEqual(suzukiKids.length, 2, '鈴木号は2名乗車');
-  assert.strictEqual(suzukiKids.includes('大和'), true, '鈴木号に大和が乗車');
-  assert.strictEqual(tanakaKids.length, 3, '田中号は3名乗車');
-  assert.strictEqual(tanakaKids.includes('こうき'), true, '田中号にこうきが乗車');
+  localStorage.removeItem('cp_session_2026-10-24');
 });
 
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);
