@@ -483,7 +483,7 @@ function positionModeDelta(riders, mode) {
     const weight = count - 1;
     if (mode === 'pos_same') delta += weight * 500;
     else if (mode === 'pos_diff') delta -= weight * 400;
-    else delta -= weight * 400;
+    else delta -= weight * 560;
   });
   return delta;
 }
@@ -1022,6 +1022,7 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
       });
     });
 
+    const currentScore = evaluateAssignmentScore(assignments, mode);
     const candidates = [];
     for (let i = 0; i < movableSlots.length; i++) {
       for (let j = i + 1; j < movableSlots.length; j++) {
@@ -1032,7 +1033,6 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
         if (rerunSwapIsDestructive(slotA, slotB, assignments, mode)) continue;
         const listA = assignments[slotA.car.name];
         const listB = assignments[slotB.car.name];
-        const currentScore = evaluateAssignmentScore(assignments, mode);
         const tempA = listA[slotA.index];
         const tempB = listB[slotB.index];
         listA[slotA.index] = tempB;
@@ -1040,15 +1040,17 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
         const afterScore = evaluateAssignmentScore(assignments, mode);
         listA[slotA.index] = tempA;
         listB[slotB.index] = tempB;
-        if (afterScore < currentScore - 500) continue;
-        candidates.push([slotA, slotB]);
+        if (afterScore >= currentScore - 1e-6) candidates.push({ slotA, slotB, afterScore });
       }
     }
 
     if (candidates.length > 0) {
-      const pick = candidates[(salt - 1) % candidates.length];
-      const slotA = pick[0];
-      const slotB = pick[1];
+      candidates.sort((a, b) => b.afterScore - a.afterScore);
+      const topScore = candidates[0].afterScore;
+      const bestCandidates = candidates.filter((candidate) => Math.abs(candidate.afterScore - topScore) <= 1e-6);
+      const pick = bestCandidates[(salt - 1) % bestCandidates.length];
+      const slotA = pick.slotA;
+      const slotB = pick.slotB;
       const listA = assignments[slotA.car.name];
       const listB = assignments[slotB.car.name];
       const temp = listA[slotA.index];

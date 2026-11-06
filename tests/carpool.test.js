@@ -404,10 +404,10 @@ test('配車モード: 「学年を散らす」モードで高学年と低学年
 });
 
 // -------------------------------------------------------------
-// テスト16: 実機10月31日本番名簿の完全再現E2Eテスト
-// （乗車履歴注入 ＆ 再計算 salt=1 でも車酔いれんが小型車へ転落しないことの検証）
+// テスト16: 実機10月31日本番名簿の完全同期E2Eテスト
+// （属性完全一致・履歴注入・再計算salt=1検証）
 // -------------------------------------------------------------
-test('本番再現E2E: 実機10月31日の実編成（履歴あり・再計算salt=1含む）で親車・定員・車酔いが完全死守されること', () => {
+test('本番再現E2E: 画面10月31日実編成（属性完全一致・履歴あり・再計算salt=1）で親車・定員・車酔いが完全死守されること', () => {
   global.cars = [
     { id: 'c1', name: '佐藤号', capacity: 4, companions: [], dayMode: 'individual', active: true, driverRole: '父' },
     { id: 'c2', name: '鈴木号', capacity: 3, companions: [{ id: 'cmp0', label: '母' }], dayMode: 'normal', active: true, driverRole: '祖父' },
@@ -416,10 +416,10 @@ test('本番再現E2E: 実機10月31日の実編成（履歴あり・再計算sa
 
   global.children = [
     { id: 1, name: 'ゆうと', parentCar: '佐藤号', pos: '投手', grade: 6, motionSick: false, dayMode: 'individual', active: true, companions: [] },
-    { id: 2, name: 'そうた', parentCar: '鈴木号', pos: '投手', grade: 5, motionSick: false, dayMode: 'normal', active: true, companions: [] },
-    { id: 3, name: 'はると', parentCar: '田中号', pos: '外野', grade: 3, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 2, name: 'そうた', parentCar: '鈴木号', pos: '捕手', grade: 6, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 3, name: 'はると', parentCar: '田中号', pos: '外野', grade: 5, motionSick: false, dayMode: 'normal', active: true, companions: [] },
     { id: 4, name: '大和', parentCar: '', pos: '外野', grade: 6, motionSick: false, dayMode: 'normal', active: true, companions: [] },
-    { id: 5, name: 'れん', parentCar: '', pos: '内野', grade: 4, motionSick: true, dayMode: 'normal', active: true, companions: [] },
+    { id: 5, name: 'れん', parentCar: '', pos: '内野', grade: 5, motionSick: true, dayMode: 'normal', active: true, companions: [] },
     { id: 6, name: 'こうき', parentCar: '', pos: '内野', grade: 2, motionSick: false, dayMode: 'normal', active: true, companions: [] }
   ];
 
@@ -440,17 +440,22 @@ test('本番再現E2E: 実機10月31日の実編成（履歴あり・再計算sa
 
   assert.strictEqual(asgn0['鈴木号'].some(k => k.name === 'そうた'), true, 'そうた親車拘束(salt0)');
   assert.strictEqual(asgn0['田中号'].some(k => k.name === 'はると'), true, 'はると親車拘束(salt0)');
-  assert.strictEqual(asgn0['田中号'].some(k => k.name === 'れん'), true, '車酔いれんは定員5の田中号に乗車(salt0)');
-  assert.strictEqual(asgn0['鈴木号'].length, 2, '鈴木号は母1席消費で有効2席(salt0)');
-  assert.strictEqual(asgn0['田中号'].length, 3, '田中号は母兄2席消費で有効3席(salt0)');
+  assert.strictEqual(asgn0['鈴木号'].length, 2, '鈴木号2席(salt0)');
+  assert.strictEqual(asgn0['田中号'].length, 3, '田中号3席(salt0)');
+  assert.strictEqual(asgn0['田中号'].some(k => k.name === 'れん'), true, '車酔いれんは田中号(salt0)');
+  assert.strictEqual(asgn0['鈴木号'].some(k => k.name === 'れん'), false, '車酔いれんは鈴木号回避(salt0)');
+  assert.strictEqual(asgn0['田中号'].some(k => k.name === '大和'), true, '履歴により大和は田中号(salt0)');
+  assert.strictEqual(asgn0['鈴木号'].some(k => k.name === 'こうき'), true, 'こうきは鈴木号(salt0)');
 
   const plan1 = generateCarpool(1, 'balance');
   const asgn1 = plan1.assignments;
 
   assert.strictEqual(asgn1['鈴木号'].some(k => k.name === 'そうた'), true, 'そうた親車拘束(salt1)');
   assert.strictEqual(asgn1['田中号'].some(k => k.name === 'はると'), true, 'はると親車拘束(salt1)');
-  assert.strictEqual(asgn1['田中号'].some(k => k.name === 'れん'), true, '再計算後も車酔いれんは田中号に保護されること(salt1)');
-  assert.strictEqual(asgn1['鈴木号'].some(k => k.name === 'れん'), false, '再計算でれんが鈴木号へ転落しないこと(salt1)');
+  assert.strictEqual(asgn1['田中号'].some(k => k.name === 'れん'), true, '再計算後もれんは田中号(salt1)');
+  assert.strictEqual(asgn1['鈴木号'].some(k => k.name === 'れん'), false, '再計算でれんが鈴木号へ転落しない(salt1)');
+  assert.strictEqual(asgn1['鈴木号'].length, 2, '鈴木号定員維持(salt1)');
+  assert.strictEqual(asgn1['田中号'].length, 3, '田中号定員維持(salt1)');
 
   localStorage.removeItem('cp_session_2026-10-24');
 });
