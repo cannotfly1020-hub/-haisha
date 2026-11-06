@@ -675,7 +675,7 @@ function evaluateAssignmentScore(assignments, mode) {
     const riders = assignments[car.name] || [];
     if (car.dayMode !== 'individual') {
       if (car.isEquipmentCar) {
-        if (riders.length > 0) score -= riders.length * 500;
+        if (riders.length > 0) score -= riders.length * 1500;
       } else if (riders.length === 1) {
         score -= 1000;
       } else if (riders.length === 0 && totalRiders >= 2) {
@@ -705,7 +705,32 @@ function evaluateAssignmentScore(assignments, mode) {
     if (Array.isArray(riders)) score += positionModeDelta(riders, selected);
   });
 
+  if (equipmentRideBreaksNormalCapacity(assignments)) score -= 100000;
+
   return applyGradeModeScore(score, assignments, selected);
+}
+
+/** 通常車の空きだけで全員が収まるとき、道具車に誰か乗っている配車を除外する。 */
+function equipmentRideBreaksNormalCapacity(assignments) {
+  const list = (typeof cars !== 'undefined' && Array.isArray(cars)) ? cars : [];
+  const normalCars = list.filter((car) => typeof isPoolCar === 'function' && isPoolCar(car) && !car.isEquipmentCar);
+  const normalSeats = normalCars.reduce((sum, car) => {
+    const open = typeof calculateCarRemainingSeats === 'function' ? calculateCarRemainingSeats(car, []) : 0;
+    return sum + Math.max(0, open);
+  }, 0);
+  let demand = 0;
+  let equipmentRiders = 0;
+  list.filter((car) => typeof isPoolCar === 'function' && isPoolCar(car) && car.isEquipmentCar).forEach((car) => {
+    equipmentRiders += ((assignments && assignments[car.name]) || []).length;
+  });
+  Object.keys(assignments || {}).forEach((name) => {
+    const riders = assignments[name];
+    if (!Array.isArray(riders)) return;
+    riders.forEach((kid) => {
+      demand += typeof seatCost === 'function' ? seatCost(kid) : 1;
+    });
+  });
+  return normalSeats >= demand && equipmentRiders > 0;
 }
 
 function hasAvoidPairConflict(carRiders, kidToPut) {
@@ -734,7 +759,8 @@ function tryRelocateOne(assignments, activeCars, salt, selected, state) {
   for (let fromPos = 0; fromPos < order.length && !state.found && state.trials < MAX_SWAP_TRIALS; fromPos++) {
     const carFrom = activeCars[order[fromPos]];
     const listFrom = assignments[carFrom.name] || [];
-    if (listFrom.length <= 1) continue;
+    if (!listFrom.length) continue;
+    const wasAlone = listFrom.length === 1;
     const startI = salt && listFrom.length ? salt % listFrom.length : 0;
     for (let ii = 0; ii < listFrom.length && !state.found && state.trials < MAX_SWAP_TRIALS; ii++) {
       const i = (startI + ii) % listFrom.length;
@@ -754,7 +780,7 @@ function tryRelocateOne(assignments, activeCars, salt, selected, state) {
         assignments[carTo.name].push(kid);
         const afterScore = evaluateAssignmentScore(assignments, selected);
         const isBetter = afterScore > beforeScore + 1e-6;
-        const isEqualInRerun = salt > 0 && Math.abs(afterScore - beforeScore) <= 1e-6;
+        const isEqualInRerun = !wasAlone && salt > 0 && Math.abs(afterScore - beforeScore) <= 1e-6;
         if (isBetter || isEqualInRerun) {
           state.improved = true;
           state.found = true;

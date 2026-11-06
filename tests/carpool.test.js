@@ -499,7 +499,7 @@ test('空車防止: 通常車2台の場合、全員が同学年で1台に乗り�
 // -------------------------------------------------------------
 // テスト18: 道具車の荷物優先（通常車収容時は道具車0人）検証
 // -------------------------------------------------------------
-test('道具車配慮: 通常車で全員収まる場合、道具車には選手を乗せず荷物専用（0人）とすること', () => {
+test('道具車配慮: 通常車で全員収まる場合、ポジション重複や車酔いがあっても道具車には選手を乗せず荷物専用（0人）とすること', () => {
   global.cars = [
     { id: 'c1', name: '東号', capacity: 4, companions: [], dayMode: 'normal', active: true, isEquipmentCar: false },
     { id: 'c2', name: '西号', capacity: 4, companions: [], dayMode: 'normal', active: true, isEquipmentCar: true }
@@ -507,16 +507,51 @@ test('道具車配慮: 通常車で全員収まる場合、道具車には選手
   global.children = [
     { id: 1, name: 'A', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
     { id: 2, name: 'B', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
-    { id: 3, name: 'C', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
-    { id: 4, name: 'D', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+    { id: 3, name: 'C', grade: 5, pos: '内野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 4, name: 'D', grade: 5, pos: '内野', dayMode: 'normal', active: true, parentCar: '', companions: [] }
   ];
 
-  const plan = generateCarpool(0, 'grade_same');
-  const eastCount = (plan.assignments['東号'] || []).length;
-  const westCount = (plan.assignments['西号'] || []).length;
+  let plan = generateCarpool(0, 'balance');
+  assert.strictEqual((plan.assignments['東号'] || []).length, 4, '通常車の東号に4名全員が乗車すること');
+  assert.strictEqual((plan.assignments['西号'] || []).length, 0, '道具車の西号は0人（荷物専用）であること');
 
-  assert.strictEqual(eastCount, 4, '通常車の東号に4名全員が乗車すること');
-  assert.strictEqual(westCount, 0, '道具車の西号は荷物専用として0人であること');
+  global.cars = [
+    { id: 'c1', name: '東号', capacity: 3, companions: [], dayMode: 'normal', active: true, isEquipmentCar: false },
+    { id: 'c2', name: '西号', capacity: 5, companions: [], dayMode: 'normal', active: true, isEquipmentCar: true }
+  ];
+  global.children = [
+    { id: 1, name: '甲', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: '乙', grade: 5, pos: '内野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: '酔い子', grade: 4, pos: '投手', motionSick: true, dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+
+  plan = generateCarpool(0, 'balance');
+  assert.strictEqual((plan.assignments['東号'] || []).length, 3, '車酔いがあっても通常車に収まるなら通常車に全員乗車すること');
+  assert.strictEqual((plan.assignments['西号'] || []).length, 0, '車酔いを理由に道具車へ追いやらないこと（道具車0人）');
+
+  global.cars = [
+    { id: 'c1', name: '東号', capacity: 3, companions: [], dayMode: 'normal', active: true, isEquipmentCar: false },
+    { id: 'c2', name: '西号', capacity: 5, companions: [], dayMode: 'normal', active: true, isEquipmentCar: true }
+  ];
+  global.children = [
+    { id: 1, name: '外野甲', grade: 6, pos: '外野', motionSick: false, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: '外野乙', grade: 5, pos: '外野', motionSick: false, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: '外野酔', grade: 4, pos: '外野', motionSick: true, dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+  for (let d = 1; d <= 3; d++) {
+    localStorage.setItem(`cp_session_2026-10-0${d}`, JSON.stringify({
+      date: `2026-10-0${d}`,
+      cars: {},
+      children: {},
+      result: { assignments: { '東号': [1, 2, 3] } }
+    }));
+  }
+
+  plan = generateCarpool(0, 'balance');
+  assert.strictEqual((plan.assignments['東号'] || []).length, 3, '最悪のペナルティが複合しても通常車に3名全員が乗車すること');
+  assert.strictEqual((plan.assignments['西号'] || []).length, 0, '通常車に収まる限り道具車には絶対に誰も乗せないこと（西号0人）');
+
+  for (let d = 1; d <= 3; d++) localStorage.removeItem(`cp_session_2026-10-0${d}`);
 });
 
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);
