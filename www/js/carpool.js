@@ -483,6 +483,7 @@ function positionModeDelta(riders, mode) {
     const weight = count - 1;
     if (mode === 'pos_same') delta += weight * 500;
     else if (mode === 'pos_diff') delta -= weight * 400;
+    else if (mode === 'grade_same' || mode === 'grade_diff') delta -= weight * 200;
     else delta -= weight * 560;
   });
   return delta;
@@ -614,7 +615,7 @@ function calculateGradeClumpScore(assignments) {
     grades.forEach((grade) => { counts[grade] = (counts[grade] || 0) + 1; });
     Object.keys(counts).forEach((key) => {
       const count = counts[key];
-      if (count >= 2) delta += (count - 1) * 500;
+      if (count >= 2) delta += (count - 1) * 600;
     });
   });
   return delta;
@@ -623,10 +624,9 @@ function calculateGradeClumpScore(assignments) {
 /** 学年の配点だけを切り替える。ポジションモードでは学年分散を足さない。 */
 function applyGradeModeScore(score, assignments, mode) {
   if (mode === 'pos_same' || mode === 'pos_diff') return score;
+  if (mode === 'grade_same') return score + calculateGradeClumpScore(assignments);
   const names = Object.keys(assignments || {}).filter((name) => Array.isArray(assignments[name]) && assignments[name].length > 0);
   if (names.length < 2) return score;
-
-  if (mode === 'grade_same') return score + calculateGradeClumpScore(assignments);
 
   if (mode === 'grade_diff') {
     const averages = [];

@@ -200,6 +200,17 @@ test('配車モード: 「学年を揃える」モードで generateCarpool を�
     evaluateAssignmentScore(plan.assignments, 'grade_same') > evaluateAssignmentScore(mixed, 'grade_same'),
     '同学年が揃った配車の方がスコアが高いこと'
   );
+
+  global.children = [
+    { id: 11, name: '外野A', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 12, name: '外野B', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+  const samePos = generateCarpool(0, 'grade_same');
+  const together = ['1号車', '2号車'].some((name) => {
+    const riders = samePos.assignments[name] || [];
+    return riders.length === 2 && riders.every((kid) => kid.grade === 6 && kid.pos === '外野');
+  });
+  assert.strictEqual(together, true, '6年の外野手2名は同じ車に集まること');
 });
 
 // -------------------------------------------------------------
@@ -418,9 +429,9 @@ test('本番再現E2E: 画面10月31日実編成（属性完全一致・履歴�
     { id: 1, name: 'ゆうと', parentCar: '佐藤号', pos: '投手', grade: 6, motionSick: false, dayMode: 'individual', active: true, companions: [] },
     { id: 2, name: 'そうた', parentCar: '鈴木号', pos: '捕手', grade: 6, motionSick: false, dayMode: 'normal', active: true, companions: [] },
     { id: 3, name: 'はると', parentCar: '田中号', pos: '外野', grade: 5, motionSick: false, dayMode: 'normal', active: true, companions: [] },
-    { id: 4, name: '大和', parentCar: '', pos: '外野', grade: 6, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 4, name: '大和', parentCar: '', pos: '外野', grade: 3, motionSick: false, dayMode: 'normal', active: true, companions: [] },
     { id: 5, name: 'れん', parentCar: '', pos: '内野', grade: 5, motionSick: true, dayMode: 'normal', active: true, companions: [] },
-    { id: 6, name: 'こうき', parentCar: '', pos: '内野', grade: 2, motionSick: false, dayMode: 'normal', active: true, companions: [] }
+    { id: 6, name: 'こうき', parentCar: '', pos: '内野', grade: 4, motionSick: false, dayMode: 'normal', active: true, companions: [] }
   ];
 
   localStorage.setItem('cp_session_2026-10-24', JSON.stringify({
@@ -456,6 +467,8 @@ test('本番再現E2E: 画面10月31日実編成（属性完全一致・履歴�
   assert.strictEqual(asgn1['鈴木号'].some(k => k.name === 'れん'), false, '再計算でれんが鈴木号へ転落しない(salt1)');
   assert.strictEqual(asgn1['鈴木号'].length, 2, '鈴木号定員維持(salt1)');
   assert.strictEqual(asgn1['田中号'].length, 3, '田中号定員維持(salt1)');
+  assert.strictEqual(asgn1['田中号'].some(k => k.name === '大和'), true, '再計算後も大和は田中号(salt1)');
+  assert.strictEqual(asgn1['鈴木号'].some(k => k.name === 'こうき'), true, '再計算後もこうきは鈴木号(salt1)');
 
   localStorage.removeItem('cp_session_2026-10-24');
 });
