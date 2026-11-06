@@ -483,7 +483,7 @@ function positionModeDelta(riders, mode) {
     const weight = count - 1;
     if (mode === 'pos_same') delta += weight * 500;
     else if (mode === 'pos_diff') delta -= weight * 400;
-    else delta -= weight * 200;
+    else delta -= weight * 250;
   });
   return delta;
 }
@@ -679,7 +679,7 @@ function evaluateAssignmentScore(assignments, mode) {
     const cap = parseInt(car.capacity, 10) || 0;
     if (cap < median) {
       riders.forEach((kid) => {
-        if (kid.motionSick) score -= 600;
+        if (kid.motionSick) score -= 1200;
       });
     }
 
