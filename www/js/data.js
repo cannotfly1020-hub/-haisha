@@ -1534,7 +1534,7 @@ function restoreBackupData(text) {
     return false;
   }
 
-  if (!confirm('現在のデータを退避テキストの内容で上書きします。よろしいですか？')) {
+  if (typeof confirm === 'function' && !confirm('現在のデータを退避テキストの内容で上書きします。よろしいですか？')) {
     return false;
   }
 
@@ -1570,21 +1570,26 @@ function restoreBackupData(text) {
   currentAssignments = null;
   lastGeneratedPlan = '';
   planResultDirty = false;
-  const resultCard = document.getElementById('resultCard');
-  if (resultCard) resultCard.style.display = 'none';
-  const resultText = document.getElementById('resultText');
-  if (resultText) resultText.textContent = '';
-  saveData();
-  if (typeof restoreDisplayedPlan === 'function') restoreDisplayedPlan(getActivePlanResult());
-  renderCars();
-  renderChildren();
-  updateStatusBar();
+  if (typeof document !== 'undefined' && document.getElementById) {
+    const resultCard = document.getElementById('resultCard');
+    if (resultCard) resultCard.style.display = 'none';
+    const resultText = document.getElementById('resultText');
+    if (resultText) resultText.textContent = '';
+    saveData();
+    if (typeof restoreDisplayedPlan === 'function') restoreDisplayedPlan(getActivePlanResult());
+    renderCars();
+    renderChildren();
+    updateStatusBar();
+  } else {
+    saveData();
+    if (typeof restoreDisplayedPlan === 'function') restoreDisplayedPlan(getActivePlanResult());
+  }
 
   if (typeof openChildCompanionEditors !== 'undefined' && openChildCompanionEditors.clear) {
     openChildCompanionEditors.clear();
   }
 
-  alert('データを正常に復元しました');
+  if (typeof alert === 'function') alert('データを正常に復元しました');
   return true;
 }
 

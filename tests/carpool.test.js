@@ -7,7 +7,9 @@ const memoryStore = () => ({
   getItem(k) { return Object.prototype.hasOwnProperty.call(this.store, k) ? this.store[k] : null; },
   setItem(k, v) { this.store[k] = String(v); },
   removeItem(k) { delete this.store[k]; },
-  clear() { this.store = {}; }
+  clear() { this.store = {}; },
+  key(index) { return Object.keys(this.store)[index] || null; },
+  get length() { return Object.keys(this.store).length; }
 });
 
 global.window = global;
@@ -169,23 +171,35 @@ test('名簿解析: スペースやカッコ混じりのテキストから選手
 });
 
 // -------------------------------------------------------------
-// テスト7: 配車モードによる評価スコアの動的変化
+// テスト7: 学年を揃える（generateCarpool による実配車）
 // -------------------------------------------------------------
-test('配車モード: 「学年を揃える」モードで同学年が揃った組み合わせのスコアが高くなること', () => {
-  const assignmentsSameGrade = {
-    '車A': [{ id: 1, name: 'A6_1', grade: 6, dayMode: 'normal' }, { id: 2, name: 'A6_2', grade: 6, dayMode: 'normal' }],
-    '車B': [{ id: 3, name: 'B3_1', grade: 3, dayMode: 'normal' }, { id: 4, name: 'B3_2', grade: 3, dayMode: 'normal' }]
+test('配車モード: 「学年を揃える」モードで generateCarpool を実行した際、同学年が同じ車に集まること', () => {
+  global.cars = [
+    { id: 'c1', name: '1号車', capacity: 3, companions: [], dayMode: 'normal', active: true },
+    { id: 'c2', name: '2号車', capacity: 3, companions: [], dayMode: 'normal', active: true }
+  ];
+  global.children = [
+    { id: 1, name: '六年A', grade: 6, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: '六年B', grade: 6, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: '三年A', grade: 3, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 4, name: '三年B', grade: 3, dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+
+  const plan = generateCarpool(0, 'grade_same');
+  const gradesOf = (name) => (plan.assignments[name] || []).map((kid) => parseInt(kid.grade, 10)).sort();
+  const car1 = gradesOf('1号車');
+  const car2 = gradesOf('2号車');
+  const clumped = (car1.length === 2 && car1[0] === car1[1]) && (car2.length === 2 && car2[0] === car2[1]);
+  assert.strictEqual(clumped, true, '6年生同士と3年生同士がそれぞれ同じ車にいること');
+
+  const mixed = {
+    '1号車': [global.children[0], global.children[2]],
+    '2号車': [global.children[1], global.children[3]]
   };
-
-  const assignmentsDiffGrade = {
-    '車A': [{ id: 1, name: 'A6_1', grade: 6, dayMode: 'normal' }, { id: 3, name: 'B3_1', grade: 3, dayMode: 'normal' }],
-    '車B': [{ id: 2, name: 'A6_2', grade: 6, dayMode: 'normal' }, { id: 4, name: 'B3_2', grade: 3, dayMode: 'normal' }]
-  };
-
-  const scoreSameMode_Same = evaluateAssignmentScore(assignmentsSameGrade, 'grade_same');
-  const scoreSameMode_Diff = evaluateAssignmentScore(assignmentsDiffGrade, 'grade_same');
-
-  assert.ok(scoreSameMode_Same > scoreSameMode_Diff, '学年を揃えるモードでは同級生同乗が高評価になる');
+  assert.ok(
+    evaluateAssignmentScore(plan.assignments, 'grade_same') > evaluateAssignmentScore(mixed, 'grade_same'),
+    '同学年が揃った配車の方がスコアが高いこと'
+  );
 });
 
 // -------------------------------------------------------------
@@ -212,6 +226,12 @@ test('配車モード統合: 「ポジションを散らす」モードで gener
 
   assert.strictEqual(gkInCar1, 1, '1号車にGKが1名');
   assert.strictEqual(gkInCar2, 1, '2号車にGKが1名');
+
+  const rerun = generateCarpool(1, 'pos_diff');
+  const rerun1 = (rerun.assignments['1号車'] || []).filter(k => k.pos === 'GK').length;
+  const rerun2 = (rerun.assignments['2号車'] || []).filter(k => k.pos === 'GK').length;
+  assert.strictEqual(rerun1, 1, '再計算後も1号車のGKは1名');
+  assert.strictEqual(rerun2, 1, '再計算後も2号車のGKは1名');
 });
 
 // -------------------------------------------------------------
@@ -237,6 +257,12 @@ test('配車モード統合: 「ポジションを揃える」モードで gener
                   (car2Riders.filter(p => p === '捕手').length === 2);
 
   assert.strictEqual(clumped, true, '捕手2名が同一号車に集約されていること');
+
+  const rerun = generateCarpool(1, 'pos_same');
+  const rerun1 = (rerun.assignments['1号車'] || []).filter(k => k.pos === '捕手').length;
+  const rerun2 = (rerun.assignments['2号車'] || []).filter(k => k.pos === '捕手').length;
+  const stillClumped = rerun1 === 2 || rerun2 === 2;
+  assert.strictEqual(stillClumped, true, '再計算後も捕手2名が同一号車に残ること');
 });
 
 // -------------------------------------------------------------
@@ -252,6 +278,129 @@ test('未定除外: 「未定」や空文字の選手が複数乗車してもポ
   const scoreSame = evaluateAssignmentScore(assignments, 'pos_same');
 
   assert.strictEqual(scoreDiff, scoreSame, '未定同士ではモードによるペナルティ・ボーナス差が発生しないこと');
+});
+
+// -------------------------------------------------------------
+// テスト11: 表記ゆれの吸収
+// -------------------------------------------------------------
+test('表記ゆれ: 「内野手」と「内野」が同じポジションとして認識されること', () => {
+  assert.strictEqual(canonicalPosition('内野手'), '内野');
+  assert.strictEqual(canonicalPosition('内野'), '内野');
+  assert.strictEqual(canonicalPosition('内野手'), canonicalPosition('内野'));
+  assert.strictEqual(canonicalPosition('外野手'), canonicalPosition('外野'));
+});
+
+// -------------------------------------------------------------
+// テスト12: バックアップ version 4 の往復
+// -------------------------------------------------------------
+test('バックアップ: version 4 にポジション一覧が含まれ、復元で戻ること', () => {
+  const roles = ['投手', '捕手', 'GK', 'FW'];
+  savePositionRoles(roles);
+  global.cars = [{ id: 'c1', name: '1号車', capacity: 3, companions: [], dayMode: 'normal', active: true }];
+  global.children = [{ id: 1, name: 'GK1', pos: 'GK', dayMode: 'normal', active: true, parentCar: '', companions: [] }];
+
+  const payload = buildBackupPayload();
+  assert.strictEqual(payload.version, 4);
+  assert.deepStrictEqual(payload.positionRoles, roles);
+
+  savePositionRoles(['投手', '捕手', '内野手', '外野手']);
+  const restored = restoreBackupData(JSON.stringify(payload));
+  assert.strictEqual(restored, true);
+  assert.deepStrictEqual(getPositionRoles(), roles);
+});
+
+// -------------------------------------------------------------
+// テスト13: 履歴減点があっても揃えるモードが勝つ
+// -------------------------------------------------------------
+test('複合: 前回同じ車の履歴があっても、揃えるモードで捕手同士が同じ車に集まること', () => {
+  const today = getPlanSlotView().date;
+  const parts = today.split('-').map(Number);
+  const prevDate = new Date(parts[0], parts[1] - 1, parts[2] - 1);
+  const ymd = [
+    prevDate.getFullYear(),
+    String(prevDate.getMonth() + 1).padStart(2, '0'),
+    String(prevDate.getDate()).padStart(2, '0')
+  ].join('-');
+  localStorage.setItem(`cp_session_${ymd}`, JSON.stringify({
+    result: { assignments: { '東号': [1, 2] } }
+  }));
+
+  global.cars = [
+    { id: 'c1', name: '東号', capacity: 3, companions: [], dayMode: 'normal', active: true },
+    { id: 'c2', name: '西号', capacity: 3, companions: [], dayMode: 'normal', active: true }
+  ];
+  global.children = [
+    { id: 1, name: '捕手A', pos: '捕手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: '捕手B', pos: '捕手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: '投手A', pos: '投手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 4, name: '投手B', pos: '投手', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+
+  const plan = generateCarpool(0, 'pos_same');
+  const eastCatchers = (plan.assignments['東号'] || []).filter((kid) => kid.pos === '捕手').length;
+  const westCatchers = (plan.assignments['西号'] || []).filter((kid) => kid.pos === '捕手').length;
+  assert.strictEqual(eastCatchers === 2 || westCatchers === 2, true, '履歴があっても捕手2名は同一車');
+
+  const onHistory = {
+    '東号': [global.children[0], global.children[1]],
+    '西号': [global.children[2], global.children[3]]
+  };
+  const offHistory = {
+    '東号': [global.children[2], global.children[3]],
+    '西号': [global.children[0], global.children[1]]
+  };
+  assert.ok(
+    evaluateAssignmentScore(offHistory, 'pos_same') > evaluateAssignmentScore(onHistory, 'pos_same'),
+    '前回と同じ車に揃えた組は、別の車に揃えた組より履歴分だけ低いこと'
+  );
+  localStorage.removeItem(`cp_session_${ymd}`);
+});
+
+// -------------------------------------------------------------
+// テスト14: 表記ゆれの実配車
+// -------------------------------------------------------------
+test('表記ゆれ実配車: 「内野手」と「内野」が揃えるモードで同じ車に集まること', () => {
+  global.cars = [
+    { id: 'c1', name: '1号車', capacity: 3, companions: [], dayMode: 'normal', active: true },
+    { id: 'c2', name: '2号車', capacity: 3, companions: [], dayMode: 'normal', active: true }
+  ];
+  global.children = [
+    { id: 11, name: '内野手A', pos: '内野手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 12, name: '内野B', pos: '内野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 13, name: '投手A', pos: '投手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 14, name: '投手B', pos: '投手', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+
+  const plan = generateCarpool(0, 'pos_same');
+  const together = ['1号車', '2号車'].some((name) => {
+    const riders = plan.assignments[name] || [];
+    const inf = riders.filter((kid) => canonicalPosition(kid.pos) === '内野');
+    return inf.length === 2;
+  });
+  assert.strictEqual(together, true, '内野手と内野が同一号車にいること');
+});
+
+// -------------------------------------------------------------
+// テスト15: 学年を散らす実配車
+// -------------------------------------------------------------
+test('配車モード: 「学年を散らす」モードで高学年と低学年が各車に分かれること', () => {
+  global.cars = [
+    { id: 'c1', name: '1号車', capacity: 3, companions: [], dayMode: 'normal', active: true },
+    { id: 'c2', name: '2号車', capacity: 3, companions: [], dayMode: 'normal', active: true }
+  ];
+  global.children = [
+    { id: 21, name: '六年A', grade: 6, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 22, name: '六年B', grade: 6, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 23, name: '三年A', grade: 3, dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 24, name: '三年B', grade: 3, dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+
+  const plan = generateCarpool(0, 'grade_diff');
+  ['1号車', '2号車'].forEach((name) => {
+    const grades = (plan.assignments[name] || []).map((kid) => parseInt(kid.grade, 10));
+    assert.strictEqual(grades.length, 2, `${name}は2名`);
+    assert.strictEqual(grades.indexOf(6) >= 0 && grades.indexOf(3) >= 0, true, `${name}に高学年と低学年が1名ずついること`);
+  });
 });
 
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

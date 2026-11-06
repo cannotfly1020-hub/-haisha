@@ -481,8 +481,8 @@ function positionModeDelta(riders, mode) {
     const count = counts[pos];
     if (count < 2) return;
     const weight = count - 1;
-    if (mode === 'pos_same') delta += weight * 300;
-    else if (mode === 'pos_diff') delta -= weight * 350;
+    if (mode === 'pos_same') delta += weight * 500;
+    else if (mode === 'pos_diff') delta -= weight * 400;
     else delta -= weight * 150;
   });
   return delta;
@@ -562,7 +562,22 @@ function freeKidRank(kid, rerunSalt) {
   return hashSeedKey(seedKey);
 }
 
-function rideRepeatPenalty(kid, car) {
+function sameGroupEstablished(kid, riders, mode) {
+  const list = Array.isArray(riders) ? riders : [];
+  if (mode === 'pos_same') {
+    const pos = typeof canonicalPosition === 'function' ? canonicalPosition(kid && kid.pos) : '';
+    if (!pos) return false;
+    return list.filter((rider) => canonicalPosition(rider && rider.pos) === pos).length >= 2;
+  }
+  if (mode === 'grade_same') {
+    const grade = parseInt(kid && kid.grade, 10);
+    if (isNaN(grade) || grade <= 0) return false;
+    return list.filter((rider) => parseInt(rider && rider.grade, 10) === grade).length >= 2;
+  }
+  return false;
+}
+
+function rideRepeatPenalty(kid, car, mode, riders) {
   if (!kid || !car || kid.id == null) return 0;
   const carName = String(car.name || '');
   if (typeof isChildOfCar === 'function' && isChildOfCar(kid, car)) return 0;
@@ -574,6 +589,7 @@ function rideRepeatPenalty(kid, car) {
   const counts = stats.carRideCount && stats.carRideCount[pid];
   const times = counts && counts[carName] ? counts[carName] : 0;
   if (times) penalty -= 80 * times;
+  if (penalty < 0 && sameGroupEstablished(kid, riders, mode)) penalty *= 0.5;
   return penalty;
 }
 
@@ -588,25 +604,29 @@ function positiveGrades(riders) {
     .filter((grade) => !isNaN(grade) && grade > 0);
 }
 
-/** 学年の配点だけを切り替える。座席・親子・配慮の減点はモードに依存しない。 */
+function calculateGradeClumpScore(assignments) {
+  let delta = 0;
+  Object.keys(assignments || {}).forEach((name) => {
+    const grades = positiveGrades(assignments[name]);
+    if (grades.length < 2) return;
+    delta -= (Math.max.apply(null, grades) - Math.min.apply(null, grades)) * 150;
+    const counts = {};
+    grades.forEach((grade) => { counts[grade] = (counts[grade] || 0) + 1; });
+    Object.keys(counts).forEach((key) => {
+      const count = counts[key];
+      if (count >= 2) delta += (count - 1) * 500;
+    });
+  });
+  return delta;
+}
+
+/** 学年の配点だけを切り替える。ポジションモードでは学年分散を足さない。 */
 function applyGradeModeScore(score, assignments, mode) {
+  if (mode === 'pos_same' || mode === 'pos_diff') return score;
   const names = Object.keys(assignments || {}).filter((name) => Array.isArray(assignments[name]) && assignments[name].length > 0);
   if (names.length < 2) return score;
 
-  if (mode === 'grade_same') {
-    names.forEach((name) => {
-      const grades = positiveGrades(assignments[name]);
-      if (grades.length < 2) return;
-      score -= (Math.max.apply(null, grades) - Math.min.apply(null, grades)) * 150;
-      const counts = {};
-      grades.forEach((grade) => { counts[grade] = (counts[grade] || 0) + 1; });
-      Object.keys(counts).forEach((key) => {
-        const count = counts[key];
-        if (count >= 2) score += (count * (count - 1) / 2) * 50;
-      });
-    });
-    return score;
-  }
+  if (mode === 'grade_same') return score + calculateGradeClumpScore(assignments);
 
   if (mode === 'grade_diff') {
     const averages = [];
@@ -620,7 +640,7 @@ function applyGradeModeScore(score, assignments, mode) {
     if (usable.length >= 2) {
       const mean = usable.reduce((total, value) => total + value, 0) / usable.length;
       const variance = usable.reduce((total, value) => total + (value - mean) * (value - mean), 0) / usable.length;
-      score -= variance * 100;
+      score -= variance * 60;
     }
     return score;
   }
@@ -664,7 +684,7 @@ function evaluateAssignmentScore(assignments, mode) {
     }
 
     riders.forEach((kid) => {
-      score += rideRepeatPenalty(kid, car);
+      score += rideRepeatPenalty(kid, car, selected, riders);
     });
     for (let i = 0; i < riders.length; i++) {
       for (let j = i + 1; j < riders.length; j++) {
@@ -774,21 +794,56 @@ function preferCar(list, kid, assignments) {
   return best;
 }
 
-function chooseCarForFreeKid(kid, assignments, activeCars, carsToUse) {
+function modeAffinityScore(kid, car, assignments, mode) {
+  const riders = (assignments && assignments[car.name]) || [];
+  if (mode === 'pos_same' || mode === 'pos_diff') {
+    const pos = typeof canonicalPosition === 'function' ? canonicalPosition(kid && kid.pos) : '';
+    if (!pos) return 0;
+    const has = riders.some((rider) => canonicalPosition(rider && rider.pos) === pos);
+    if (mode === 'pos_same') {
+      if (has) return 10;
+      return riders.length ? -10 : 0;
+    }
+    return has ? -10 : 0;
+  }
+  if (mode === 'grade_same' || mode === 'grade_diff') {
+    const grade = parseInt(kid && kid.grade, 10);
+    if (isNaN(grade) || grade <= 0) return 0;
+    const has = riders.some((rider) => parseInt(rider && rider.grade, 10) === grade);
+    if (mode === 'grade_same') {
+      if (has) return 10;
+      return riders.length ? -10 : 0;
+    }
+    return has ? 0 : 10;
+  }
+  return 0;
+}
+
+function highestAffinityCars(kid, list, assignments, mode) {
+  let best = -Infinity;
+  list.forEach((car) => {
+    const score = modeAffinityScore(kid, car, assignments, mode);
+    if (score > best) best = score;
+  });
+  return list.filter((car) => modeAffinityScore(kid, car, assignments, mode) === best);
+}
+
+function chooseCarForFreeKid(kid, assignments, activeCars, carsToUse, mode) {
   const fitting = activeCars.filter((car) => remainingSeats(car, assignments) >= seatCost(kid) && !hasAvoidPairConflict(assignments[car.name], kid));
   if (!fitting.length) return null;
-  const singles = fitting.filter((car) => assignments[car.name].length === 1);
+  const pool = highestAffinityCars(kid, fitting, assignments, mode);
+  const singles = pool.filter((car) => assignments[car.name].length === 1);
   if (singles.length) return preferCar(singles, kid, assignments);
 
   const nonEmpty = activeCars.reduce((count, car) => (
     count + ((assignments[car.name] || []).length > 0 ? 1 : 0)
   ), 0);
-  const empties = fitting.filter((car) => assignments[car.name].length === 0);
+  const empties = pool.filter((car) => assignments[car.name].length === 0);
   if (nonEmpty < carsToUse && empties.length) return preferCar(empties, kid, assignments);
 
-  const used = fitting.filter((car) => assignments[car.name].length > 0);
+  const used = pool.filter((car) => assignments[car.name].length > 0);
   if (used.length) return preferCar(used, kid, assignments);
-  return preferCar(fitting, kid, assignments);
+  return preferCar(pool, kid, assignments);
 }
 
 function repairLeftovers(leftover, assignments, activeCars) {
@@ -906,7 +961,7 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
   );
   let leftover = [];
   free.forEach((kid) => {
-    const car = chooseCarForFreeKid(kid, assignments, activeCars, carsToUse);
+    const car = chooseCarForFreeKid(kid, assignments, activeCars, carsToUse, mode);
     if (!car) leftover.push(kid);
     else assignments[car.name].push(kid);
   });
@@ -922,21 +977,21 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
         if (isSwappable(kid, activeCars)) movableSlots.push({ car, index: idx, kid });
       });
     });
+
     const candidates = [];
     for (let i = 0; i < movableSlots.length; i++) {
       for (let j = i + 1; j < movableSlots.length; j++) {
         const slotA = movableSlots[i];
         const slotB = movableSlots[j];
         if (slotA.car.name === slotB.car.name) continue;
-        if (canSwapSeats(slotA.car, slotA.kid, slotB.car, slotB.kid, assignments)) {
-          candidates.push([slotA, slotB]);
-        }
+        if (!canSwapSeats(slotA.car, slotA.kid, slotB.car, slotB.kid, assignments)) continue;
+        if (rerunSwapIsDestructive(slotA, slotB, assignments, mode)) continue;
+        candidates.push([slotA, slotB]);
       }
     }
+
     if (candidates.length > 0) {
-      const preferred = candidates.filter((pair) => !swapSplitsGatheredPair(pair[0].kid, pair[1].kid, mode));
-      const pool = preferred.length ? preferred : candidates;
-      const pick = pool[(salt - 1) % pool.length];
+      const pick = candidates[(salt - 1) % candidates.length];
       const slotA = pick[0];
       const slotB = pick[1];
       const listA = assignments[slotA.car.name];
@@ -949,16 +1004,34 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
   return { assignments, overflowedCars, leftover };
 }
 
-function swapSplitsGatheredPair(kidA, kidB, mode) {
-  if (mode === 'pos_same') {
-    const left = typeof canonicalPosition === 'function' ? canonicalPosition(kidA && kidA.pos) : String(kidA && kidA.pos || '').trim();
-    const right = typeof canonicalPosition === 'function' ? canonicalPosition(kidB && kidB.pos) : String(kidB && kidB.pos || '').trim();
-    return !!(left && right && left === right);
+function rerunSwapIsDestructive(slotA, slotB, assignments, mode) {
+  const listA = assignments[slotA.car.name] || [];
+  const listB = assignments[slotB.car.name] || [];
+  if (mode === 'pos_same' || mode === 'pos_diff') {
+    const posA = typeof canonicalPosition === 'function' ? canonicalPosition(slotA.kid.pos) : '';
+    const posB = typeof canonicalPosition === 'function' ? canonicalPosition(slotB.kid.pos) : '';
+    if (mode === 'pos_same') {
+      const sameInA = posA ? listA.filter((kid) => canonicalPosition(kid.pos) === posA).length : 0;
+      const sameInB = posB ? listB.filter((kid) => canonicalPosition(kid.pos) === posB).length : 0;
+      return posA !== posB && (sameInA >= 2 || sameInB >= 2);
+    }
+    if (!posA || !posB || posA === posB) return false;
+    const otherHasA = listB.some((kid) => kid !== slotB.kid && canonicalPosition(kid.pos) === posA);
+    const otherHasB = listA.some((kid) => kid !== slotA.kid && canonicalPosition(kid.pos) === posB);
+    return otherHasA || otherHasB;
   }
-  if (mode === 'grade_same') {
-    const left = parseInt(kidA && kidA.grade, 10);
-    const right = parseInt(kidB && kidB.grade, 10);
-    return !isNaN(left) && !isNaN(right) && left > 0 && left === right;
+  if (mode === 'grade_same' || mode === 'grade_diff') {
+    const gradeA = parseInt(slotA.kid.grade, 10);
+    const gradeB = parseInt(slotB.kid.grade, 10);
+    if (mode === 'grade_same') {
+      const sameInA = !isNaN(gradeA) ? listA.filter((kid) => parseInt(kid.grade, 10) === gradeA).length : 0;
+      const sameInB = !isNaN(gradeB) ? listB.filter((kid) => parseInt(kid.grade, 10) === gradeB).length : 0;
+      return gradeA !== gradeB && (sameInA >= 2 || sameInB >= 2);
+    }
+    if (isNaN(gradeA) || isNaN(gradeB) || gradeA === gradeB) return false;
+    const otherHasA = listB.some((kid) => kid !== slotB.kid && parseInt(kid.grade, 10) === gradeA);
+    const otherHasB = listA.some((kid) => kid !== slotA.kid && parseInt(kid.grade, 10) === gradeB);
+    return otherHasA || otherHasB;
   }
   return false;
 }
@@ -975,7 +1048,7 @@ function planDatePhrase() {
 
 let lastAppliedCarpoolMode = '';
 
-function carpoolModeBadgeText(mode) {
+function carpoolModeBadgeText(mode, mobility) {
   const labels = {
     balance: '⚖️ バランス（標準）',
     grade_same: '🎒 学年を揃える',
@@ -983,7 +1056,63 @@ function carpoolModeBadgeText(mode) {
     pos_diff: '🛡️ ポジションを散らす',
     pos_same: '🗣️ ポジションを揃える'
   };
-  return '適用モード：' + (labels[mode] || labels.balance);
+  const base = '適用モード：' + (labels[mode] || labels.balance);
+  if (!mobility) return base;
+  return `${base}（固定: ${mobility.fixed}名 / 自由枠: ${mobility.free}名）`;
+}
+
+function countPlanMobility(assignments) {
+  let fixed = 0;
+  let free = 0;
+  const seen = {};
+  const poolNames = {};
+  if (typeof cars !== 'undefined' && Array.isArray(cars)) {
+    cars.forEach((car) => {
+      if (typeof isPoolCar === 'function' && isPoolCar(car)) poolNames[car.name] = true;
+    });
+  }
+  const add = (kid, isFixed) => {
+    if (!kid || kid.id == null || kid.id === '') return;
+    const id = String(kid.id);
+    if (seen[id]) return;
+    seen[id] = true;
+    if (isFixed) fixed += 1;
+    else free += 1;
+  };
+  Object.keys(assignments || {}).forEach((carName) => {
+    (assignments[carName] || []).forEach((kid) => {
+      const inPool = !!poolNames[carName];
+      const pinned = (kid && kid.parentCar && String(kid.parentCar).trim() === String(carName).trim())
+        || (kid && kid.fixedCar && String(kid.fixedCar).trim());
+      add(kid, !inPool || !!pinned);
+    });
+  });
+  if (typeof children !== 'undefined' && Array.isArray(children)) {
+    children.forEach((kid) => {
+      if (!kid || seen[String(kid.id)]) return;
+      const onHoldCar = Array.isArray(cars) && cars.some((car) => (
+        typeof isHoldCar === 'function' && isHoldCar(car)
+        && typeof isChildOfCar === 'function' && isChildOfCar(kid, car)
+      ));
+      const hold = typeof isHoldKid === 'function' && isHoldKid(kid);
+      const onSite = typeof isOnSite === 'function' && isOnSite(kid);
+      const riding = typeof isRiding === 'function' && isRiding(kid);
+      if (onHoldCar || hold || onSite) add(kid, true);
+      else if (riding) add(kid, false);
+    });
+  }
+  return { fixed, free };
+}
+
+function assignmentMemberSignature(assignments) {
+  return Object.keys(assignments || {}).sort().map((name) => {
+    const ids = (assignments[name] || [])
+      .map((kid) => (kid && kid.id != null ? String(kid.id) : ''))
+      .filter(Boolean)
+      .sort();
+    if (!ids.length) return '';
+    return `${name}:${ids.join(',')}`;
+  }).filter(Boolean).join('|');
 }
 
 function syncResultModeBadge() {
@@ -996,7 +1125,7 @@ function syncResultModeBadge() {
   }
   const mode = lastAppliedCarpoolMode || (typeof getCarpoolMode === 'function' ? getCarpoolMode() : 'balance');
   el.hidden = false;
-  el.innerHTML = '<span class="badge badge-info">' + escapeHtml(carpoolModeBadgeText(mode)) + '</span>';
+  el.innerHTML = '<span class="badge badge-info">' + escapeHtml(carpoolModeBadgeText(mode, countPlanMobility(currentAssignments))) + '</span>';
 }
 
 function syncResultHeading() {
@@ -1195,13 +1324,13 @@ function restoreDisplayedPlan(payload) {
     currentAssignments = null;
     lastGeneratedPlan = '';
     renderAssignmentWarnings([]);
-    const resultCard = document.getElementById('resultCard');
+    const resultCard = pageElement('resultCard');
     if (resultCard) resultCard.style.display = 'none';
-    const resultText = document.getElementById('resultText');
+    const resultText = pageElement('resultText');
     if (resultText) resultText.textContent = '';
     syncResultHeading();
-    if (typeof showResultPattern === 'function') showResultPattern(0);
-    if (typeof renderCars === 'function') renderCars();
+    if (pageElement('resultPattern') && typeof showResultPattern === 'function') showResultPattern(0);
+    if (pageElement('carList') && typeof renderCars === 'function') renderCars();
     return;
   }
   const assignments = {};
@@ -1217,8 +1346,8 @@ function restoreDisplayedPlan(payload) {
   currentAssignments = assignments;
   showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(warnings);
-  if (typeof showResultPattern === 'function') showResultPattern(0);
-  if (typeof renderCars === 'function') renderCars();
+  if (pageElement('resultPattern') && typeof showResultPattern === 'function') showResultPattern(0);
+  if (pageElement('carList') && typeof renderCars === 'function') renderCars();
 }
 
 // 骨格確定のあと、入れ替えでソフト制約を上げる
@@ -1313,16 +1442,18 @@ function generateCarpool(rerunSalt, mode) {
   }
 
   clearCarpoolDiagnosis();
+  const previousSignature = salt > 0 ? assignmentMemberSignature(currentAssignments) : '';
   attachAssignmentWarnings(assignments, warnings);
   currentAssignments = assignments;
+  const unchanged = salt > 0 && previousSignature !== '' && previousSignature === assignmentMemberSignature(assignments);
   showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(lastAssignmentWarnings);
-  if (pageElement('resultPattern') && typeof showResultPattern === 'function') showResultPattern(salt);
+  if (pageElement('resultPattern') && typeof showResultPattern === 'function') showResultPattern(salt, unchanged);
   if (pageElement('carList') && typeof renderCars === 'function') renderCars();
   if (pageElement('resultCard') && typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }
-  return { assignments: currentAssignments };
+  return { assignments: currentAssignments, unchanged: unchanged };
 }
 
 function copyResult() {

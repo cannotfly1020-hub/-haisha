@@ -324,6 +324,18 @@ h1 {
   font-size: 0.82em;
   font-weight: 650;
 }
+.result-mode-badge .badge-info {
+  white-space: normal;
+  line-height: 1.45;
+  border-radius: 12px;
+}
+.result-pattern.is-held {
+  display: block;
+  white-space: pre-wrap;
+  border-radius: 12px;
+  max-width: 100%;
+  line-height: 1.45;
+}
 .result-pattern {
   margin: 0 0 8px;
   display: inline-block;

@@ -996,16 +996,23 @@ function planDateKey() {
 
 const rerunSaltByDate = {};
 
-function showResultPattern(rerunSalt) {
+function showResultPattern(rerunSalt, unchanged) {
   const el = document.getElementById('resultPattern');
   if (!el) return;
   const salt = parseInt(rerunSalt, 10);
   if (!Number.isFinite(salt) || salt <= 0) {
     el.hidden = true;
     el.textContent = '';
+    el.classList.remove('is-held');
     return;
   }
   el.hidden = false;
+  if (unchanged) {
+    el.classList.add('is-held');
+    el.textContent = `パターン ${salt + 1}（現在のモードでの最適解のため維持）\n※これ以上の安全な別パターンはありません`;
+    return;
+  }
+  el.classList.remove('is-held');
   el.textContent = `パターン ${salt + 1}（再計算）`;
 }
 
@@ -1020,9 +1027,11 @@ function rerunCarpool(button) {
   rerunSaltByDate[key] = next;
   if (button && !button.dataset.rerunLabel) button.dataset.rerunLabel = button.textContent;
   if (button) button.textContent = '再計算中...';
-  generateCarpool(next);
+  const result = generateCarpool(next);
   if (!button) return;
-  button.textContent = `パターン ${next + 1} を生成しました`;
+  button.textContent = result && result.unchanged
+    ? '最適解のため維持しました'
+    : `パターン ${next + 1} を生成しました`;
   const token = String(next);
   button.dataset.rerunToken = token;
   setTimeout(() => {
