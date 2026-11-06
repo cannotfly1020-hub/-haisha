@@ -892,12 +892,6 @@ function realAssignedPlayers(riders) {
   });
 }
 
-function playerListLabel(child, carName) {
-  const pinned = child.fixedCar && carName && child.fixedCar === carName ? '📌' : '';
-  const sick = child.motionSick ? '🤢' : '';
-  return `${pinned}${child.name}${sick}`;
-}
-
 function directCarShareLine(car, assignments) {
   const riders = realAssignedPlayers((assignments && assignments[car.name]) || []);
   const role = car.driverRole && String(car.driverRole).trim();
@@ -919,8 +913,7 @@ function holdSectionLines() {
   indCars.forEach((car) => {
     let headerText = car.name;
     if (typeof formatCarCompanionHeader === 'function') {
-      const formatted = formatCarCompanionHeader(car).replace(/^■\s*/, '').trim();
-      headerText = formatted.indexOf(String(car.name || '')) === 0 ? formatted : `${car.name}${formatted}`;
+      headerText = `${car.name}${formatCarCompanionHeader(car)}`;
     }
     const myKids = children.filter((player) => isChildOfCar(player, car) && (player.dayMode === 'individual' || player.dispatchStatus === 'individual' || player.status === 'individual'));
     if (myKids.length > 0) {
@@ -936,8 +929,6 @@ function buildPlanTexts(assignments) {
   const poolCars = cars.filter(isPoolCar);
   const ridingKids = children.filter(isRiding);
   const phrase = planDatePhrase();
-  const hasMotionSick = ridingKids.some(k => k.motionSick);
-  const hasPinned = ridingKids.some(k => k.fixedCar && poolCars.some(c => c.name === k.fixedCar));
   const hasPoolRide = poolCars.some((car) => {
     const riders = realAssignedPlayers((assignments && assignments[car.name]) || []);
     return riders.length > 0 || companionSeatsOf(car) > 0;
@@ -945,15 +936,12 @@ function buildPlanTexts(assignments) {
   const directLines = directSectionLines(assignments);
   const holdLines = holdSectionLines();
 
-  let screen = `【連絡】${phrase}の配車です🚗\n---------------------\n`;
   let line = `【連絡】${phrase}の配車です🚗\n---------------------\n`;
   if (hasPoolRide) {
     poolCars.forEach(c => {
       const riders = realAssignedPlayers((assignments && assignments[c.name]) || []);
       const header = typeof formatCarCompanionHeader === 'function' ? formatCarCompanionHeader(c, riders) : '';
-      const names = riders.map(k => playerListLabel(k, c.name)).join('、');
       const lineNames = riders.map(k => k.name);
-      screen += `■ ${c.name}${header}${c.isEquipmentCar ? ' 【道具車📦】' : ''}\n  乗車: ${names || 'なし'}\n\n`;
       line += `■ ${c.name}${header}${c.isEquipmentCar ? ' 【道具車】' : ''}\n`;
       line += `${lineNames.length > 0 ? lineNames.join('、') : 'なし'}\n\n`;
     });
@@ -964,26 +952,19 @@ function buildPlanTexts(assignments) {
   });
   const looseKids = ridingKids.filter((kid) => !placedIds.has(String(kid.id)));
   if (looseKids.length > 0) {
-    screen += `■ 未割当\n  ${looseKids.map(k => k.name).join('、')}\n\n`;
     line += `■ 未割当\n${looseKids.map(k => k.name).join('、')}\n\n`;
   }
   if (!hasPoolRide && looseKids.length === 0 && directLines.length === 0 && holdLines.length === 0) {
-    screen += `${phrase}の乗車配車はありません。\n\n`;
     line += `${phrase}の乗車配車はありません。\n\n`;
   }
   if (directLines.length > 0) {
-    screen += `■ 現地集合（直行）\n  ${directLines.join('\n  ')}\n\n`;
     line += `■ 現地集合（直行）\n${directLines.join('\n')}\n\n`;
   }
   if (holdLines.length > 0) {
-    screen += `■ 個人（家庭送迎・自走）\n  ${holdLines.join('\n  ')}\n\n`;
     line += `■ 個人（家庭送迎・自走）\n${holdLines.join('\n')}\n\n`;
   }
-  if (hasPinned) screen += "※「📌」は事前指定で固定した乗車です。\n";
-  if (hasMotionSick) screen += "※「🤢」マークの選手は助手席または前寄りの座席をお願いします。\n";
-  screen += "---------------------\nよろしくお願いいたします！";
   line += "---------------------\nよろしくお願いいたします！";
-  return { screen, line };
+  return { line };
 }
 
 function showPlanTexts(texts) {
@@ -1258,6 +1239,7 @@ function copyResult() {
     set currentAssignments(v) { currentAssignments = v; },
     get assignmentWarnings() { return lastAssignmentWarnings.slice(); },
     evaluateAssignmentScore,
+    hasAvoidPairConflict,
     get lastSessionCommit() { return lastSessionCommit; }
   };
   global.HaishaCarpool = HaishaCarpool;
@@ -1307,5 +1289,6 @@ function copyResult() {
   global.finishManualMove = finishManualMove;
   global.reconcileOpenCarMode = reconcileOpenCarMode;
   global.parentCancelShortageWarnings = parentCancelShortageWarnings;
+  global.hasAvoidPairConflict = hasAvoidPairConflict;
 
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="くるまわり">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261105g">
+<link rel="stylesheet" href="css/style.css?v=20261106a">
 </head>
 <body>
 
@@ -142,15 +142,6 @@
 <!-- 配車設定・実行 -->
 <div class="card">
   <h2 class="card-heading">配車ルール・条件</h2>
-  <div class="mode-select-box">
-    <label class="mode-label">割り振りの優先モード:</label>
-    <select id="carpoolMode">
-      <option value="balance">⚖ 標準（親の車固定 ＋ 過去履歴重視）</option>
-      <option value="grade_same">🎒 学年を固める（同学年同士を同乗）</option>
-      <option value="grade_diff">🔀 学年をバラバラに（高学年と低学年を分散）</option>
-      <option value="position">⚾ ポジション分散（投手・捕手などの偏り防止）</option>
-    </select>
-  </div>
   <button type="button" class="btn btn-primary" data-action="generate">⚡ 配車を組む / 組み直す</button>
 </div>
 
@@ -343,10 +334,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261105g"></script>
-<script src="js/ui.js?v=20261105g"></script>
-<script src="js/carpool.js?v=20261105g"></script>
-<script src="js/app.js?v=20261105g"></script>
+<script src="js/data.js?v=20261106a"></script>
+<script src="js/ui.js?v=20261106a"></script>
+<script src="js/carpool.js?v=20261106a"></script>
+<script src="js/app.js?v=20261106a"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
