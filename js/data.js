@@ -1540,6 +1540,139 @@ function promoteAllGrades() {
 }
 
 
+function stripRosterListMarker(line) {
+  return String(line || '').trim()
+    .replace(/^(?:[0-9]{1,3}\s*[\.．\)）、]\s*|[\u2460-\u2473]\s*)/, '')
+    .replace(/^[\-－*＊・]\s*/, '')
+    .trim();
+}
+
+function takeParentCar(line) {
+  const labeled = line.match(/(?:父|母|祖父|祖母|保護者|車)\s*[:：]\s*([^\s/／,、()（）]+)/);
+  if (labeled) return { car: labeled[1], line: line.replace(labeled[0], ' ') };
+  const wrapped = line.match(/[（(]\s*([^\s()（）]+号)\s*[)）]/);
+  if (wrapped) return { car: wrapped[1], line: line.replace(wrapped[0], ' ') };
+  const bare = line.match(/(?:^|[\s/／,、])([^\s/／,、()（）]+号)(?=$|[\s/／,、])/);
+  if (bare) return { car: bare[1], line: line.replace(bare[1], ' ') };
+  return { car: '', line: line };
+}
+
+function takeGrade(line) {
+  const wrapped = line.match(/[（(]\s*小?\s*([1-6])\s*年(?:生)?\s*[)）]/);
+  if (wrapped) return { grade: Number(wrapped[1]), line: line.replace(wrapped[0], ' ') };
+  const sho = line.match(/小\s*([1-6])\s*(?:年(?:生)?)?/);
+  if (sho) return { grade: Number(sho[1]), line: line.replace(sho[0], ' ') };
+  const nensei = line.match(/([1-6])\s*年生/);
+  if (nensei) return { grade: Number(nensei[1]), line: line.replace(nensei[0], ' ') };
+  const nen = line.match(/([1-6])\s*年/);
+  if (nen) return { grade: Number(nen[1]), line: line.replace(nen[0], ' ') };
+  const bare = line.match(/(?:^|[\s/／])([1-6])(?=$|[\s/／])/);
+  if (bare) return { grade: Number(bare[1]), line: line.replace(bare[1], ' ') };
+  return { grade: '', line: line };
+}
+
+function cleanupRosterName(rest) {
+  return String(rest || '')
+    .replace(/[（）()]/g, ' ')
+    .replace(/[/／|｜,、:：]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseRosterText(text) {
+  const existing = new Set();
+  (Array.isArray(cars) ? cars : []).forEach((car) => {
+    const name = car && String(car.name || '').trim();
+    if (name) existing.add(name);
+  });
+  const childrenOut = [];
+  const newCars = [];
+  String(text || '').split(/\r?\n/).forEach((raw) => {
+    let line = stripRosterListMarker(raw);
+    if (!line) return;
+    const carPick = takeParentCar(line);
+    const gradePick = takeGrade(carPick.line);
+    const name = cleanupRosterName(gradePick.line);
+    if (!name) return;
+    const parentCar = String(carPick.car || '').trim();
+    childrenOut.push({
+      name: name,
+      grade: gradePick.grade === '' ? '' : gradePick.grade,
+      parentCar: parentCar
+    });
+    if (parentCar && !existing.has(parentCar) && newCars.indexOf(parentCar) === -1) newCars.push(parentCar);
+  });
+  return { children: childrenOut, newCars: newCars };
+}
+
+function importRosterData(parsedData, mode) {
+  const incoming = parsedData && Array.isArray(parsedData.children) ? parsedData.children : [];
+  if (mode === 'replace') {
+    cars = [];
+    children = [];
+  }
+
+  const knownCars = new Set();
+  cars.forEach((car) => {
+    const name = car && String(car.name || '').trim();
+    if (name) knownCars.add(name);
+  });
+  const carsToAdd = [];
+  const queueCar = (name) => {
+    const trimmed = String(name || '').trim();
+    if (!trimmed || knownCars.has(trimmed) || carsToAdd.indexOf(trimmed) !== -1) return;
+    carsToAdd.push(trimmed);
+  };
+  (parsedData && Array.isArray(parsedData.newCars) ? parsedData.newCars : []).forEach(queueCar);
+  incoming.forEach((row) => queueCar(row && row.parentCar));
+
+  let seq = Date.now();
+  carsToAdd.forEach((name) => {
+    cars.push(normalizeCar({
+      id: seq++,
+      name: name,
+      capacity: 3,
+      active: true,
+      companions: [],
+      isEquipmentCar: false,
+      driverRole: '父',
+      dayMode: 'normal'
+    }));
+    knownCars.add(name);
+  });
+
+  const knownKids = new Set();
+  children.forEach((child) => {
+    const name = child && String(child.name || '').trim();
+    if (name) knownKids.add(name);
+  });
+  let addedChildren = 0;
+  incoming.forEach((row) => {
+    const name = String(row && row.name || '').trim();
+    if (!name || knownKids.has(name)) return;
+    const gradeNum = parseInt(row.grade, 10);
+    children.push(normalizeChild({
+      id: seq++,
+      name: name,
+      grade: gradeNum >= 1 && gradeNum <= 6 ? gradeNum : '',
+      pos: '未定',
+      parentCar: String(row.parentCar || '').trim(),
+      fixedCar: '',
+      motionSick: false,
+      companions: [],
+      active: true,
+      meetOnSite: false,
+      dayMode: 'normal',
+      lastCar: '',
+      rideHistory: {}
+    }));
+    knownKids.add(name);
+    addedChildren += 1;
+  });
+  saveData();
+  return { addedChildren: addedChildren, addedCars: carsToAdd.length };
+}
+
   const HaishaData = {
     get cars() { return cars; },
     set cars(v) { cars = v; },
@@ -1609,7 +1742,9 @@ function promoteAllGrades() {
     removeAvoidPair,
     isAvoidPair,
     newCompanionId,
-    buildBackupPayload
+    buildBackupPayload,
+    parseRosterText,
+    importRosterData
   };
   global.HaishaData = HaishaData;
 
@@ -1708,5 +1843,7 @@ function promoteAllGrades() {
   global.isBackupChild = isBackupChild;
   global.createDefaultCars = createDefaultCars;
   global.createDefaultChildren = createDefaultChildren;
+  global.parseRosterText = parseRosterText;
+  global.importRosterData = importRosterData;
 
 })(typeof window !== 'undefined' ? window : globalThis);

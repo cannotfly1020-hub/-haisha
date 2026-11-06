@@ -113,4 +113,59 @@ test('見出し集約: 運転者、車両同乗者、選手同乗者が運転手
   assert.strictEqual(header, '（祖父、母、はると弟）', '運転者・車両同乗者・選手同乗者が正しく結合される');
 });
 
+// -------------------------------------------------------------
+// テスト6: LINE名簿テキストの自動解析（parseRosterText）
+// -------------------------------------------------------------
+test('名簿解析: スペースやカッコ混じりのテキストから選手名・学年・親車を正確に抽出できること', () => {
+  const sampleText = `
+    1. 佐藤 ゆうと 6年 佐藤号
+    鈴木 そうた (5年) 母:鈴木号
+    田中 れん 4年生
+    はると 3
+  `;
+  const result = parseRosterText(sampleText);
+  assert.strictEqual(result.children.length, 4, '4名抽出されること');
+  assert.strictEqual(result.children[0].name, '佐藤 ゆうと');
+  assert.strictEqual(result.children[0].grade, 6);
+  assert.strictEqual(result.children[0].parentCar, '佐藤号');
+  assert.strictEqual(result.children[1].name, '鈴木 そうた');
+  assert.strictEqual(result.children[1].grade, 5);
+  assert.strictEqual(result.children[2].name, '田中 れん');
+  assert.strictEqual(result.children[2].grade, 4);
+  assert.strictEqual(result.children[3].name, 'はると');
+  assert.strictEqual(result.children[3].grade, 3);
+
+  const mixed = parseRosterText('はると / 3年生 / 田中号\n大和\n1. 鈴木そうた (5年) 母:鈴木号');
+  assert.strictEqual(mixed.children[0].name, 'はると');
+  assert.strictEqual(mixed.children[0].grade, 3);
+  assert.strictEqual(mixed.children[0].parentCar, '田中号');
+  assert.strictEqual(mixed.children[1].name, '大和');
+  assert.strictEqual(mixed.children[1].grade, '');
+  assert.strictEqual(mixed.children[1].parentCar, '');
+  assert.strictEqual(mixed.children[2].name, '鈴木そうた');
+  assert.strictEqual(mixed.children[2].grade, 5);
+  assert.strictEqual(mixed.children[2].parentCar, '鈴木号');
+
+  const beforeKids = children.length;
+  const beforeCars = cars.length;
+  const imported = importRosterData(parseRosterText('あい 2年 東号'), 'append');
+  const added = children.find((child) => child.name === 'あい');
+  const addedCar = cars.find((car) => car.name === '東号');
+  assert.strictEqual(imported.addedChildren, 1);
+  assert.strictEqual(imported.addedCars, 1);
+  assert.strictEqual(added.grade, 2);
+  assert.strictEqual(added.parentCar, '東号');
+  assert.strictEqual(added.active, true);
+  assert.strictEqual(added.dayMode, 'normal');
+  assert.strictEqual(seatCost(added), 1);
+  assert.strictEqual(addedCar.capacity, 3);
+  assert.strictEqual(addedCar.active, true);
+  assert.strictEqual(addedCar.driverRole, '父');
+  assert.strictEqual(children.length, beforeKids + 1);
+  assert.strictEqual(cars.length, beforeCars + 1);
+  children = children.filter((child) => child.name !== 'あい');
+  cars = cars.filter((car) => car.name !== '東号');
+  saveData();
+});
+
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

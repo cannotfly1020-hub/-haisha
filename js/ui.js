@@ -1515,6 +1515,68 @@ function tutorialGoto(slideIndex) {
   syncTutorialSlideUI();
 }
 
+let lastRosterImport = null;
+
+function openImportModal() {
+  const modal = document.getElementById('importModal');
+  if (!modal) return;
+  modal.classList.add('is-open');
+  modal.style.display = '';
+}
+
+function closeImportModal() {
+  const modal = document.getElementById('importModal');
+  if (!modal) return;
+  modal.classList.remove('is-open');
+  modal.style.display = '';
+}
+
+function parseRosterFromModal() {
+  const input = document.getElementById('importRosterInput');
+  const preview = document.getElementById('importPreviewArea');
+  const parsed = parseRosterText(input ? input.value : '');
+  lastRosterImport = parsed;
+  if (!preview) return parsed;
+  const kids = parsed.children || [];
+  const carsNew = parsed.newCars || [];
+  const rows = kids.map((kid) => {
+    const grade = kid.grade === '' || kid.grade == null ? '' : `${kid.grade}年`;
+    return `<tr><td>${escapeRoleText(kid.name)}</td><td>${escapeRoleText(grade)}</td><td>${escapeRoleText(kid.parentCar || '')}</td></tr>`;
+  }).join('');
+  preview.hidden = false;
+  preview.innerHTML = `
+    <p class="import-preview-summary">認識できた選手: ${kids.length}名、新規車両: ${carsNew.length}台</p>
+    <table class="import-preview-table">
+      <thead><tr><th>名前</th><th>学年</th><th>親の車</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="3">認識できた行がありません</td></tr>'}</tbody>
+    </table>
+  `;
+  return parsed;
+}
+
+function commitRosterImport() {
+  if (!lastRosterImport) parseRosterFromModal();
+  const parsed = lastRosterImport;
+  if (!parsed || !Array.isArray(parsed.children) || parsed.children.length === 0) {
+    alert('登録できる選手が見つかりません。テキストを貼り付けて解析してください。');
+    return;
+  }
+  const selected = document.querySelector('input[name="importRosterMode"]:checked');
+  const mode = selected && selected.value === 'replace' ? 'replace' : 'append';
+  if (mode === 'replace' && !confirm('既存の選手と車両を、この名簿で置き換えます。よろしいですか？')) return;
+  importRosterData(parsed, mode);
+  lastRosterImport = null;
+  const input = document.getElementById('importRosterInput');
+  if (input) input.value = '';
+  const preview = document.getElementById('importPreviewArea');
+  if (preview) {
+    preview.hidden = true;
+    preview.innerHTML = '';
+  }
+  refreshLists();
+  closeImportModal();
+}
+
 function maybeShowTutorialOnLaunch() {
   if (!hasSeenTutorial()) {
     openTutorialModal({ reset: true });
@@ -1601,6 +1663,10 @@ bindCarReorderGestures();
     tutorialGoto,
     maybeShowTutorialOnLaunch,
     updateCarSelectOptions,
+    openImportModal,
+    closeImportModal,
+    parseRosterFromModal,
+    commitRosterImport,
     get openChildCompanionEditors() { return openChildCompanionEditors; }
   };
   global.HaishaUI = HaishaUI;

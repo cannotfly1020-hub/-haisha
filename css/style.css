@@ -1113,6 +1113,15 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
 .modal-actions { display: flex; gap: 8px; margin-top: 15px; }
 .modal-actions .btn { flex: 1; }
 .modal-actions .btn-primary { margin-top: 0; }
+.btn-sm { font-size: 12px; padding: 6px 10px; }
+.panel-toolbar .btn.btn-sm { width: auto; display: inline-block; margin-top: 0; }
+.import-modal-box { max-width: 440px; max-height: 85vh; overflow-y: auto; }
+.import-roster-input { width: 100%; min-height: 120px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; resize: vertical; }
+.import-preview-summary { margin: 8px 0; font-size: 13px; font-weight: bold; color: #1e3a8a; }
+.import-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.import-preview-table th, .import-preview-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #e2e8f0; }
+.import-mode-choice { display: flex; flex-direction: column; gap: 6px; font-size: 13px; margin: 10px 0; }
+#importPreviewArea[hidden] { display: none !important; }
 
 /* 初回ガイド（オンボーディング） */
 .tutorial-overlay { z-index: 120; padding: 16px; }

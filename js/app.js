@@ -50,7 +50,11 @@ const CLICK_ACTIONS = new Set([
   'close-tutorial',
   'tutorial-next',
   'tutorial-prev',
-  'tutorial-goto'
+  'tutorial-goto',
+  'open-import-modal',
+  'parse-roster',
+  'commit-import',
+  'close-import-modal'
 ]);
 
 /** touchend 直後の合成 click を無視するためのフラグ */
@@ -233,6 +237,18 @@ function runClickAction(target) {
       break;
     case 'tutorial-goto':
       tutorialGoto(target.dataset.slide);
+      break;
+    case 'open-import-modal':
+      openImportModal();
+      break;
+    case 'parse-roster':
+      parseRosterFromModal();
+      break;
+    case 'commit-import':
+      commitRosterImport();
+      break;
+    case 'close-import-modal':
+      closeImportModal();
       break;
     default:
       break;

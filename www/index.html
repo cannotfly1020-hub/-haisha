@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="くるまわり">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261106a">
+<link rel="stylesheet" href="css/style.css?v=20261106c">
 </head>
 <body>
 
@@ -107,6 +107,9 @@
           <option value="kana">並び順: 50音順</option>
         </select>
         <button type="button" class="btn-mini" data-action="promote">🎓 進級</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-action="open-import-modal" style="font-weight: bold;">
+          📋 LINE名簿から一括登録
+        </button>
       </div>
       <div id="childList"></div>
       <div class="add-form add-form-child">
@@ -333,11 +336,34 @@
   </div>
 </div>
 
+<!-- LINE名簿の一括登録 -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal-box import-modal-box">
+    <h3>LINE名簿から一括登録</h3>
+    <div class="modal-field">
+      <label for="importRosterInput">名簿テキスト</label>
+      <textarea id="importRosterInput" class="import-roster-input" placeholder="LINEの名簿をここに貼り付け..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" data-action="parse-roster">解析して確認</button>
+    </div>
+    <div id="importPreviewArea" hidden></div>
+    <div class="import-mode-choice">
+      <label><input type="radio" name="importRosterMode" value="append" checked> 既存名簿に追加</label>
+      <label><input type="radio" name="importRosterMode" value="replace"> 既存名簿を入れ替える</label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" data-action="close-import-modal">キャンセル</button>
+      <button type="button" class="btn btn-primary" data-action="commit-import">この内容で登録する</button>
+    </div>
+  </div>
+</div>
+
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261106a"></script>
-<script src="js/ui.js?v=20261106a"></script>
-<script src="js/carpool.js?v=20261106a"></script>
-<script src="js/app.js?v=20261106a"></script>
+<script src="js/data.js?v=20261106c"></script>
+<script src="js/ui.js?v=20261106c"></script>
+<script src="js/carpool.js?v=20261106c"></script>
+<script src="js/app.js?v=20261106c"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
