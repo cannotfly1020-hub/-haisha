@@ -473,4 +473,27 @@ test('本番再現E2E: 画面10月31日実編成（属性完全一致・履歴�
   localStorage.removeItem('cp_session_2026-10-24');
 });
 
+// -------------------------------------------------------------
+// テスト17: 全員同学年時の空車防止検証
+// -------------------------------------------------------------
+test('空車防止: 全員が同学年で1台に乗り切れる場合でも、出動車を空車にせず均等配車されること', () => {
+  global.cars = [
+    { id: 'c1', name: '東号', capacity: 4, companions: [], dayMode: 'normal', active: true },
+    { id: 'c2', name: '西号', capacity: 4, companions: [], dayMode: 'normal', active: true }
+  ];
+  global.children = [
+    { id: 1, name: 'A', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: 'B', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: 'C', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 4, name: 'D', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+
+  const plan = generateCarpool(0, 'grade_same');
+  const eastCount = (plan.assignments['東号'] || []).length;
+  const westCount = (plan.assignments['西号'] || []).length;
+
+  assert.strictEqual(eastCount, 2, '東号に2名配車されること');
+  assert.strictEqual(westCount, 2, '西号に2名配車されること（空車にならないこと）');
+});
+
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

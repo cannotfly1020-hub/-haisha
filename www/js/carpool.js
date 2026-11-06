@@ -674,7 +674,14 @@ function evaluateAssignmentScore(assignments, mode) {
 
   activeCars.forEach((car) => {
     const riders = assignments[car.name] || [];
-    if (penalizeSolo && riders.length === 1) score -= 1000;
+    const exempt = !!(car.isEquipmentCar || car.dayMode === 'individual');
+    if (exempt) {
+      if (penalizeSolo && riders.length === 1) score -= 1000;
+    } else if (riders.length === 1) {
+      score -= 1000;
+    } else if (riders.length === 0 && totalRiders >= 2) {
+      score -= 1500;
+    }
 
     const cap = parseInt(car.capacity, 10) || 0;
     if (cap < median) {
