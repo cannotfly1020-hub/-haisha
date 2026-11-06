@@ -552,8 +552,72 @@ function rideRepeatPenalty(kid, car) {
   return penalty;
 }
 
+function resolveCarpoolMode(mode) {
+  if (mode === 'balance' || mode === 'grade_same' || mode === 'grade_diff') return mode;
+  return typeof getCarpoolMode === 'function' ? getCarpoolMode() : 'balance';
+}
+
+function positiveGrades(riders) {
+  return (riders || [])
+    .map((kid) => parseInt(kid && kid.grade, 10))
+    .filter((grade) => !isNaN(grade) && grade > 0);
+}
+
+/** 学年の配点だけを切り替える。座席・親子・配慮の減点はモードに依存しない。 */
+function applyGradeModeScore(score, assignments, mode) {
+  const names = Object.keys(assignments || {}).filter((name) => Array.isArray(assignments[name]) && assignments[name].length > 0);
+  if (names.length < 2) return score;
+
+  if (mode === 'grade_same') {
+    names.forEach((name) => {
+      const grades = positiveGrades(assignments[name]);
+      if (grades.length < 2) return;
+      score -= (Math.max.apply(null, grades) - Math.min.apply(null, grades)) * 150;
+      const counts = {};
+      grades.forEach((grade) => { counts[grade] = (counts[grade] || 0) + 1; });
+      Object.keys(counts).forEach((key) => {
+        const count = counts[key];
+        if (count >= 2) score += (count * (count - 1) / 2) * 50;
+      });
+    });
+    return score;
+  }
+
+  if (mode === 'grade_diff') {
+    const averages = [];
+    names.forEach((name) => {
+      const grades = positiveGrades(assignments[name]);
+      if (!grades.length) return;
+      averages.push(grades.reduce((total, grade) => total + grade, 0) / grades.length);
+      if (grades.length >= 2 && Math.max.apply(null, grades) === Math.min.apply(null, grades)) score -= 150;
+    });
+    const usable = averages.filter((avg) => avg > 0);
+    if (usable.length >= 2) {
+      const mean = usable.reduce((total, value) => total + value, 0) / usable.length;
+      const variance = usable.reduce((total, value) => total + (value - mean) * (value - mean), 0) / usable.length;
+      score -= variance * 100;
+    }
+    return score;
+  }
+
+  const averages = [];
+  names.forEach((name) => {
+    const riders = assignments[name] || [];
+    if (!riders.length) return;
+    const sum = riders.reduce((total, kid) => total + (Number(kid && kid.grade) || 0), 0);
+    averages.push(sum / riders.length);
+  });
+  if (averages.length >= 2) {
+    const mean = averages.reduce((total, value) => total + value, 0) / averages.length;
+    const variance = averages.reduce((total, value) => total + (value - mean) * (value - mean), 0) / averages.length;
+    score -= variance * 30;
+  }
+  return score;
+}
+
 /** 減点方式。高いほど良い。座席不足のハード失敗はここでは扱わない。 */
-function evaluateAssignmentScore(assignments) {
+function evaluateAssignmentScore(assignments, mode) {
+  const selected = resolveCarpoolMode(mode);
   const activeCars = assignmentCars(assignments);
   let score = 0;
   let totalRiders = 0;
@@ -562,7 +626,6 @@ function evaluateAssignmentScore(assignments) {
   });
   const penalizeSolo = activeCars.length > 0 && totalRiders >= activeCars.length * 2;
   const median = medianCapacity(activeCars);
-  const averages = [];
 
   activeCars.forEach((car) => {
     const riders = assignments[car.name] || [];
@@ -588,19 +651,9 @@ function evaluateAssignmentScore(assignments) {
         if (typeof isAvoidPair === 'function' && isAvoidPair(riders[i], riders[j])) score -= 50000;
       }
     }
-
-    if (riders.length > 0) {
-      const sum = riders.reduce((total, kid) => total + (Number(kid.grade) || 0), 0);
-      averages.push(sum / riders.length);
-    }
   });
 
-  if (averages.length >= 2) {
-    const mean = averages.reduce((total, value) => total + value, 0) / averages.length;
-    const variance = averages.reduce((total, value) => total + (value - mean) * (value - mean), 0) / averages.length;
-    score -= variance * 30;
-  }
-  return score;
+  return applyGradeModeScore(score, assignments, selected);
 }
 
 function hasAvoidPairConflict(carRiders, kidToPut) {
@@ -623,8 +676,9 @@ function canSwapSeats(carA, kidA, carB, kidB, assignments) {
   return calculateCarRemainingSeats(carA, listA) >= 0 && calculateCarRemainingSeats(carB, listB) >= 0;
 }
 
-function optimizeBySwaps(assignments, activeCars, rerunSalt) {
+function optimizeBySwaps(assignments, activeCars, rerunSalt, mode) {
   const salt = normalizeRerunSalt(rerunSalt);
+  const selected = resolveCarpoolMode(mode);
   let trials = 0;
   let improved = true;
   while (improved && trials < MAX_SWAP_TRIALS) {
@@ -655,10 +709,10 @@ function optimizeBySwaps(assignments, activeCars, rerunSalt) {
           if (!isSwappable(kidB, activeCars)) continue;
           if (!canSwapSeats(carA, kidA, carB, kidB, assignments)) continue;
           trials += 1;
-          const before = evaluateAssignmentScore(assignments);
+          const before = evaluateAssignmentScore(assignments, selected);
           listA[i] = kidB;
           listB[j] = kidA;
-          const after = evaluateAssignmentScore(assignments);
+          const after = evaluateAssignmentScore(assignments, selected);
           const isScoreBetter = after > before + 1e-6;
           const isScoreEqualInRerun = salt > 0 && Math.abs(after - before) <= 1e-6;
           if (isScoreBetter || isScoreEqualInRerun) {
@@ -774,7 +828,7 @@ function attachAssignmentWarnings(assignments, warnings) {
  * フェーズ1で固定ピン・親車・最低2名の骨格を作り、フェーズ2でソフト制約をスワップする。
  * 席が物理的に足りないときだけ leftover を返す。
  */
-function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt) {
+function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
   loadRideHistoryStats();
   const salt = normalizeRerunSalt(rerunSalt);
   const assignments = {};
@@ -830,7 +884,7 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt) {
   });
 
   if (leftover.length) leftover = repairLeftovers(leftover, assignments, activeCars);
-  if (!leftover.length) optimizeBySwaps(assignments, activeCars, salt);
+  if (!leftover.length) optimizeBySwaps(assignments, activeCars, salt, mode);
 
   if (salt > 0 && activeCars.length >= 2) {
     const movableSlots = [];
@@ -1114,6 +1168,7 @@ function assignDirectFamilies() {
 
 function generateCarpool(rerunSalt) {
   const salt = normalizeRerunSalt(rerunSalt);
+  const mode = resolveCarpoolMode();
   clearCarpoolDiagnosis();
   renderAssignmentWarnings([]);
   if (typeof excludePlayersOfIndividualCars === 'function') excludePlayersOfIndividualCars();
@@ -1172,7 +1227,7 @@ function generateCarpool(rerunSalt) {
       warnings.push('車両数が多いため、1名乗車の車両が発生します');
     }
 
-    const built = buildTwoPhaseAssignment(poolCars, ridingKids, salt);
+    const built = buildTwoPhaseAssignment(poolCars, ridingKids, salt, mode);
     if (built.overflowedCars.length > 0) {
       alert(`${built.overflowedCars.map(n => `「${n}」`).join('、')}の定員を超えて指定されています。\nあふれた分は自動配車に回します。`);
     }
@@ -1290,5 +1345,6 @@ function copyResult() {
   global.reconcileOpenCarMode = reconcileOpenCarMode;
   global.parentCancelShortageWarnings = parentCancelShortageWarnings;
   global.hasAvoidPairConflict = hasAvoidPairConflict;
+  global.evaluateAssignmentScore = evaluateAssignmentScore;
 
 })(typeof window !== 'undefined' ? window : globalThis);

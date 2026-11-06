@@ -368,6 +368,10 @@ function handleAppChange(event) {
     case 'set-plan-date':
       setActivePlanDate(target.value);
       break;
+    case 'set-carpool-mode':
+      applyCarpoolMode(target.value);
+      saveData();
+      break;
     default:
       break;
   }

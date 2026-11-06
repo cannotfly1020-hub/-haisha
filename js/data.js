@@ -732,6 +732,31 @@ function captureChildDaily(child) {
   };
 }
 
+function normalizeCarpoolMode(value) {
+  return value === 'grade_same' || value === 'grade_diff' ? value : 'balance';
+}
+
+function getCarpoolMode() {
+  try {
+    if (typeof document !== 'undefined' && document.getElementById) {
+      const el = document.getElementById('carpoolMode');
+      if (el) return normalizeCarpoolMode(el.value);
+    }
+  } catch (e) { /* ignore */ }
+  return 'balance';
+}
+
+function applyCarpoolMode(value) {
+  const mode = normalizeCarpoolMode(value);
+  try {
+    if (typeof document !== 'undefined' && document.getElementById) {
+      const el = document.getElementById('carpoolMode');
+      if (el) el.value = mode;
+    }
+  } catch (e) { /* ignore */ }
+  return mode;
+}
+
 function emptyPlanSlot(date) {
   return {
     date: isPlanYmd(date) ? date : '',
@@ -739,7 +764,8 @@ function emptyPlanSlot(date) {
     children: {},
     result: null,
     sessionCommit: null,
-    dispatchCommit: null
+    dispatchCommit: null,
+    carpoolMode: 'balance'
   };
 }
 
@@ -822,6 +848,7 @@ function applySlotToLive(slot) {
   const dailyChildren = slot && slot.children ? slot.children : {};
   cars.forEach((car) => applyCarDaily(car, dailyCars[String(car.id)]));
   children.forEach((child) => applyChildDaily(child, dailyChildren[String(child.id)]));
+  applyCarpoolMode(slot && slot.carpoolMode);
 }
 
 function slotHasDaily(slot) {
@@ -846,12 +873,14 @@ function sanitizeStoredSlot(raw, fallbackDate) {
   if (raw.dispatchCommit && typeof raw.dispatchCommit === 'object' && Array.isArray(raw.dispatchCommit.carIds)) {
     slot.dispatchCommit = raw.dispatchCommit;
   }
+  slot.carpoolMode = normalizeCarpoolMode(raw.carpoolMode);
   return slot;
 }
 
 function snapshotLiveIntoSlot(slot) {
   cars.forEach((car) => { slot.cars[String(car.id)] = captureCarDaily(car); });
   children.forEach((child) => { slot.children[String(child.id)] = captureChildDaily(child); });
+  slot.carpoolMode = getCarpoolMode();
 }
 
 function todayYmd() {
@@ -1744,7 +1773,10 @@ function importRosterData(parsedData, mode) {
     newCompanionId,
     buildBackupPayload,
     parseRosterText,
-    importRosterData
+    importRosterData,
+    getCarpoolMode,
+    applyCarpoolMode,
+    normalizeCarpoolMode
   };
   global.HaishaData = HaishaData;
 
@@ -1845,5 +1877,8 @@ function importRosterData(parsedData, mode) {
   global.createDefaultChildren = createDefaultChildren;
   global.parseRosterText = parseRosterText;
   global.importRosterData = importRosterData;
+  global.getCarpoolMode = getCarpoolMode;
+  global.applyCarpoolMode = applyCarpoolMode;
+  global.normalizeCarpoolMode = normalizeCarpoolMode;
 
 })(typeof window !== 'undefined' ? window : globalThis);

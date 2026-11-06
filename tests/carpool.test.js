@@ -168,4 +168,24 @@ test('名簿解析: スペースやカッコ混じりのテキストから選手
   saveData();
 });
 
+// -------------------------------------------------------------
+// テスト7: 配車モードによる評価スコアの動的変化
+// -------------------------------------------------------------
+test('配車モード: 「学年を揃える」モードで同学年が揃った組み合わせのスコアが高くなること', () => {
+  const assignmentsSameGrade = {
+    '車A': [{ id: 1, name: 'A6_1', grade: 6, dayMode: 'normal' }, { id: 2, name: 'A6_2', grade: 6, dayMode: 'normal' }],
+    '車B': [{ id: 3, name: 'B3_1', grade: 3, dayMode: 'normal' }, { id: 4, name: 'B3_2', grade: 3, dayMode: 'normal' }]
+  };
+
+  const assignmentsDiffGrade = {
+    '車A': [{ id: 1, name: 'A6_1', grade: 6, dayMode: 'normal' }, { id: 3, name: 'B3_1', grade: 3, dayMode: 'normal' }],
+    '車B': [{ id: 2, name: 'A6_2', grade: 6, dayMode: 'normal' }, { id: 4, name: 'B3_2', grade: 3, dayMode: 'normal' }]
+  };
+
+  const scoreSameMode_Same = evaluateAssignmentScore(assignmentsSameGrade, 'grade_same');
+  const scoreSameMode_Diff = evaluateAssignmentScore(assignmentsDiffGrade, 'grade_same');
+
+  assert.ok(scoreSameMode_Same > scoreSameMode_Diff, '学年を揃えるモードでは同級生同乗が高評価になる');
+});
+
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

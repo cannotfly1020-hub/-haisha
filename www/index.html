@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="くるまわり">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261106c">
+<link rel="stylesheet" href="css/style.css?v=20261106d">
 </head>
 <body>
 
@@ -145,6 +145,16 @@
 <!-- 配車設定・実行 -->
 <div class="card">
   <h2 class="card-heading">配車ルール・条件</h2>
+  <div class="mode-select-container" style="margin-bottom: 12px; text-align: center;">
+    <label for="carpoolMode" style="font-size: 0.85rem; font-weight: bold; color: #475569; margin-right: 6px;">
+      配車モード:
+    </label>
+    <select id="carpoolMode" class="form-control" data-action="set-carpool-mode" style="display: inline-block; width: auto; font-size: 0.9rem; padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 500;">
+      <option value="balance" selected>⚖️ バランス（標準）</option>
+      <option value="grade_same">🎒 学年を揃える（同学年・仲良し）</option>
+      <option value="grade_diff">🤝 学年を散らす（高低ミックス・お世話）</option>
+    </select>
+  </div>
   <button type="button" class="btn btn-primary" data-action="generate">⚡ 配車を組む / 組み直す</button>
 </div>
 
@@ -360,10 +370,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261106c"></script>
-<script src="js/ui.js?v=20261106c"></script>
-<script src="js/carpool.js?v=20261106c"></script>
-<script src="js/app.js?v=20261106c"></script>
+<script src="js/data.js?v=20261106d"></script>
+<script src="js/ui.js?v=20261106d"></script>
+<script src="js/carpool.js?v=20261106d"></script>
+<script src="js/app.js?v=20261106d"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
