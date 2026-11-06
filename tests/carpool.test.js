@@ -474,12 +474,12 @@ test('本番再現E2E: 画面10月31日実編成（属性完全一致・履歴�
 });
 
 // -------------------------------------------------------------
-// テスト17: 全員同学年時の空車防止検証
+// テスト17: 通常車2台での空車防止検証
 // -------------------------------------------------------------
-test('空車防止: 全員が同学年で1台に乗り切れる場合でも、出動車を空車にせず均等配車されること', () => {
+test('空車防止: 通常車2台の場合、全員が同学年で1台に乗り切れても空車にせず均等配車されること', () => {
   global.cars = [
-    { id: 'c1', name: '東号', capacity: 4, companions: [], dayMode: 'normal', active: true },
-    { id: 'c2', name: '西号', capacity: 4, companions: [], dayMode: 'normal', active: true }
+    { id: 'c1', name: '東号', capacity: 4, companions: [], dayMode: 'normal', active: true, isEquipmentCar: false },
+    { id: 'c2', name: '西号', capacity: 4, companions: [], dayMode: 'normal', active: true, isEquipmentCar: false }
   ];
   global.children = [
     { id: 1, name: 'A', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
@@ -494,6 +494,29 @@ test('空車防止: 全員が同学年で1台に乗り切れる場合でも、�
 
   assert.strictEqual(eastCount, 2, '東号に2名配車されること');
   assert.strictEqual(westCount, 2, '西号に2名配車されること（空車にならないこと）');
+});
+
+// -------------------------------------------------------------
+// テスト18: 道具車の荷物優先（通常車収容時は道具車0人）検証
+// -------------------------------------------------------------
+test('道具車配慮: 通常車で全員収まる場合、道具車には選手を乗せず荷物専用（0人）とすること', () => {
+  global.cars = [
+    { id: 'c1', name: '東号', capacity: 4, companions: [], dayMode: 'normal', active: true, isEquipmentCar: false },
+    { id: 'c2', name: '西号', capacity: 4, companions: [], dayMode: 'normal', active: true, isEquipmentCar: true }
+  ];
+  global.children = [
+    { id: 1, name: 'A', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: 'B', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: 'C', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 4, name: 'D', grade: 6, pos: '外野', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
+
+  const plan = generateCarpool(0, 'grade_same');
+  const eastCount = (plan.assignments['東号'] || []).length;
+  const westCount = (plan.assignments['西号'] || []).length;
+
+  assert.strictEqual(eastCount, 4, '通常車の東号に4名全員が乗車すること');
+  assert.strictEqual(westCount, 0, '道具車の西号は荷物専用として0人であること');
 });
 
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);
