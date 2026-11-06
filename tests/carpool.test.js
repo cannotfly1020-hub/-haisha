@@ -403,4 +403,40 @@ test('配車モード: 「学年を散らす」モードで高学年と低学年
   });
 });
 
+// -------------------------------------------------------------
+// テスト16: 土曜本番名簿の完全再現E2Eテスト（親車固定3名＋自由席3名＋車酔い＋履歴）
+// -------------------------------------------------------------
+test('本番再現E2E: 土曜日の実編成（親車3台、親固定3名、自由席3名、車酔いあり）で完全配車されること', () => {
+  global.cars = [
+    { id: 'c1', name: '佐藤号', capacity: 3, companions: [], dayMode: 'normal', active: true, driverRole: '父' },
+    { id: 'c2', name: '鈴木号', capacity: 3, companions: [], dayMode: 'normal', active: true, driverRole: '父' },
+    { id: 'c3', name: '田中号', capacity: 2, companions: [], dayMode: 'normal', active: true, driverRole: '父' }
+  ];
+  global.children = [
+    { id: 1, name: 'ゆうと', parentCar: '佐藤号', pos: '内野', grade: 6, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 2, name: 'そうた', parentCar: '鈴木号', pos: '投手', grade: 5, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 3, name: 'はると', parentCar: '田中号', pos: '外野', grade: 3, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 4, name: '大和', parentCar: '', pos: '外野', grade: 6, motionSick: true, dayMode: 'normal', active: true, companions: [] },
+    { id: 5, name: 'れん', parentCar: '', pos: '内野', grade: 4, motionSick: false, dayMode: 'normal', active: true, companions: [] },
+    { id: 6, name: 'こうき', parentCar: '', pos: '内野', grade: 2, motionSick: false, dayMode: 'normal', active: true, companions: [] }
+  ];
+
+  const plan = generateCarpool(0, 'balance');
+  const asgn = plan.assignments;
+
+  assert.strictEqual(asgn['佐藤号'].some(k => k.name === 'ゆうと'), true, 'ゆうとは佐藤号に乗車');
+  assert.strictEqual(asgn['鈴木号'].some(k => k.name === 'そうた'), true, 'そうたは鈴木号に乗車');
+  assert.strictEqual(asgn['田中号'].some(k => k.name === 'はると'), true, 'はるとは田中号に乗車');
+
+  assert.strictEqual(asgn['佐藤号'].length <= 3, true, '佐藤号定員内');
+  assert.strictEqual(asgn['鈴木号'].length <= 3, true, '鈴木号定員内');
+  assert.strictEqual(asgn['田中号'].length <= 2, true, '田中号定員内');
+
+  const yamatoCar = Object.keys(asgn).find(cName => asgn[cName].some(k => k.name === '大和'));
+  assert.notStrictEqual(yamatoCar, '田中号', '車酔いの大和は定員2の田中号を避けて配車されること');
+
+  const totalAssigned = Object.values(asgn).reduce((sum, list) => sum + list.length, 0);
+  assert.strictEqual(totalAssigned, 6, '参加全6名が配車完了していること');
+});
+
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

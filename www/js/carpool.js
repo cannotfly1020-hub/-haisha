@@ -483,7 +483,7 @@ function positionModeDelta(riders, mode) {
     const weight = count - 1;
     if (mode === 'pos_same') delta += weight * 500;
     else if (mode === 'pos_diff') delta -= weight * 400;
-    else delta -= weight * 150;
+    else delta -= weight * 200;
   });
   return delta;
 }
@@ -679,7 +679,7 @@ function evaluateAssignmentScore(assignments, mode) {
     const cap = parseInt(car.capacity, 10) || 0;
     if (cap < median) {
       riders.forEach((kid) => {
-        if (kid.motionSick) score -= 200;
+        if (kid.motionSick) score -= 600;
       });
     }
 
@@ -721,6 +721,45 @@ function canSwapSeats(carA, kidA, carB, kidB, assignments) {
   return calculateCarRemainingSeats(carA, listA) >= 0 && calculateCarRemainingSeats(carB, listB) >= 0;
 }
 
+function tryRelocateOne(assignments, activeCars, salt, selected, state) {
+  const order = activeCars.map((_, index) => index);
+  if (salt && order.length) order.push(...order.splice(0, salt % order.length));
+  for (let fromPos = 0; fromPos < order.length && !state.found && state.trials < MAX_SWAP_TRIALS; fromPos++) {
+    const carFrom = activeCars[order[fromPos]];
+    const listFrom = assignments[carFrom.name] || [];
+    if (listFrom.length <= 1) continue;
+    const startI = salt && listFrom.length ? salt % listFrom.length : 0;
+    for (let ii = 0; ii < listFrom.length && !state.found && state.trials < MAX_SWAP_TRIALS; ii++) {
+      const i = (startI + ii) % listFrom.length;
+      const kid = listFrom[i];
+      if (!isSwappable(kid, activeCars)) continue;
+      for (let toPos = 0; toPos < order.length && !state.found && state.trials < MAX_SWAP_TRIALS; toPos++) {
+        if (order[toPos] === order[fromPos]) continue;
+        const carTo = activeCars[order[toPos]];
+        const listTo = assignments[carTo.name] || [];
+        const cost = seatCost(kid);
+        if (calculateCarRemainingSeats(carTo, listTo) < cost) continue;
+        if (hasAvoidPairConflict(listTo, kid)) continue;
+        state.trials += 1;
+        const beforeScore = evaluateAssignmentScore(assignments, selected);
+        listFrom.splice(i, 1);
+        if (!assignments[carTo.name]) assignments[carTo.name] = [];
+        assignments[carTo.name].push(kid);
+        const afterScore = evaluateAssignmentScore(assignments, selected);
+        const isBetter = afterScore > beforeScore + 1e-6;
+        const isEqualInRerun = salt > 0 && Math.abs(afterScore - beforeScore) <= 1e-6;
+        if (isBetter || isEqualInRerun) {
+          state.improved = true;
+          state.found = true;
+        } else {
+          assignments[carTo.name].pop();
+          listFrom.splice(i, 0, kid);
+        }
+      }
+    }
+  }
+}
+
 function optimizeBySwaps(assignments, activeCars, rerunSalt, mode) {
   const salt = normalizeRerunSalt(rerunSalt);
   const selected = resolveCarpoolMode(mode);
@@ -728,6 +767,12 @@ function optimizeBySwaps(assignments, activeCars, rerunSalt, mode) {
   let improved = true;
   while (improved && trials < MAX_SWAP_TRIALS) {
     improved = false;
+    const state = { trials, improved: false, found: false };
+    tryRelocateOne(assignments, activeCars, salt, selected, state);
+    trials = state.trials;
+    improved = state.improved;
+    let found = state.found;
+    if (found) continue;
     const pairOrder = [];
     for (let a = 0; a < activeCars.length; a++) {
       for (let b = a + 1; b < activeCars.length; b++) pairOrder.push([a, b]);
@@ -735,7 +780,6 @@ function optimizeBySwaps(assignments, activeCars, rerunSalt, mode) {
     if (salt && pairOrder.length) {
       pairOrder.push(...pairOrder.splice(0, salt % pairOrder.length));
     }
-    let found = false;
     for (let p = 0; p < pairOrder.length && !found && trials < MAX_SWAP_TRIALS; p++) {
       const carA = activeCars[pairOrder[p][0]];
       const carB = activeCars[pairOrder[p][1]];
@@ -888,7 +932,7 @@ function collectSoftWarnings(assignments, activeCars) {
     const cap = parseInt(car.capacity, 10) || 0;
     if (cap < median) {
       riders.forEach((kid) => {
-        if (kid.motionSick) warnings.push(`※${kid.name}は車酔い配慮の車両に乗れていません`);
+        if (kid.motionSick) warnings.push(`※${kid.name}は車酔いしやすいですが、定員や他の制約の都合で定員${cap}の${car.name}に乗っています`);
       });
     }
   });
