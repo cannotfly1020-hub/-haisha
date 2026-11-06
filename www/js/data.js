@@ -83,6 +83,15 @@ function resetRoleLabels() {
   saveCompanionRoles(DEFAULT_COMPANION_ROLES);
 }
 
+function canonicalPosition(pos) {
+  if (!pos) return '';
+  const label = String(pos).trim();
+  if (['未定', 'なし', '未設定', '-', 'ー', 'null', 'undefined'].indexOf(label) !== -1) return '';
+  if (label === '内野手') return '内野';
+  if (label === '外野手') return '外野';
+  return label;
+}
+
 function getPositionRoles() {
   const list = readRoleList(POSITION_ROLES_KEY, DEFAULT_POSITION_ROLES);
   return list.length ? list : DEFAULT_POSITION_ROLES.slice();
@@ -1389,11 +1398,12 @@ function isBackupChild(child) {
 function buildBackupPayload() {
   captureActiveSlot();
   return {
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     cars: cars,
     children: children,
-    planSessions: cloneData(planStore)
+    planSessions: cloneData(planStore),
+    positionRoles: getPositionRoles()
   };
 }
 
@@ -1530,6 +1540,7 @@ function restoreBackupData(text) {
 
   cars = data.cars.map(normalizeCar);
   children = data.children.map(normalizeChild);
+  if (Array.isArray(data.positionRoles)) savePositionRoles(data.positionRoles);
   clearPlanStorage();
   planStore = null;
   if (data.planSessions && typeof data.planSessions === 'object' && data.planSessions.sessions) {
@@ -1807,6 +1818,7 @@ function importRosterData(parsedData, mode) {
     getCarpoolMode,
     applyCarpoolMode,
     normalizeCarpoolMode,
+    canonicalPosition,
     getPositionRoles,
     savePositionRoles,
     addPositionRole,
@@ -1914,6 +1926,7 @@ function importRosterData(parsedData, mode) {
   global.getCarpoolMode = getCarpoolMode;
   global.applyCarpoolMode = applyCarpoolMode;
   global.normalizeCarpoolMode = normalizeCarpoolMode;
+  global.canonicalPosition = canonicalPosition;
   global.getPositionRoles = getPositionRoles;
   global.savePositionRoles = savePositionRoles;
   global.addPositionRole = addPositionRole;

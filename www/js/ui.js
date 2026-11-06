@@ -1115,8 +1115,10 @@ function buildRiderMoveOptions(currentCar, poolCars, kid) {
 function buildRiderMoveRow(kid, currentCar, poolCars, suffix) {
   const pinned = kid.fixedCar && currentCar && kid.fixedCar === currentCar ? '📌' : '';
   const sick = kid.motionSick ? '🤢' : '';
+  const onParentCar = kid.parentCar && currentCar && String(kid.parentCar).trim() === String(currentCar).trim();
+  const pinNote = onParentCar ? '<span class="result-rider-pin">（親車固定）</span>' : '';
   const label = `${pinned}${kid.name}${sick}${suffix || ''}`;
-  return `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(label)}</span><select class="result-move" data-action="move-rider" data-id="${escapeRoleText(kid.id)}" aria-label="${escapeRoleText(kid.name)}の移動先">${buildRiderMoveOptions(currentCar, poolCars, kid)}</select></li>`;
+  return `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(label)}${pinNote}</span><select class="result-move" data-action="move-rider" data-id="${escapeRoleText(kid.id)}" aria-label="${escapeRoleText(kid.name)}の移動先">${buildRiderMoveOptions(currentCar, poolCars, kid)}</select></li>`;
 }
 
 function buildAssignmentMoveHtml(assignments) {
@@ -1188,7 +1190,12 @@ function buildAssignmentMoveHtml(assignments) {
         headerText = formatted.indexOf(String(car.name || '')) === 0 ? formatted : `${car.name}${formatted}`;
       }
       const myKids = children.filter((player) => isChildOfCar(player, car) && (player.dayMode === 'individual' || player.dispatchStatus === 'individual' || player.status === 'individual'));
-      const label = myKids.length ? `・${headerText}：${myKids.map((kid) => kid.name).join('、')}` : `・${headerText}`;
+      const names = myKids.map((kid) => (
+        kid.parentCar && String(kid.parentCar).trim() === String(car.name).trim()
+          ? `${kid.name}（親車固定）`
+          : kid.name
+      )).join('、');
+      const label = myKids.length ? `・${headerText}：${names}` : `・${headerText}`;
       html += `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(label)}</span></li>`;
     });
     html += '</ul></section>';

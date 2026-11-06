@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="くるまわり">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261106f">
+<link rel="stylesheet" href="css/style.css?v=20261106g">
 </head>
 <body>
 
@@ -162,6 +162,7 @@
 <!-- 結果表示 -->
 <div class="card result-card" id="resultCard">
   <h2 class="card-heading" id="resultHeading">本日の配車結果</h2>
+  <p id="resultModeBadge" class="result-mode-badge" hidden></p>
   <p id="resultPattern" class="result-pattern" hidden></p>
   <div id="resultWarnings" class="result-warnings" hidden></div>
   <div class="result-box" id="resultText"></div>
@@ -370,10 +371,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261106f"></script>
-<script src="js/ui.js?v=20261106f"></script>
-<script src="js/carpool.js?v=20261106f"></script>
-<script src="js/app.js?v=20261106f"></script>
+<script src="js/data.js?v=20261106g"></script>
+<script src="js/ui.js?v=20261106g"></script>
+<script src="js/carpool.js?v=20261106g"></script>
+<script src="js/app.js?v=20261106g"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

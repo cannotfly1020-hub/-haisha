@@ -189,47 +189,69 @@ test('配車モード: 「学年を揃える」モードで同学年が揃った
 });
 
 // -------------------------------------------------------------
-// テスト8: ポジション分散モード（pos_diff）
+// テスト8: ポジション分散モード（generateCarpool による実配車検証）
 // -------------------------------------------------------------
-test('配車モード: 「ポジションを散らす」モードで同一ポジションが分散した組み合わせのスコアが高くなること', () => {
-  const gk1 = { id: 1, name: 'GK1', pos: 'GK', dayMode: 'normal', active: true, parentCar: '' };
-  const gk2 = { id: 2, name: 'GK2', pos: 'GK', dayMode: 'normal', active: true, parentCar: '' };
-  const fw1 = { id: 3, name: 'FW1', pos: 'FW', dayMode: 'normal', active: true, parentCar: '' };
-  const fw2 = { id: 4, name: 'FW2', pos: 'FW', dayMode: 'normal', active: true, parentCar: '' };
+test('配車モード統合: 「ポジションを散らす」モードで generateCarpool を実行した際、GK同士が別々の車に配車されること', () => {
+  global.cars = [
+    { id: 'c1', name: '1号車', capacity: 3, companions: [], dayMode: 'normal', active: true },
+    { id: 'c2', name: '2号車', capacity: 3, companions: [], dayMode: 'normal', active: true }
+  ];
+  global.children = [
+    { id: 1, name: 'GK1', pos: 'GK', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: 'GK2', pos: 'GK', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: 'FW1', pos: 'FW', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 4, name: 'FW2', pos: 'FW', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
 
-  const assignmentsClumped = { 'A号': [gk1, gk2], 'B号': [fw1, fw2] };
-  const assignmentsDispersed = { 'A号': [gk1, fw1], 'B号': [gk2, fw2] };
+  const plan = generateCarpool(0, 'pos_diff');
+  const car1Riders = (plan.assignments['1号車'] || []).map(k => k.pos);
+  const car2Riders = (plan.assignments['2号車'] || []).map(k => k.pos);
 
-  const scoreClumped = evaluateAssignmentScore(assignmentsClumped, 'pos_diff');
-  const scoreDispersed = evaluateAssignmentScore(assignmentsDispersed, 'pos_diff');
+  const gkInCar1 = car1Riders.filter(p => p === 'GK').length;
+  const gkInCar2 = car2Riders.filter(p => p === 'GK').length;
 
-  assert.strictEqual(
-    scoreDispersed > scoreClumped,
-    true,
-    `分散スコア(${scoreDispersed})は重複スコア(${scoreClumped})より高くなること`
-  );
+  assert.strictEqual(gkInCar1, 1, '1号車にGKが1名');
+  assert.strictEqual(gkInCar2, 1, '2号車にGKが1名');
 });
 
 // -------------------------------------------------------------
-// テスト9: ポジション集約モード（pos_same）
+// テスト9: ポジション集約モード（generateCarpool による実配車検証）
 // -------------------------------------------------------------
-test('配車モード: 「ポジションを揃える」モードで同一ポジションが集まった組み合わせのスコアが高くなること', () => {
-  const c1 = { id: 1, name: '捕手1', pos: '捕手', dayMode: 'normal', active: true, parentCar: '' };
-  const c2 = { id: 2, name: '捕手2', pos: '捕手', dayMode: 'normal', active: true, parentCar: '' };
-  const p1 = { id: 3, name: '投手1', pos: '投手', dayMode: 'normal', active: true, parentCar: '' };
-  const p2 = { id: 4, name: '投手2', pos: '投手', dayMode: 'normal', active: true, parentCar: '' };
+test('配車モード統合: 「ポジションを揃える」モードで generateCarpool を実行した際、捕手同士が同じ車に集まること', () => {
+  global.cars = [
+    { id: 'c1', name: '1号車', capacity: 3, companions: [], dayMode: 'normal', active: true },
+    { id: 'c2', name: '2号車', capacity: 3, companions: [], dayMode: 'normal', active: true }
+  ];
+  global.children = [
+    { id: 1, name: '捕手A', pos: '捕手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 2, name: '捕手B', pos: '捕手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 3, name: '投手A', pos: '投手', dayMode: 'normal', active: true, parentCar: '', companions: [] },
+    { id: 4, name: '投手B', pos: '投手', dayMode: 'normal', active: true, parentCar: '', companions: [] }
+  ];
 
-  const assignmentsClumped = { 'A号': [c1, c2], 'B号': [p1, p2] };
-  const assignmentsDispersed = { 'A号': [c1, p1], 'B号': [c2, p2] };
+  const plan = generateCarpool(0, 'pos_same');
+  const car1Riders = (plan.assignments['1号車'] || []).map(k => k.pos);
+  const car2Riders = (plan.assignments['2号車'] || []).map(k => k.pos);
 
-  const scoreClumped = evaluateAssignmentScore(assignmentsClumped, 'pos_same');
-  const scoreDispersed = evaluateAssignmentScore(assignmentsDispersed, 'pos_same');
+  const clumped = (car1Riders.filter(p => p === '捕手').length === 2) ||
+                  (car2Riders.filter(p => p === '捕手').length === 2);
 
-  assert.strictEqual(
-    scoreClumped > scoreDispersed,
-    true,
-    `集約スコア(${scoreClumped})は分散スコア(${scoreDispersed})より高くなること`
-  );
+  assert.strictEqual(clumped, true, '捕手2名が同一号車に集約されていること');
+});
+
+// -------------------------------------------------------------
+// テスト10: 未定ポジションの除外検証
+// -------------------------------------------------------------
+test('未定除外: 「未定」や空文字の選手が複数乗車してもポジションペナルティが発生しないこと', () => {
+  const kid1 = { id: 1, name: '選手1', pos: '未定', dayMode: 'normal', active: true, parentCar: '' };
+  const kid2 = { id: 2, name: '選手2', pos: '', dayMode: 'normal', active: true, parentCar: '' };
+  const kid3 = { id: 3, name: '選手3', pos: '未定', dayMode: 'normal', active: true, parentCar: '' };
+
+  const assignments = { 'A号': [kid1, kid2, kid3] };
+  const scoreDiff = evaluateAssignmentScore(assignments, 'pos_diff');
+  const scoreSame = evaluateAssignmentScore(assignments, 'pos_same');
+
+  assert.strictEqual(scoreDiff, scoreSame, '未定同士ではモードによるペナルティ・ボーナス差が発生しないこと');
 });
 
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

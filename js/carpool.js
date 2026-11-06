@@ -174,8 +174,17 @@ function placeKid(kid, carName, assignments, currentCaps) {
   }
 }
 
+function pageElement(id) {
+  try {
+    if (typeof document === 'undefined' || !document || typeof document.getElementById !== 'function') return null;
+    return document.getElementById(id);
+  } catch (e) {
+    return null;
+  }
+}
+
 function clearCarpoolDiagnosis() {
-  const el = document.getElementById('carpoolDiagnosis');
+  const el = pageElement('carpoolDiagnosis');
   if (!el) return;
   el.hidden = true;
   el.classList.remove('is-visible', 'is-warning');
@@ -375,7 +384,7 @@ function showCarpoolDiagnosis(diagnosis) {
 
 function renderAssignmentWarnings(warnings) {
   lastAssignmentWarnings = Array.isArray(warnings) ? warnings.slice() : [];
-  const el = document.getElementById('resultWarnings');
+  const el = pageElement('resultWarnings');
   if (!el) return;
   if (!lastAssignmentWarnings.length) {
     el.hidden = true;
@@ -429,9 +438,9 @@ function revealResultWarnings(warnings) {
   if (!lines.length) return;
   renderAssignmentWarnings(lines);
   syncResultHeading();
-  const resultCard = document.getElementById('resultCard');
+  const resultCard = pageElement('resultCard');
   if (resultCard) resultCard.style.display = 'block';
-  const resultText = document.getElementById('resultText');
+  const resultText = pageElement('resultText');
   if (resultText) resultText.textContent = lines.join('\n');
 }
 
@@ -440,9 +449,9 @@ function presentCarpoolFailure(extra) {
   lastGeneratedPlan = '';
   if (typeof markPlanResultCleared === 'function') markPlanResultCleared();
   renderAssignmentWarnings([]);
-  const resultCard = document.getElementById('resultCard');
+  const resultCard = pageElement('resultCard');
   if (resultCard) resultCard.style.display = 'none';
-  const resultText = document.getElementById('resultText');
+  const resultText = pageElement('resultText');
   if (resultText) resultText.textContent = '';
 
   const diagnosis = diagnoseCarpoolFailure(extra || {});
@@ -456,7 +465,9 @@ const MAX_SWAP_TRIALS = 280;
 function positionCounts(riders) {
   const counts = {};
   (riders || []).forEach((kid) => {
-    const pos = String(kid && kid.pos || '').trim();
+    const pos = typeof canonicalPosition === 'function'
+      ? canonicalPosition(kid && kid.pos)
+      : String(kid && kid.pos || '').trim();
     if (!pos) return;
     counts[pos] = (counts[pos] || 0) + 1;
   });
@@ -923,7 +934,9 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
       }
     }
     if (candidates.length > 0) {
-      const pick = candidates[(salt - 1) % candidates.length];
+      const preferred = candidates.filter((pair) => !swapSplitsGatheredPair(pair[0].kid, pair[1].kid, mode));
+      const pool = preferred.length ? preferred : candidates;
+      const pick = pool[(salt - 1) % pool.length];
       const slotA = pick[0];
       const slotB = pick[1];
       const listA = assignments[slotA.car.name];
@@ -936,6 +949,20 @@ function buildTwoPhaseAssignment(activeCars, ridingKids, rerunSalt, mode) {
   return { assignments, overflowedCars, leftover };
 }
 
+function swapSplitsGatheredPair(kidA, kidB, mode) {
+  if (mode === 'pos_same') {
+    const left = typeof canonicalPosition === 'function' ? canonicalPosition(kidA && kidA.pos) : String(kidA && kidA.pos || '').trim();
+    const right = typeof canonicalPosition === 'function' ? canonicalPosition(kidB && kidB.pos) : String(kidB && kidB.pos || '').trim();
+    return !!(left && right && left === right);
+  }
+  if (mode === 'grade_same') {
+    const left = parseInt(kidA && kidA.grade, 10);
+    const right = parseInt(kidB && kidB.grade, 10);
+    return !isNaN(left) && !isNaN(right) && left > 0 && left === right;
+  }
+  return false;
+}
+
 function planDatePhrase() {
   try {
     if (typeof getActivePlanDateLabel === 'function') {
@@ -946,10 +973,36 @@ function planDatePhrase() {
   return '本日';
 }
 
-function syncResultHeading() {
-  const el = document.getElementById('resultHeading');
+let lastAppliedCarpoolMode = '';
+
+function carpoolModeBadgeText(mode) {
+  const labels = {
+    balance: '⚖️ バランス（標準）',
+    grade_same: '🎒 学年を揃える',
+    grade_diff: '🤝 学年を散らす',
+    pos_diff: '🛡️ ポジションを散らす',
+    pos_same: '🗣️ ポジションを揃える'
+  };
+  return '適用モード：' + (labels[mode] || labels.balance);
+}
+
+function syncResultModeBadge() {
+  const el = pageElement('resultModeBadge');
   if (!el) return;
-  el.textContent = typeof planResultHeading === 'function' ? planResultHeading() : '本日の配車結果';
+  if (!currentAssignments) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
+  const mode = lastAppliedCarpoolMode || (typeof getCarpoolMode === 'function' ? getCarpoolMode() : 'balance');
+  el.hidden = false;
+  el.innerHTML = '<span class="badge badge-info">' + escapeHtml(carpoolModeBadgeText(mode)) + '</span>';
+}
+
+function syncResultHeading() {
+  const el = pageElement('resultHeading');
+  if (el) el.textContent = typeof planResultHeading === 'function' ? planResultHeading() : '本日の配車結果';
+  syncResultModeBadge();
 }
 
 function realAssignedPlayers(riders) {
@@ -1040,8 +1093,8 @@ function buildPlanTexts(assignments) {
 
 function showPlanTexts(texts) {
   syncResultHeading();
-  const resultText = document.getElementById('resultText');
-  const resultCard = document.getElementById('resultCard');
+  const resultText = pageElement('resultText');
+  const resultCard = pageElement('resultCard');
   if (resultText) {
     const editor = typeof buildAssignmentMoveHtml === 'function'
       ? buildAssignmentMoveHtml(currentAssignments)
@@ -1183,9 +1236,10 @@ function assignDirectFamilies() {
   return assignments;
 }
 
-function generateCarpool(rerunSalt) {
+function generateCarpool(rerunSalt, mode) {
   const salt = normalizeRerunSalt(rerunSalt);
-  const mode = resolveCarpoolMode();
+  const selected = resolveCarpoolMode(mode);
+  lastAppliedCarpoolMode = selected;
   clearCarpoolDiagnosis();
   renderAssignmentWarnings([]);
   if (typeof excludePlayersOfIndividualCars === 'function') excludePlayersOfIndividualCars();
@@ -1244,7 +1298,7 @@ function generateCarpool(rerunSalt) {
       warnings.push('車両数が多いため、1名乗車の車両が発生します');
     }
 
-    const built = buildTwoPhaseAssignment(poolCars, ridingKids, salt, mode);
+    const built = buildTwoPhaseAssignment(poolCars, ridingKids, salt, selected);
     if (built.overflowedCars.length > 0) {
       alert(`${built.overflowedCars.map(n => `「${n}」`).join('、')}の定員を超えて指定されています。\nあふれた分は自動配車に回します。`);
     }
@@ -1263,9 +1317,12 @@ function generateCarpool(rerunSalt) {
   currentAssignments = assignments;
   showPlanTexts(buildPlanTexts(assignments));
   renderAssignmentWarnings(lastAssignmentWarnings);
-  if (typeof showResultPattern === 'function') showResultPattern(salt);
-  if (typeof renderCars === 'function') renderCars();
-  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  if (pageElement('resultPattern') && typeof showResultPattern === 'function') showResultPattern(salt);
+  if (pageElement('carList') && typeof renderCars === 'function') renderCars();
+  if (pageElement('resultCard') && typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+  return { assignments: currentAssignments };
 }
 
 function copyResult() {
