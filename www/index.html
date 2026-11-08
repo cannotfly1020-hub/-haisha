@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="くるまわり">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="stylesheet" href="css/style.css?v=20261106s">
+<link rel="stylesheet" href="css/style.css?v=20261108a">
 </head>
 <body>
 
@@ -236,47 +236,98 @@
   </div>
 </section>
 
-<!-- 初回ガイド（オンボーディング） -->
-<div class="modal-overlay tutorial-overlay" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="tutorialTitle">
-  <div class="modal-box tutorial-box">
-    <button type="button" class="tutorial-close" data-action="close-tutorial" aria-label="閉じる">✕</button>
-    <h3 id="tutorialTitle" class="tutorial-heading">使い方ガイド</h3>
-
-    <div class="tutorial-slides">
-      <div class="tutorial-slide is-active" data-slide="0">
-        <p class="tutorial-slide-title">毎回の基本の3ステップ</p>
-        <ul class="tutorial-list">
-          <li>🚗 <strong>1.</strong> 本日出す車を「出勤」にする</li>
-          <li>⚾ <strong>2.</strong> 休みの子を「欠席」。現地直行は「現地」、様子見は「個人」。車も同じボタンで席を閉じる</li>
-          <li>⚡ <strong>3.</strong> 「配車を組む」を押してLINEに貼り付けるだけ！</li>
-        </ul>
-      </div>
-      <div class="tutorial-slide" data-slide="1" hidden>
-        <p class="tutorial-slide-title">現場の便利機能</p>
-        <ul class="tutorial-list">
-          <li>💡 <strong>お母さんや兄弟が乗るとき:</strong> 車の「[母]」や選手の「＋同乗」をタップ（席数も自動計算）</li>
-          <li>📦 <strong>チーム荷物を積む車:</strong> 「道具車」にチェックを入れるとLINE見出しに反映</li>
-        </ul>
-      </div>
-      <div class="tutorial-slide" data-slide="2" hidden>
-        <p class="tutorial-slide-title">安心のデータ管理</p>
-        <ul class="tutorial-list">
-          <li>🔄 <strong>翌週の配車を始めるとき:</strong> 「本日の配車をリセット」で出欠だけ初期化（名簿は保護）</li>
-          <li>💾 <strong>月に1回</strong>「データをLINEへ退避」を押して、自分用のトークに貼っておくと安心！</li>
-        </ul>
-      </div>
+<!-- 使い方ガイド（❓ 使い方が開く。開閉は既存の tutorialModal） -->
+<div class="modal-overlay tutorial-overlay" id="tutorialModal" role="dialog" aria-modal="true" aria-labelledby="helpGuideTitle">
+  <button type="button" class="help-guide-backdrop" data-action="close-tutorial" aria-label="使い方ガイドを閉じる"></button>
+  <div class="modal-box tutorial-box help-guide-panel">
+    <div class="help-guide-head">
+      <h3 id="helpGuideTitle">
+        <span aria-hidden="true">📖</span> 『くるまわり』かんたん使い方ガイド
+      </h3>
+      <button type="button" class="btn btn-secondary btn-sm help-guide-x" data-action="close-tutorial" aria-label="閉じる">✕</button>
     </div>
 
-    <div class="tutorial-dots" id="tutorialDots" aria-hidden="true">
-      <button type="button" class="tutorial-dot is-active" data-action="tutorial-goto" data-slide="0" aria-label="スライド1"></button>
-      <button type="button" class="tutorial-dot" data-action="tutorial-goto" data-slide="1" aria-label="スライド2"></button>
-      <button type="button" class="tutorial-dot" data-action="tutorial-goto" data-slide="2" aria-label="スライド3"></button>
+    <div class="help-guide-lead">
+      『くるまわり』は、金曜夜の配車組みに悩む保護者のためのアプリです。<br>
+      親の車への自動同乗、車酔い、兄弟の席数、LINE共有まで、現場のルールをすべて自動で計算します。
     </div>
 
-    <div class="tutorial-nav">
-      <button type="button" class="btn btn-secondary tutorial-btn" id="tutorialPrevBtn" data-action="tutorial-prev" disabled>前へ</button>
-      <button type="button" class="btn btn-primary tutorial-btn" id="tutorialNextBtn" data-action="tutorial-next">次へ</button>
-      <button type="button" class="btn btn-primary tutorial-btn" id="tutorialStartBtn" data-action="close-tutorial" hidden>配車をはじめる！</button>
+    <section class="help-step">
+      <h4>
+        <span class="help-step-num" aria-hidden="true">1</span>
+        初回だけ：名簿のカンタン登録
+      </h4>
+      <div class="help-card">
+        <p class="help-card-title">📋 LINE名簿から一括登録が便利</p>
+        選手一覧の上にある「<strong>📋 LINE名簿から一括登録</strong>」を押し、LINEなどで共有された名簿テキストを貼り付けるだけで、名前・学年・親の車が登録されます。
+        <p class="help-card-note">下の入力フォームから、1人ずつ追加・編集することもできます。</p>
+      </div>
+    </section>
+
+    <section class="help-step">
+      <h4>
+        <span class="help-step-num" aria-hidden="true">2</span>
+        毎週の流れ（たったの3ステップ）
+      </h4>
+      <div class="help-card help-card-steps">
+        <p><strong>① 出動・参加を決める</strong><br>
+        上の日付で配車対象日を選び、出す車のチェックを入れます。乗る選手は「乗車」にしておきます。</p>
+        <div class="help-tip">
+          💡 <strong>画面上の状況バーを見る</strong><br>
+          「+〇席 OK」なら席は足りています。「〇席 不足」のときはバーが赤くなるので、車を足すか定員を確認してください。
+        </div>
+        <p><strong>② 配車モードを選ぶ</strong><br>
+        「学年を揃える」「ポジションを散らす」など、その日の目的に合わせます。迷ったら「<strong>⚖️ バランス（標準）</strong>」で大丈夫です。</p>
+        <p><strong>③ 「⚡ 配車を組む / 組み直す」をタップ</strong><br>
+        結果を確認し、「<strong>📋 配車表を共有（履歴を確定保存）</strong>」を押すと文章がコピーされます。保護者のLINEグループに貼り付けてください。このボタンで、その日の乗車履歴も確定します。</p>
+      </div>
+    </section>
+
+    <section class="help-step">
+      <h4>
+        <span class="help-step-num help-step-num-star" aria-hidden="true">★</span>
+        現場で役立つ 5つの便利機能
+      </h4>
+      <div class="help-features">
+        <div class="help-feature">
+          <strong class="help-feature-personal">👤 個人（家庭送迎・自走）</strong>
+          <p>熱や急な用事で親が直接送るときは、車の「<strong>👤 個人</strong>」を押します。その家の親子が配車から外れ、連絡の末尾に「■ 個人（家庭送迎・自走）」と載ります。選手の出席を「個人」にすると、その子だけ外せます。</p>
+        </div>
+        <div class="help-feature">
+          <strong class="help-feature-avoid">🤝 同乗配慮ペア（秘密の配慮）</strong>
+          <p>別の車にしたい2人は、設定の「<strong>🤝 同乗配慮ペア</strong>」に登録します。配車では必ず別の車になります。結果画面にもLINEの文章にも、その組み合わせは出ません。</p>
+        </div>
+        <div class="help-feature">
+          <strong class="help-feature-gear">📦 道具車（荷物優先）</strong>
+          <p>「<strong>📦 道具車</strong>」にチェックした車は、荷物を積む車です。通常の車で全員が乗れる日は子どもを乗せず、結果は「乗車: なし」のままです。LINEの見出しには【道具車】が付きます。</p>
+        </div>
+        <div class="help-feature">
+          <strong class="help-feature-motion">🤢 車酔い配慮</strong>
+          <p>選手を追加するときの「<strong>🤢車酔</strong>」、または編集画面の「<strong>🤢 車酔いしやすい</strong>」をONにすると、定員の大きい車へ優先して配車されます。</p>
+        </div>
+        <div class="help-feature">
+          <strong class="help-feature-family">👶 兄弟・大人の同乗</strong>
+          <p>車の同乗ボタンや、選手の「<strong>＋同乗</strong>」で母や弟を足すと、その人数ぶん席を使います。見出しは「佐藤号（父、母、はると弟）」のように、1か所にまとまります。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="help-step">
+      <h4>
+        <span class="help-step-num help-step-num-mode" aria-hidden="true">?</span>
+        配車モードの選び方
+      </h4>
+      <div class="help-features">
+        <div class="help-feature"><strong>⚖️ バランス（標準）</strong><p>迷ったらこれ。学年・ポジション・これまでの乗車をまとめて調整します。</p></div>
+        <div class="help-feature"><strong>🎒 学年を揃える（同学年）</strong><p>移動中のおしゃべりや、同学年の絆づくりに。同じ学年が同じ車に集まります。</p></div>
+        <div class="help-feature"><strong>🤝 学年を散らす（兄弟・お世話）</strong><p>高学年が低学年のお世話をする配車です。</p></div>
+        <div class="help-feature"><strong>🛡️ ポジションを散らす（重複回避・公式戦）</strong><p>大会用。同じ役割が1台に偏らないようにします。</p></div>
+        <div class="help-feature"><strong>🗣️ ポジションを揃える（ミーティング・特訓）</strong><p>専門練習や、車の中での打ち合わせ用です。</p></div>
+      </div>
+    </section>
+
+    <div class="help-guide-close">
+      <button type="button" class="btn btn-primary help-guide-done" data-action="close-tutorial">とじる</button>
     </div>
   </div>
 </div>
@@ -371,10 +422,10 @@
 </div>
 
 <!-- 依存順: data → ui → carpool → app（この順を崩さない） -->
-<script src="js/data.js?v=20261106s"></script>
-<script src="js/ui.js?v=20261106s"></script>
-<script src="js/carpool.js?v=20261106s"></script>
-<script src="js/app.js?v=20261106s"></script>
+<script src="js/data.js?v=20261108a"></script>
+<script src="js/ui.js?v=20261108a"></script>
+<script src="js/carpool.js?v=20261108a"></script>
+<script src="js/app.js?v=20261108a"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
