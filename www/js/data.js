@@ -865,6 +865,7 @@ function applyCarDaily(car, daily) {
   car.isEquipmentCar = !!source.isEquipmentCar;
   car.driverRole = normalizeDriverRole(typeof source.driverRole === 'string' ? source.driverRole : '');
   car.dayMode = normalizeDayMode(source.dayMode);
+  car.dispatchStatus = car.dayMode;
 }
 
 function applyChildDaily(child, daily) {
@@ -880,6 +881,12 @@ function applyChildDaily(child, daily) {
     : list
       .map((item, idx) => normalizeCompanion(item, `ch-cmp-${child.id}-${idx}`))
       .filter(Boolean);
+  child.dispatchStatus = child.dayMode === 'individual' ? 'individual'
+    : child.dayMode === 'direct' ? 'direct'
+    : 'normal';
+  child.status = child.dayMode === 'individual' ? 'individual'
+    : child.dayMode === 'direct' ? 'direct'
+    : 'attend';
 }
 
 function applySlotToLive(slot) {
@@ -1910,6 +1917,8 @@ function importRosterData(parsedData, mode) {
   global.autoFixedLabel = autoFixedLabel;
   global.getAttendMode = getAttendMode;
   global.setAttendMode = setAttendMode;
+  global.applyChildDaily = applyChildDaily;
+  global.applyCarDaily = applyCarDaily;
   global.getFixedRidersForCar = getFixedRidersForCar;
   global.fixedSeatsUsed = fixedSeatsUsed;
   global.ridersCountedForCar = ridersCountedForCar;

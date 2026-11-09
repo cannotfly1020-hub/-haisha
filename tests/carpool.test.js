@@ -554,4 +554,62 @@ test('道具車配慮: 通常車で全員収まる場合、ポジション重複
   for (let d = 1; d <= 3; d++) localStorage.removeItem(`cp_session_2026-10-0${d}`);
 });
 
+// -------------------------------------------------------------
+// テスト19: 日付切り替え後の車両フラグ同期
+// -------------------------------------------------------------
+test('日付切り替え車両復帰: 前日個人だった車の dispatchStatus が新日付の dayMode に同期すること', () => {
+  const car = {
+    id: 'c1',
+    name: '佐藤号',
+    capacity: 4,
+    companions: [],
+    dayMode: 'individual',
+    dispatchStatus: 'individual',
+    active: true,
+    driverRole: '父'
+  };
+  applyCarDaily(car, { active: true, companions: [], isEquipmentCar: false, driverRole: '父', dayMode: 'normal' });
+  assert.strictEqual(car.dayMode, 'normal', 'dayModeがnormalに復帰');
+  assert.strictEqual(car.dispatchStatus, 'normal', 'dispatchStatusがdayModeと同期');
+});
+
+// -------------------------------------------------------------
+// テスト20: 日付切り替え後の個人復帰＆車指定（📌）完全保証
+// -------------------------------------------------------------
+test('日付切り替え個人復帰車指定: 前日個人だった選手が、新日付で車指定された際に確実にその車に乗車すること', () => {
+  global.cars = [
+    { id: 'c1', name: '佐藤号', capacity: 4, companions: [], dayMode: 'normal', active: true, driverRole: '父' },
+    { id: 'c2', name: '田中号', capacity: 4, companions: [], dayMode: 'normal', active: true, driverRole: '父' }
+  ];
+  const ren = {
+    id: 10,
+    name: 'れん',
+    pos: '内野',
+    grade: 5,
+    motionSick: false,
+    parentCar: '',
+    companions: [],
+    active: true,
+    dayMode: 'normal',
+    dispatchStatus: 'individual',
+    status: 'individual',
+    fixedCar: '佐藤号'
+  };
+  const sota = { id: 11, name: 'そうた', pos: '投手', grade: 6, parentCar: '佐藤号', dayMode: 'normal', active: true, companions: [] };
+  const haruto = { id: 12, name: 'はると', pos: '外野', grade: 5, parentCar: '田中号', dayMode: 'normal', active: true, companions: [] };
+
+  applyChildDaily(ren, { active: true, meetOnSite: false, dayMode: 'normal', companions: [], fixedCar: '佐藤号' });
+
+  assert.strictEqual(ren.dispatchStatus, 'normal', 'dispatchStatusがnormalに復帰');
+  assert.strictEqual(ren.status, 'attend', 'statusがattendに復帰');
+
+  global.children = [ren, sota, haruto];
+
+  const plan = generateCarpool(0, 'balance');
+  const satoRiders = (plan.assignments['佐藤号'] || []).map(k => k.name);
+
+  assert.strictEqual(satoRiders.includes('れん'), true, '車指定されたれんが佐藤号に乗車すること');
+  assert.strictEqual(satoRiders.includes('そうた'), true, '親車のそうたも佐藤号に乗車');
+});
+
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

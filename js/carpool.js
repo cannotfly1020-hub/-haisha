@@ -1472,7 +1472,6 @@ function generateCarpool(rerunSalt, mode) {
   const individualCars = cars.filter((car) => carDayMode(car) === 'individual' || car.dispatchStatus === 'individual');
   const ridingKids = children.filter((kid) => {
     if (!isRiding(kid) || placedDirect.has(String(kid.id))) return false;
-    if (kid.dispatchStatus === 'individual' || kid.status === 'individual' || !kid.active) return false;
     if (individualCars.some((car) => isChildOfCar(kid, car))) {
       kid.dispatchStatus = 'individual';
       return false;

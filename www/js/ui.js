@@ -1251,6 +1251,11 @@ function setChildFixedCar(id, carName) {
   ch.fixedCar = carName;
   saveData();
   refreshLists();
+  if (typeof assignmentPlanIsOpen === 'function' && assignmentPlanIsOpen()) {
+    if (typeof generateCarpool === 'function') {
+      generateCarpool(0);
+    }
+  }
 }
 
 function addChildCompanion(childId, label) {
