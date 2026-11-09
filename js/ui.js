@@ -947,7 +947,23 @@ function removeAvoidPairAt(index) {
 function toggleCar(id, checked) {
   const c = cars.find(x => x.id === id);
   if (!c) return;
-  c.active = typeof checked === 'boolean' ? checked : !c.active;
+  const next = typeof checked === 'boolean' ? checked : !c.active;
+  const strandedIds = [];
+  if (!next && assignmentPlanIsOpen() && currentAssignments && Array.isArray(currentAssignments[c.name])) {
+    currentAssignments[c.name].forEach((kid) => {
+      if (kid && typeof isRiding === 'function' && isRiding(kid)) strandedIds.push(kid.id);
+    });
+  }
+  c.active = next;
+  if (!next && assignmentPlanIsOpen()) {
+    strandedIds.forEach((kidId) => {
+      if (typeof stripAssignedPlayer === 'function') stripAssignedPlayer(kidId);
+    });
+    if (currentAssignments) delete currentAssignments[c.name];
+    if (typeof reassignStrandedKids === 'function') reassignStrandedKids(strandedIds);
+    else if (typeof finishManualMove === 'function') finishManualMove();
+    return;
+  }
   saveData();
   refreshLists();
 }
@@ -1069,6 +1085,12 @@ function toggleDayMode(kind, id, mode) {
     if (!car) return;
     if (mode === 'individual') {
       const turningOn = carDayMode(car) !== 'individual';
+      const strandedIds = [];
+      if (turningOn && assignmentPlanIsOpen() && currentAssignments && Array.isArray(currentAssignments[car.name])) {
+        currentAssignments[car.name].forEach((kid) => {
+          if (kid && !isChildOfCar(kid, car)) strandedIds.push(kid.id);
+        });
+      }
       applyFamilyIndividual(car, turningOn);
       if (assignmentPlanIsOpen()) {
         if (turningOn && typeof stripAssignedPlayer === 'function') {
@@ -1077,18 +1099,29 @@ function toggleDayMode(kind, id, mode) {
           });
         }
         if (typeof reconcileOpenCarMode === 'function') reconcileOpenCarMode(car);
-        finishManualMove();
+        if (turningOn && typeof reassignStrandedKids === 'function') reassignStrandedKids(strandedIds);
+        else finishManualMove();
         return;
       }
       saveData();
       refreshLists();
       return;
     }
+    const turningOnDirect = car.dayMode !== 'direct';
+    const directStrandedIds = [];
+    if (turningOnDirect && assignmentPlanIsOpen() && currentAssignments && Array.isArray(currentAssignments[car.name])) {
+      currentAssignments[car.name].forEach((kid) => {
+        if (!kid || (typeof isRiding === 'function' && !isRiding(kid))) return;
+        if (String(kid.parentCar || '').trim() === String(car.name).trim()) return;
+        directStrandedIds.push(kid.id);
+      });
+    }
     car.dayMode = car.dayMode === mode ? 'normal' : mode;
     car.dispatchStatus = car.dayMode;
     if (assignmentPlanIsOpen() && typeof reconcileOpenCarMode === 'function') {
       reconcileOpenCarMode(car);
-      finishManualMove();
+      if (turningOnDirect && typeof reassignStrandedKids === 'function') reassignStrandedKids(directStrandedIds);
+      else finishManualMove();
       return;
     }
     saveData();
@@ -1130,6 +1163,28 @@ function buildRiderMoveRow(kid, currentCar, poolCars, suffix) {
   return `<li class="result-rider"><span class="result-rider-name">${escapeRoleText(label)}${pinNote}</span><select class="result-move" data-action="move-rider" data-id="${escapeRoleText(kid.id)}" aria-label="${escapeRoleText(kid.name)}の移動先">${buildRiderMoveOptions(currentCar, poolCars, kid)}</select></li>`;
 }
 
+function planCarRemainingSeats(car, assignments) {
+  const list = (assignments && car && assignments[car.name]) || [];
+  if (typeof calculateCarRemainingSeats !== 'function') return 0;
+  return calculateCarRemainingSeats(car, list);
+}
+
+function planSeatBadgeHtml(open) {
+  const n = Number(open) || 0;
+  if (n < 0) return `<span class="result-seat-open is-short">超過 ${Math.abs(n)}</span>`;
+  if (n === 0) return '<span class="result-seat-open is-full">満席</span>';
+  return `<span class="result-seat-open">空き ${n}</span>`;
+}
+
+function planSeatSummaryHtml(poolCars, assignments) {
+  const total = (poolCars || []).reduce((sum, car) => sum + planCarRemainingSeats(car, assignments), 0);
+  if (total < 0) {
+    return `<p class="result-seat-summary is-short">全体の空き座席: ${Math.abs(total)}席不足</p>`;
+  }
+  const klass = total === 0 ? 'result-seat-summary is-short' : 'result-seat-summary';
+  return `<p class="${klass}">全体の空き座席: 残り ${total}席</p>`;
+}
+
 function buildAssignmentMoveHtml(assignments) {
   const poolCars = cars.filter(isPoolCar);
   const placed = new Set();
@@ -1139,14 +1194,15 @@ function buildAssignmentMoveHtml(assignments) {
       : ((assignments && assignments[car.name]) || []);
     riders.forEach((kid) => placed.add(String(kid.id)));
   });
-  let html = '';
+  let html = planSeatSummaryHtml(poolCars, assignments);
   poolCars.forEach((car) => {
     const riders = typeof realAssignedPlayers === 'function'
       ? realAssignedPlayers((assignments && assignments[car.name]) || [])
       : ((assignments && assignments[car.name]) || []);
     const header = formatCarCompanionHeader(car, riders);
     const equip = car.isEquipmentCar ? ' 【道具車📦】' : '';
-    html += `<section class="result-car"><p class="result-car-title">■ ${escapeRoleText(car.name)}${escapeRoleText(header)}${equip}</p>`;
+    const open = planCarRemainingSeats(car, assignments);
+    html += `<section class="result-car"><p class="result-car-title"><span>■ ${escapeRoleText(car.name)}${escapeRoleText(header)}${equip}</span>${planSeatBadgeHtml(open)}</p>`;
     if (!riders.length) {
       html += '<p class="result-car-empty">乗車: なし</p>';
     } else {

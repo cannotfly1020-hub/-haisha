@@ -612,4 +612,149 @@ test('日付切り替え個人復帰車指定: 前日個人だった選手が、
   assert.strictEqual(satoRiders.includes('そうた'), true, '親車のそうたも佐藤号に乗車');
 });
 
+// -------------------------------------------------------------
+// テスト21: 配車結果を開いたまま車が枠を外れたとき、他家の選手だけ空席へ移す
+// -------------------------------------------------------------
+test('局所再配置: 個人・欠席で車が外れても他車の組み合わせは残し、空きが無い選手だけ未割当にすること', () => {
+  const resultCard = { style: { display: 'block' } };
+  global.document = {
+    getElementById(id) { return id === 'resultCard' ? resultCard : null; },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    activeElement: null
+  };
+  const alerts = [];
+  global.alert = (message) => { alerts.push(String(message)); };
+  global.confirm = () => true;
+
+  const suzuki = { id: 1, name: '鈴木号', capacity: 3, companions: [], dayMode: 'normal', dispatchStatus: 'normal', active: true, driverRole: '父' };
+  const tanaka = { id: 2, name: '田中号', capacity: 5, companions: [], dayMode: 'normal', dispatchStatus: 'normal', active: true, driverRole: '父' };
+  const sato = { id: 3, name: '佐藤号', capacity: 4, companions: [], dayMode: 'normal', dispatchStatus: 'normal', active: true, driverRole: '父' };
+  const sota = { id: 11, name: 'そうた', pos: '投手', grade: 6, parentCar: '鈴木号', dayMode: 'normal', active: true, companions: [] };
+  const yamato = { id: 13, name: '大和', pos: '外野', grade: 4, parentCar: '', dayMode: 'normal', active: true, companions: [] };
+  const haruto = { id: 12, name: 'はると', pos: '内野', grade: 5, parentCar: '田中号', dayMode: 'normal', active: true, companions: [] };
+  const ren = { id: 10, name: 'れん', pos: '内野', grade: 5, parentCar: '', dayMode: 'normal', active: true, companions: [] };
+  const kouki = { id: 14, name: 'こうき', pos: '外野', grade: 4, parentCar: '', dayMode: 'normal', active: true, companions: [] };
+  const ride = (kid) => {
+    kid.active = true;
+    kid.meetOnSite = false;
+    kid.dayMode = 'normal';
+    kid.dispatchStatus = 'normal';
+    kid.status = 'attend';
+  };
+  const resetCars = () => {
+    [suzuki, tanaka, sato].forEach((car) => {
+      car.active = true;
+      car.dayMode = 'normal';
+      car.dispatchStatus = 'normal';
+    });
+    suzuki.capacity = 3;
+    tanaka.capacity = 5;
+    [sota, yamato, haruto, ren, kouki].forEach(ride);
+  };
+
+  global.cars = [suzuki, tanaka];
+  global.children = [sota, yamato, haruto, ren, kouki];
+  global.currentAssignments = {
+    '鈴木号': [sota, yamato],
+    '田中号': [haruto, ren, kouki]
+  };
+
+  toggleDayMode('car', 1, 'individual');
+  assert.strictEqual(sota.dayMode, 'individual', '親車のそうたは個人になる');
+  assert.strictEqual(currentAssignments['鈴木号'], undefined, '個人になった鈴木号は配車枠から外れる');
+  assert.deepStrictEqual(
+    currentAssignments['田中号'].map((kid) => kid.name),
+    ['はると', 'れん', 'こうき', '大和'],
+    '田中号の3人は残ったまま、大和だけが空席へ移る'
+  );
+  assert.strictEqual(alerts.length, 0, '空席があるときは未割当の通知を出さない');
+
+  resetCars();
+  tanaka.capacity = 3;
+  alerts.length = 0;
+  global.currentAssignments = {
+    '鈴木号': [sota, yamato],
+    '田中号': [haruto, ren, kouki]
+  };
+  toggleDayMode('car', 1, 'individual');
+  assert.ok(currentAssignments, '席が足りなくても配車結果は消えない');
+  assert.deepStrictEqual(
+    (currentAssignments['田中号'] || []).map((kid) => kid.name),
+    ['はると', 'れん', 'こうき'],
+    '満席の田中号の組み合わせは変わらない'
+  );
+  assert.strictEqual(
+    Object.keys(currentAssignments).some((name) => (currentAssignments[name] || []).some((kid) => kid.name === '大和')),
+    false,
+    '大和は未割当のまま残る'
+  );
+  assert.strictEqual(alerts.length, 1, '配置できなかった選手を通知する');
+  assert.ok(alerts[0].indexOf('大和') >= 0, '通知には大和の名前だけが要る');
+
+  resetCars();
+  global.cars = [suzuki, tanaka, sato];
+  localStorage.setItem('cp_avoid_pairs', JSON.stringify([[13, 12]]));
+  alerts.length = 0;
+  global.currentAssignments = {
+    '鈴木号': [sota, yamato],
+    '田中号': [haruto],
+    '佐藤号': []
+  };
+  setChildAttend(11, 'hold');
+  assert.strictEqual(sota.dayMode, 'individual', '選手側の個人でも親車が個人になる');
+  assert.deepStrictEqual(
+    (currentAssignments['田中号'] || []).map((kid) => kid.name),
+    ['はると'],
+    '配慮ペアのいる田中号には大和を入れない'
+  );
+  assert.deepStrictEqual(
+    (currentAssignments['佐藤号'] || []).map((kid) => kid.name),
+    ['大和'],
+    '大和は配慮が衝突しない佐藤号の空席へ移る'
+  );
+
+  resetCars();
+  global.cars = [suzuki, tanaka];
+  localStorage.removeItem('cp_avoid_pairs');
+  global.currentAssignments = {
+    '鈴木号': [sota, yamato],
+    '田中号': [haruto, ren, kouki]
+  };
+  toggleCar(1, false);
+  assert.strictEqual(suzuki.active, false, '鈴木号は欠席になる');
+  assert.strictEqual(sota.dayMode, 'normal', '欠席した車の選手は乗車のまま');
+  assert.strictEqual(currentAssignments['鈴木号'], undefined, '欠席した車の枠は残さない');
+  assert.deepStrictEqual(
+    currentAssignments['田中号'].map((kid) => kid.name),
+    ['はると', 'れん', 'こうき', 'そうた', '大和'],
+    '欠席した車に乗っていた選手だけが空席へ移る'
+  );
+});
+
+// -------------------------------------------------------------
+// テスト22: 配車結果の空き席表示
+// -------------------------------------------------------------
+test('空き席表示: 稼働中の車と全体合計に残り席を出し、個人車には出さないこと', () => {
+  const tanaka = { id: 2, name: '田中号', capacity: 4, companions: [], dayMode: 'normal', active: true, driverRole: '父' };
+  const sato = { id: 3, name: '佐藤号', capacity: 4, companions: [], dayMode: 'individual', active: true, driverRole: '父' };
+  const haruto = { id: 12, name: 'はると', dayMode: 'normal', active: true, companions: [], parentCar: '田中号' };
+  const ren = { id: 10, name: 'れん', dayMode: 'normal', active: true, companions: [], parentCar: '' };
+  const kouki = { id: 14, name: 'こうき', dayMode: 'normal', active: true, companions: [], parentCar: '' };
+  global.cars = [tanaka, sato];
+  global.children = [haruto, ren, kouki];
+  const openHtml = buildAssignmentMoveHtml({ '田中号': [haruto, ren, kouki] });
+  assert.ok(openHtml.includes('全体の空き座席: 残り 1席'), '全体の残り席');
+  assert.ok(openHtml.includes('空き 1'), '田中号の空き');
+  const holdPart = openHtml.slice(openHtml.indexOf('個人'));
+  assert.strictEqual(holdPart.includes('空き'), false, '個人車には空き席を出さない');
+  assert.strictEqual(holdPart.includes('満席'), false, '個人車には満席を出さない');
+
+  tanaka.capacity = 3;
+  const fullHtml = buildAssignmentMoveHtml({ '田中号': [haruto, ren, kouki] });
+  assert.ok(fullHtml.includes('満席'), '定員ちょうどは満席');
+  assert.ok(fullHtml.includes('全体の空き座席: 残り 0席'), '合計0席');
+  assert.ok(fullHtml.includes('result-seat-summary is-short'), '0席は警告色');
+});
+
 console.log(`\n🎉 すべてのテストに合格しました！（${passCount} 件成功）\n`);

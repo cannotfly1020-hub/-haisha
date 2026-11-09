@@ -972,7 +972,22 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
 .result-warning-badge { margin: 0; background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 700; line-height: 1.4; }
 .result-box { background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 8px; padding: 10px; font-size: 12px; margin-top: 8px; line-height: 1.45; }
 .result-car { margin: 0 0 10px; }
-.result-car-title { margin: 0 0 4px; font-weight: 700; }
+.result-seat-summary { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #166534; }
+.result-seat-summary.is-short { color: #b91c1c; }
+.result-car-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 4px; font-weight: 700; }
+.result-seat-open {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.result-seat-open.is-full { background: #e2e8f0; color: #64748b; }
+.result-seat-open.is-short { background: #fee2e2; color: #b91c1c; }
 .result-car-empty { margin: 0; color: #64748b; }
 .result-rider-list { list-style: none; margin: 0; padding: 0; }
 .result-rider { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }

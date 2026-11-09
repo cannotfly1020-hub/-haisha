@@ -1348,6 +1348,97 @@ function finishManualMove() {
   updateStatusBar();
 }
 
+function isSlideTargetCar(car) {
+  if (!car || !car.active) return false;
+  if (typeof isPoolCar === 'function' && !isPoolCar(car)) return false;
+  if (car.dispatchStatus === 'individual' || car.dispatchStatus === 'absent') return false;
+  return true;
+}
+
+function slideCarAccepts(car, kid) {
+  const list = (currentAssignments && currentAssignments[car.name]) || [];
+  if (remainingSeats(car, currentAssignments) < seatCost(kid)) return false;
+  if (hasAvoidPairConflict(list, kid)) return false;
+  return true;
+}
+
+function slideOntoEquipmentBreaksGate(car, kid) {
+  if (!car || !car.isEquipmentCar || !currentAssignments) return false;
+  if (!Array.isArray(currentAssignments[car.name])) currentAssignments[car.name] = [];
+  const list = currentAssignments[car.name];
+  list.push(kid);
+  const breaks = equipmentRideBreaksNormalCapacity(currentAssignments);
+  list.pop();
+  return breaks;
+}
+
+function chooseSlideCar(kid) {
+  const pool = cars.filter(isSlideTargetCar);
+  let candidates = pool;
+  if (kid.parentCar && pool.some((car) => car.name === kid.parentCar)) {
+    candidates = pool.filter((car) => car.name === kid.parentCar);
+  } else if (kid.fixedCar && pool.some((car) => car.name === kid.fixedCar)) {
+    candidates = pool.filter((car) => car.name === kid.fixedCar);
+  }
+  const fitting = candidates.filter((car) => slideCarAccepts(car, kid));
+  const normal = fitting.filter((car) => !car.isEquipmentCar);
+  const usable = normal.length
+    ? normal
+    : fitting.filter((car) => !slideOntoEquipmentBreaksGate(car, kid));
+  if (!usable.length) return null;
+  if (usable.length === 1) return usable[0];
+  const mode = typeof getCarpoolMode === 'function' ? getCarpoolMode() : 'balance';
+  let best = null;
+  let bestScore = -Infinity;
+  usable.forEach((car) => {
+    if (!Array.isArray(currentAssignments[car.name])) currentAssignments[car.name] = [];
+    const list = currentAssignments[car.name];
+    list.push(kid);
+    const score = evaluateAssignmentScore(currentAssignments, mode);
+    list.pop();
+    if (score > bestScore) {
+      bestScore = score;
+      best = car;
+    }
+  });
+  return best;
+}
+
+function reassignStrandedKids(ids) {
+  const unplaced = [];
+  const seen = new Set();
+  const queue = [];
+  (Array.isArray(ids) ? ids : []).forEach((id) => {
+    const key = String(id);
+    if (seen.has(key)) return;
+    seen.add(key);
+    const kid = children.find((child) => String(child.id) === key);
+    if (!kid || !isRiding(kid)) return;
+    if (typeof needsPoolSeat === 'function' && !needsPoolSeat(kid)) return;
+    queue.push(kid);
+  });
+  if (!currentAssignments) {
+    finishManualMove();
+    return unplaced;
+  }
+  queue.forEach((kid) => {
+    stripAssignedPlayer(kid.id);
+    const car = chooseSlideCar(kid);
+    if (!car) {
+      unplaced.push(kid);
+      return;
+    }
+    if (!Array.isArray(currentAssignments[car.name])) currentAssignments[car.name] = [];
+    currentAssignments[car.name].push(kid);
+  });
+  finishManualMove();
+  if (unplaced.length && typeof alert === 'function') {
+    const names = unplaced.map((kid) => kid.name).filter(Boolean).join('、');
+    alert(`${names}は空いている席がないため、未割当のままです。`);
+  }
+  return unplaced;
+}
+
 function reconcileOpenCarMode(car) {
   if (!currentAssignments || !car) return;
   const list = Array.isArray(currentAssignments[car.name]) ? currentAssignments[car.name] : [];
@@ -1367,8 +1458,27 @@ function moveAssignedPlayer(childId, destination) {
   if (!child || !dest) return;
 
   if (dest === 'site' || dest === 'off' || dest === 'hold') {
+    const strandedIds = [];
+    if (dest === 'hold') {
+      cars.forEach((car) => {
+        if (!isChildOfCar(child, car)) return;
+        if (carDayMode(car) === 'individual' || car.dispatchStatus === 'individual') return;
+        const list = (currentAssignments && currentAssignments[car.name]) || [];
+        list.forEach((kid) => {
+          if (!kid || String(kid.id) === String(child.id) || isChildOfCar(kid, car)) return;
+          strandedIds.push(kid.id);
+        });
+      });
+    }
     stripAssignedPlayer(child.id);
     setAttendMode(child, dest === 'site' ? 'site' : dest === 'hold' ? 'hold' : 'off');
+    if (dest === 'hold') {
+      cars.forEach((car) => {
+        if (isHoldCar(car) && isChildOfCar(child, car)) reconcileOpenCarMode(car);
+      });
+      reassignStrandedKids(strandedIds);
+      return;
+    }
     finishManualMove();
     return;
   }
@@ -1636,6 +1746,7 @@ function copyResult() {
   global.realAssignedPlayers = realAssignedPlayers;
   global.moveAssignedPlayer = moveAssignedPlayer;
   global.finishManualMove = finishManualMove;
+  global.reassignStrandedKids = reassignStrandedKids;
   global.reconcileOpenCarMode = reconcileOpenCarMode;
   global.parentCancelShortageWarnings = parentCancelShortageWarnings;
   global.hasAvoidPairConflict = hasAvoidPairConflict;
