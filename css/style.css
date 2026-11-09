@@ -1286,6 +1286,22 @@ input[type="text"], input[type="number"], select { padding: 6px 7px; border: 1px
 .help-feature-gear { color: #d97706; }
 .help-feature-motion { color: #dc2626; }
 .help-feature-family { color: #7c3aed; }
+.help-legal-links {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed #cbd5e1;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #64748b;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+.help-legal-links a {
+  color: #64748b;
+  text-decoration: underline;
+}
 .help-guide-close { text-align: center; margin-top: 4px; }
 .help-guide-done {
   padding: 10px 32px;

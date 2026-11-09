@@ -5,7 +5,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const wwwDir = path.join(root, 'www');
 const plistPath = path.join(root, 'ios/App/App/Info.plist');
-const rootFiles = ['index.html', 'manifest.json', 'sw.js'];
+const rootFiles = ['index.html', 'privacy.html', 'terms.html', 'manifest.json', 'sw.js'];
 const rootDirs = ['css', 'js', 'icons'];
 
 function run(command, args) {
